@@ -1,0 +1,43 @@
+---
+# Payments API failure evaluation scenarios
+
+# ── payments_api_failure ─────────────────────────────────────────────────────
+- conversation_group_id: payments_api_failure
+  tag: payments_api_failure
+  description: >
+    Cross-namespace database connection leak from reporting-service upgrade.
+    A v1.0.2 rollout leaks PostgreSQL connections, exhausting the shared pool
+    and causing payments-api 503s in a different namespace.
+
+  turns:
+    - turn_id: investigate_failure
+      query: >
+        Why are payments-api and database failing? Investigate and check correlation.
+      expected_response: >
+        The agent should identify that payments-api is returning HTTP 503 errors
+        due to PostgreSQL connection pool exhaustion. It should correlate the
+        cross-namespace failure: reporting-service in shared-services is leaking
+        database connections, exhausting the shared max_connections=20 limit,
+        which prevents payments-api in the payments namespace from acquiring
+        connections. The agent should trace the root cause to the
+        reporting-service v1.0.2 deployment rollout as the trigger, citing
+        Prometheus metrics (pg_stat_activity_count, payment error rate) or
+        pod events as evidence.
+      turn_metrics:
+        - custom:answer_correctness
+
+    - turn_id: identify_changes
+      query: >
+        Identify recent changes before the incident.
+      expected_response: >
+        The agent should find the reporting-service deployment rollout event
+        that changed the image from v1.0.1 to v1.0.2 in the shared-services
+        namespace. It should cite the Kubernetes deployment event, rollout
+        history, or ReplicaSet creation timestamps as evidence. The agent
+        should connect this change to the onset of the connection leak and
+        payment failures.
+      turn_metrics:
+        - custom:answer_correctness
+
+  setup_script: ./payments_api_failure/setup.sh
+  cleanup_script: ./payments_api_failure/cleanup.sh

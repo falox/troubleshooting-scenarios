@@ -1,50 +1,29 @@
-.PHONY: help update-images deploy deploy-easy break fix cleanup delete-history break-redherring fix-redherring break-network fix-network
+# Payments API failure evaluation scenario
+#
+# Usage:
+#   make setup     Install venv + OLS + MCP + deploy scenario
+#   make evals     Run all scenarios
+#   make cleanup   Remove scenario resources + MCP
 
-help:
-	@echo "Payments API Failure Scenario"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  update-images     Build and push container images (REGISTRY=quay.io/...)"
-	@echo "  deploy            Deploy the initial state"
-	@echo "  deploy-easy       Deploy with per-service DB users (easier to diagnose)"
-	@echo "  break             Roll out buggy reporting-service v1.0.2 and wait for failure"
-	@echo "  fix               Roll back to reporting-service v1.0.1"
-	@echo "  delete-history    Reset Prometheus TSDB and restart pods"
-	@echo "  cleanup           Delete all demo resources"
-	@echo "  break-redherring  Introduce red herring (CrashLoopBackOff)"
-	@echo "  fix-redherring    Fix red herring"
-	@echo "  break-network     Block egress from payments-api via NetworkPolicy"
-	@echo "  fix-network       Remove the deny-all-egress NetworkPolicy"
+# Scenarios (must match tag: values in evals.yaml)
+SCENARIOS = payments_api_failure
 
+# MCP config
+MCP_TOOLSETS = core,config
+
+# Shared infrastructure
+include ../../scripts/eval.mk
+
+# Setup: shared infra (scenario setup.sh handles deployment)
+.PHONY: setup
+setup: _setup-shared
+
+# Cleanup: shared infra (scenario cleanup.sh handles resource deletion)
+.PHONY: cleanup
+cleanup:
+	$(MAKE) _cleanup-shared
+
+# Build and push container images
+.PHONY: update-images
 update-images:
 	@./scripts/update-images.sh $(REGISTRY)
-
-deploy:
-	@SINGLE_USER=1 ./scripts/deploy.sh
-
-deploy-easy:
-	@./scripts/deploy.sh
-
-break:
-	@./scripts/break.sh
-
-fix:
-	@./scripts/fix.sh
-
-delete-history:
-	@./scripts/delete-history.sh
-
-cleanup:
-	@./scripts/cleanup.sh
-
-break-redherring:
-	@./scripts/break-redherring.sh
-
-fix-redherring:
-	@./scripts/fix-redherring.sh
-
-break-network:
-	@./scripts/break-network.sh
-
-fix-network:
-	@./scripts/fix-network.sh

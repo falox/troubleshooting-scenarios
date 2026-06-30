@@ -11,20 +11,18 @@ The AI assistant must correlate the deployment event with the cross-namespace fa
 ## Usage
 
 ```bash
-export OPENAI_API_KEY=...   # required
+export OPENAI_API_KEY=...   # required for judge LLM
 oc login ...                # required
 
-make deploy
-sleep 5m                    # optional, but recommended
-make break                  
+make setup     # Install venv + OLS + MCP + deploy scenario
+make evals     # Run evaluation (auto port-forward to OLS)
+make cleanup   # Remove scenario resources + MCP
 ```
 
-### Suggested Prompts
+Run the single scenario directly:
 
-```
-why are payments api and database failing? investigate and check correlation
-
-identify recent changes before the incident
+```bash
+make payments_api_failure-eval
 ```
 
 ## The Root Cause
@@ -43,8 +41,8 @@ graph LR
 
     subgraph shared [shared-services namespace]
         postgres[(postgres<br/>max_connections: 20<br/>+ postgres-exporter sidecar :9187)]
-        report[reporting-service<br/>Port: 8081 metrics<br/>🚨 Connection leak in v1.0.2]
-        recon[reconciliation-service<br/>⚠️ Red herring]
+        report[reporting-service<br/>Port: 8081 metrics<br/>Connection leak in v1.0.2]
+        recon[reconciliation-service<br/>Red herring]
     end
 
     payment -->|Cross-namespace access| postgres
@@ -55,5 +53,5 @@ graph LR
 |---------|-------|---------|
 | `payments-api` | Custom (Python/FastAPI) | Core payment processing API. Runs a background traffic simulator and exposes `GET /api/v1/process-payment`. **Appears independent but shares database.** |
 | `reporting-service` | Custom (Python) | Periodically queries the reports table. Has two versions: v1.0.1 (healthy) and v1.0.2 (buggy). |
-| `reconciliation-service` | `registry.redhat.io/rhel9/httpd-24:latest` (stock) | Reconciliation service. **Red herring** — overridden command exits immediately, always in CrashLoopBackOff. |
+| `reconciliation-service` | `registry.redhat.io/rhel9/httpd-24:latest` (stock) | Reconciliation service. **Red herring**: probes target the wrong port, always in CrashLoopBackOff. |
 | `postgres` | `postgres:16` + `postgres-exporter:v0.15.0` sidecar | Shared database for both services. Initialized with `max_connections = 20`. Sidecar exposes connection metrics on port 9187. |
