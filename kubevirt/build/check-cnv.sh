@@ -34,3 +34,10 @@ if [[ "${hco}" != "True" ]]; then
 fi
 
 echo "==> OpenShift Virtualization is healthy (${csv}, phase=${phase})"
+
+kvm_total=$($KUBECTL get nodes -l node-role.kubernetes.io/worker \
+  -o jsonpath='{range .items[*]}{.status.allocatable.devices\.kubevirt\.io/kvm}{"\n"}{end}' 2>/dev/null \
+  | awk '{s+=$1} END{print s+0}')
+if [[ "${kvm_total}" -eq 0 ]]; then
+  echo "WARNING: No KVM devices on worker nodes. Scenarios that require a running VM will be skipped."
+fi

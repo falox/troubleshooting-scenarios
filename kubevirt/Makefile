@@ -2,12 +2,28 @@
 
 # Scenarios (must match tag: values in evals.yaml)
 SCENARIOS = vm_storage_failure vm_crashloop vm_migration_failure
+KVM_SCENARIOS = vm_crashloop vm_migration_failure
 
 # MCP config — kubevirt toolset needed for VM diagnostics
 MCP_TOOLSETS = core,config,kubevirt
 
 # Shared infrastructure
 include ../scripts/eval.mk
+
+# Override evals: skip scenarios that require KVM when no devices are available
+.PHONY: evals
+evals:
+	@if bash build/require-kvm.sh --check 2>/dev/null; then \
+	  tags="$(foreach s,$(SCENARIOS),--tag $(s))"; \
+	else \
+	  echo "WARNING: No KVM devices on worker nodes. Skipping: $(KVM_SCENARIOS)"; \
+	  tags="$(foreach s,$(filter-out $(KVM_SCENARIOS),$(SCENARIOS)),--tag $(s))"; \
+	fi; \
+	if [ -z "$$tags" ]; then echo "No scenarios to evaluate."; exit 0; fi; \
+	bash $(SCRIPTS_DIR)/run-evals.sh \
+	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
+	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
+	  $$tags
 
 # Install CNV operator (idempotent — skips if already present)
 .PHONY: install-cnv

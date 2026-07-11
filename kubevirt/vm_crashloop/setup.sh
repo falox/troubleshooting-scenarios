@@ -5,6 +5,9 @@ KUBECTL=${KUBECTL:-oc}
 NAMESPACE=${NAMESPACE:-kubevirt-scenarios}
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
+source "$(cd "$(dirname "$0")/../build" && pwd)/require-kvm.sh"
+require_kvm
+
 echo "==> Deploying VM crashloop scenario in namespace ${NAMESPACE}..."
 echo "    VM has a cloud-init runcmd that immediately shuts it down, causing a restart loop."
 

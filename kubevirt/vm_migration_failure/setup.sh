@@ -5,6 +5,9 @@ KUBECTL=${KUBECTL:-oc}
 NAMESPACE=${NAMESPACE:-kubevirt-scenarios}
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
+source "$(cd "$(dirname "$0")/../build" && pwd)/require-kvm.sh"
+require_kvm
+
 # Pin VM to a worker node (auto-detect if not provided)
 NODE_NAME="${NODE_NAME:-}"
 if [[ -z "${NODE_NAME}" ]]; then
