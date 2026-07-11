@@ -38,6 +38,29 @@ echo "==> OpenShift Virtualization is healthy (${csv}, phase=${phase})"
 kvm_total=$($KUBECTL get nodes -l node-role.kubernetes.io/worker \
   -o jsonpath='{range .items[*]}{.status.allocatable.devices\.kubevirt\.io/kvm}{"\n"}{end}' 2>/dev/null \
   | awk '{s+=$1} END{print s+0}')
-if [[ "${kvm_total}" -eq 0 ]]; then
-  echo "WARNING: No KVM devices on worker nodes. Scenarios that require a running VM will be skipped."
+if [[ "${kvm_total}" -gt 0 ]]; then
+  echo "==> KVM devices available on worker nodes."
+else
+  emulation=$($KUBECTL get kubevirt -n "${CNV_NS}" \
+    -o jsonpath='{.items[0].spec.configuration.developerConfiguration.useEmulation}' 2>/dev/null || true)
+  if [[ "${emulation}" == "true" ]]; then
+    echo "==> No KVM devices, but software emulation is enabled."
+  else
+    echo "==> No KVM devices on worker nodes. Enabling software emulation..."
+    $KUBECTL patch subscription hco-operatorhub -n "${CNV_NS}" --type=merge \
+      -p '{"spec":{"config":{"env":[{"name":"KVM_EMULATION","value":"true"}]}}}'
+    echo "==> Waiting for emulation to propagate..."
+    for _ in $(seq 1 60); do
+      emulation=$($KUBECTL get kubevirt -n "${CNV_NS}" \
+        -o jsonpath='{.items[0].spec.configuration.developerConfiguration.useEmulation}' 2>/dev/null || true)
+      if [[ "${emulation}" == "true" ]]; then
+        echo "==> Software emulation is active."
+        break
+      fi
+      sleep 5
+    done
+    if [[ "${emulation}" != "true" ]]; then
+      echo "WARNING: Emulation did not propagate after 300s. VM scenarios may be skipped."
+    fi
+  fi
 fi

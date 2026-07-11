@@ -4,10 +4,18 @@ Evaluation scenarios that test AI-assisted diagnosis of OpenShift Virtualization
 
 ## Prerequisites
 
-- OpenShift 4.16+ cluster (OpenShift Virtualization will be installed automatically if absent)
+- OpenShift 4.16+ cluster
 - `oc` CLI authenticated with cluster-admin
 - `OPENAI_API_KEY` exported (used for OLS credentials and the judge LLM)
 - Python 3.11, 3.12, or 3.13
+
+## KVM Requirements
+
+OpenShift Virtualization requires KVM (Kernel-based Virtual Machine) to run VMs. On bare-metal clusters, KVM is natively available. On cloud environments like AWS, only metal instance types (e.g. `m5.metal`, `c5.metal`, `m6i.metal`) expose the `/dev/kvm` device needed for hardware virtualization.
+
+When no KVM devices are detected on worker nodes, `make setup` automatically enables QEMU software emulation by setting `KVM_EMULATION=true` on the CNV operator Subscription. This allows all scenarios to run without hardware KVM, but VMs will be significantly slower. **Software emulation is not supported by Red Hat and should only be used in test/dev environments.**
+
+Scenarios that require a running VM (`vm_crashloop`, `vm_migration_failure`) are skipped if neither KVM devices nor emulation are available. The `vm_storage_failure` scenario always runs since the VM never reaches the scheduling phase.
 
 ## Scenarios
 
@@ -30,7 +38,7 @@ export OPENAI_API_KEY=<your-key>
 cd kubevirt
 make setup    # install venv + OLS + MCP (with kubevirt toolset) + deploy broken VMs
 make evals    # run all scenarios
-make cleanup  # remove broken VMs + MCP server
+make cleanup  # remove broken VMs + CNV operator + MCP server
 ```
 
 Run a single scenario:
@@ -48,7 +56,7 @@ make vm_migration_failure-eval
 3. Installs the OLS operator if not present (idempotent)
 4. Deploys the MCP server with `core,config,kubevirt` toolsets
 5. Connects OLS to the MCP server
-6. Verifies OpenShift Virtualization is healthy
+6. Installs OpenShift Virtualization if not present (idempotent), enables software emulation if no KVM devices are available
 7. Deploys all broken VM scenarios
 
 ### Manual scenario management
