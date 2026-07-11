@@ -36,10 +36,11 @@ setup: _setup-shared install-cnv
 	@bash build/check-cnv.sh
 	@$(MAKE) setup-scenarios
 
-# Cleanup: remove broken VMs + shared infra
+# Cleanup: remove broken VMs + CNV operator + shared infra
 .PHONY: cleanup
 cleanup:
 	@$(MAKE) cleanup-scenarios
+	@bash build/uninstall-cnv.sh
 	$(MAKE) _cleanup-shared
 
 # Deploy all broken VM scenarios (stops on first failure)
