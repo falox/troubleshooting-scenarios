@@ -1,0 +1,7 @@
+agents:
+  - id: default
+    label: gpt-5.4
+  - id: opus
+    label: opus-4.6
+  - id: gemini
+    label: gemini-2.5-pro

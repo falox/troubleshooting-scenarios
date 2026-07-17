@@ -12,6 +12,7 @@ SUITES ?= \
 	unbalanced_replicas \
 	unready_pod
 RUNS ?= 1
+AGENTS_FILE ?= agents.yaml
 
 .PHONY: setup evals cleanup help
 
@@ -26,13 +27,18 @@ evals:
 	$(eval DATETIME := $(shell date +%Y%m%d_%H%M%S))
 	$(eval LOGS_DIR := results/logs/$(DATETIME))
 	$(eval SUMMARY := results/results_$(DATETIME).md)
+	@mkdir -p $(LOGS_DIR)
 	@for suite in $(SUITES); do \
+	  echo "==> Expand: $$suite"; \
+	  ../venv/bin/python $(SCRIPTS_DIR)/expand-evals.py \
+	    $$suite/evals.yaml $(AGENTS_FILE) \
+	    > $(LOGS_DIR)/$$suite-evals.yaml; \
 	  echo "==> Setup: $$suite"; \
 	  if [ -x $$suite/setup.sh ]; then bash $$suite/setup.sh; fi; \
 	  echo "==> Suite: $$suite"; \
 	  bash $(SCRIPTS_DIR)/run-agentic-evals.sh \
 	    --system-config system.yaml \
-	    --evals $$suite/evals.yaml \
+	    --evals $(LOGS_DIR)/$$suite-evals.yaml \
 	    --results-dir $(LOGS_DIR) \
 	    --runs $(RUNS) \
 	    --tag agentic_$$(echo $$suite | tr '-' '_'); \
@@ -44,7 +50,7 @@ evals:
 	@../venv/bin/python $(SCRIPTS_DIR)/summarize-agentic-evals.py \
 	  $(LOGS_DIR) \
 	  --output $(SUMMARY) \
-	  $(foreach s,$(SUITES),$s/evals.yaml) \
+	  $$(find $(LOGS_DIR) -name '*-evals.yaml' | sort) \
 	  $$(find $(LOGS_DIR) -name '*_summary.json' | sort)
 
 cleanup:
@@ -67,5 +73,6 @@ help:
 	@echo "  help     Show this help"
 	@echo ""
 	@echo "Options:"
-	@echo "  RUNS=N     Number of runs per suite (default: 1)"
-	@echo "  SUITES=... Space-separated list of suites to run (default: all)"
+	@echo "  RUNS=N          Number of runs per suite (default: 1)"
+	@echo "  SUITES=...      Space-separated list of suites to run (default: all)"
+	@echo "  AGENTS_FILE=... Path to agents config (default: agents.yaml)"
