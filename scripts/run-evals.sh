@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE --evals FILE --results-dir DIR --ols-url URL --tag TAG [--tag TAG ...]"
+  echo "Usage: $0 --system-config FILE --evals FILE --results-dir DIR --ols-url URL [--provider NAME] [--model NAME] --tag TAG [--tag TAG ...]"
   exit 1
 }
 
@@ -11,6 +11,8 @@ EVALS=""
 RESULTS_DIR=""
 OLS_URL=""
 OLS_NS="${OLS_NS:-openshift-lightspeed}"
+OLS_PROVIDER=""
+OLS_MODEL=""
 TAGS=()
 
 while [ $# -gt 0 ]; do
@@ -19,6 +21,8 @@ while [ $# -gt 0 ]; do
     --evals)         EVALS="$2"; shift 2 ;;
     --results-dir)   RESULTS_DIR="$2"; shift 2 ;;
     --ols-url)       OLS_URL="$2"; shift 2 ;;
+    --provider)      OLS_PROVIDER="$2"; shift 2 ;;
+    --model)         OLS_MODEL="$2"; shift 2 ;;
     --tag)           TAGS+=("$2"); shift 2 ;;
     *) echo "Unknown arg: $1"; usage ;;
   esac
@@ -40,10 +44,17 @@ if [ -z "${OPENAI_API_KEY:-}" ]; then
   exit 1
 fi
 
-# 1. Generate system-runtime.yaml with actual OLS_URL
+# 1. Generate system-runtime.yaml with actual OLS_URL (and optional provider/model)
 mkdir -p "$RESULTS_DIR"
 RUNTIME_CONFIG="${RESULTS_DIR}/system-runtime.yaml"
-sed "s|^  api_base: .*|  api_base: ${OLS_URL}|" "$SYSTEM_CONFIG" > "$RUNTIME_CONFIG"
+SED_ARGS=(-e "s|^  api_base: .*|  api_base: ${OLS_URL}|")
+if [ -n "$OLS_PROVIDER" ]; then
+  SED_ARGS+=(-e "/^api:/,/^[a-z]/{s|^  provider: .*|  provider: \"${OLS_PROVIDER}\"|;}")
+fi
+if [ -n "$OLS_MODEL" ]; then
+  SED_ARGS+=(-e "/^api:/,/^[a-z]/{s|^  model: .*|  model: \"${OLS_MODEL}\"|;}")
+fi
+sed "${SED_ARGS[@]}" "$SYSTEM_CONFIG" > "$RUNTIME_CONFIG"
 
 # 2. Auto port-forward if OLS_URL is localhost and not reachable
 PF_PID=""
@@ -90,6 +101,11 @@ echo "==> OLS OK at ${OLS_URL}"
 
 # 4. Run lightspeed-eval for each tag
 AUTH_TOKEN="$(oc whoami -t 2>/dev/null || true)"
+if [ -z "$AUTH_TOKEN" ]; then
+  echo "==> No OAuth token found, creating service account token..."
+  oc adm policy add-cluster-role-to-user cluster-admin -z default -n "$OLS_NS" >/dev/null 2>&1 || true
+  AUTH_TOKEN="$(oc create token default -n "$OLS_NS" --duration=1h)"
+fi
 
 for tag in "${TAGS[@]}"; do
   echo ""

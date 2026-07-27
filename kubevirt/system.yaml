@@ -17,7 +17,7 @@ api:
   endpoint_type: query
   timeout: 300
   provider: "openai"
-  model: "gpt-4o-mini"
+  model: "gpt-5.4"
   cache_enabled: false
   extra_request_params:
     mode: troubleshooting
