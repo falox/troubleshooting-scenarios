@@ -6,19 +6,10 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: order-fulfillment-daemon
-          Namespace: warehouse-ops
-          Status: CrashLoopBackOff
-          Description: The order-fulfillment-daemon pod is repeatedly crashing.
-
-          Investigate and identify the root cause
+          A deployment named order-fulfillment-daemon in namespace warehouse-ops
+          is in CrashLoopBackOff. Investigate the root cause.
         targetNamespaces:
           - warehouse-ops
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -50,19 +41,10 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: order-fulfillment-daemon
-          Namespace: warehouse-ops
-          Status: CrashLoopBackOff
-          Description: The order-fulfillment-daemon pod is repeatedly crashing.
-
-          Investigate and identify the root cause
+          A deployment named order-fulfillment-daemon in namespace warehouse-ops
+          is in CrashLoopBackOff. Investigate the root cause.
         targetNamespaces:
           - warehouse-ops
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -94,19 +76,10 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: order-fulfillment-daemon
-          Namespace: warehouse-ops
-          Status: CrashLoopBackOff
-          Description: The order-fulfillment-daemon pod is repeatedly crashing.
-
-          Investigate and identify the root cause
+          A deployment named order-fulfillment-daemon in namespace warehouse-ops
+          is in CrashLoopBackOff. Investigate the root cause.
         targetNamespaces:
           - warehouse-ops
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 

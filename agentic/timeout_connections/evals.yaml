@@ -10,15 +10,9 @@
           repeated "ERROR: Connection timeout to backend-service!" messages.
           The backend pod appears to be running and healthy.
 
-          Investigate the connectivity issue between frontend and backend,
-          follow causality chains to the root cause.
+          Investigate the connectivity issue between frontend and backend
         targetNamespaces:
           - service-mesh
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -55,15 +49,9 @@
           repeated "ERROR: Connection timeout to backend-service!" messages.
           The backend pod appears to be running and healthy.
 
-          Investigate the connectivity issue between frontend and backend,
-          follow causality chains to the root cause.
+          Investigate the connectivity issue between frontend and backend
         targetNamespaces:
           - service-mesh
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -100,15 +88,9 @@
           repeated "ERROR: Connection timeout to backend-service!" messages.
           The backend pod appears to be running and healthy.
 
-          Investigate the connectivity issue between frontend and backend,
-          follow causality chains to the root cause.
+          Investigate the connectivity issue between frontend and backend
         targetNamespaces:
           - service-mesh
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 

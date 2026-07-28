@@ -14,11 +14,6 @@
           recurring pattern or an isolated incident.
         targetNamespaces:
           - analytics-platform
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -60,11 +55,6 @@
           recurring pattern or an isolated incident.
         targetNamespaces:
           - analytics-platform
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -106,11 +96,6 @@
           recurring pattern or an isolated incident.
         targetNamespaces:
           - analytics-platform
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 

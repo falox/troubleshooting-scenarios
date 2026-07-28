@@ -1,13 +1,13 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
 SUITES ?= \
-	refused_connections \
 	crashlooping_pod \
 	failed_job \
 	failing_api \
 	oomkilled_pod \
 	pending_pvc \
 	recurring_batch_failure \
+	refused_connections \
 	sporadic_api_timeout \
 	timeout_connections \
 	unbalanced_replicas \

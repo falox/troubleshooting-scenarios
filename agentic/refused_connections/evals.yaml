@@ -1,7 +1,6 @@
 - conversation_group_id: refused_connections_openai
   tag: agentic_refused_connections
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
@@ -11,11 +10,6 @@
           Investigate what is causing the connection refused errors.
         targetNamespaces:
           - ingress-layer
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -55,11 +49,6 @@
           Investigate what is causing the connection refused errors.
         targetNamespaces:
           - ingress-layer
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -99,11 +88,6 @@
           Investigate what is causing the connection refused errors.
         targetNamespaces:
           - ingress-layer
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 

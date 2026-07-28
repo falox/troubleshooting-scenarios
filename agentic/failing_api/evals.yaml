@@ -18,7 +18,7 @@
           - payments
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
                 - /skills/cluster-troubleshoot/investigate-alert
         analysis:
@@ -65,7 +65,7 @@
           - payments
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
                 - /skills/cluster-troubleshoot/investigate-alert
         analysis:
@@ -112,7 +112,7 @@
           - payments
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
                 - /skills/cluster-troubleshoot/investigate-alert
         analysis:

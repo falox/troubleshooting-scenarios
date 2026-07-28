@@ -12,11 +12,6 @@
           causing them.
         targetNamespaces:
           - data-pipeline
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -56,11 +51,6 @@
           causing them.
         targetNamespaces:
           - data-pipeline
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -100,11 +90,6 @@
           causing them.
         targetNamespaces:
           - data-pipeline
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 

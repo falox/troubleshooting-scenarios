@@ -1,24 +1,15 @@
 - conversation_group_id: oomkilled_pod_openai
   tag: agentic_oomkilled_pod
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: report-generator
-          Namespace: data-processing
-          Status: CrashLoopBackOff
-          Description: The report-generator pods are repeatedly crashing.
-
+          A deployment named awesome-application in namespace oom-scenario
+          is in CrashLoopBackOff. Pods are being OOMKilled.
           Investigate and identify the root cause
         targetNamespaces:
-          - data-processing
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
+          - oom-scenario
         analysis:
           agent: default
 
@@ -46,24 +37,15 @@
 - conversation_group_id: oomkilled_pod_anthropic
   tag: agentic_oomkilled_pod
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: report-generator
-          Namespace: data-processing
-          Status: CrashLoopBackOff
-          Description: The report-generator pods are repeatedly crashing.
-
+          A deployment named awesome-application in namespace oom-scenario
+          is in CrashLoopBackOff. Pods are being OOMKilled.
           Investigate and identify the root cause
         targetNamespaces:
-          - data-processing
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
+          - oom-scenario
         analysis:
           agent: opus
 
@@ -91,24 +73,15 @@
 - conversation_group_id: oomkilled_pod_gemini
   tag: agentic_oomkilled_pod
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: report-generator
-          Namespace: data-processing
-          Status: CrashLoopBackOff
-          Description: The report-generator pods are repeatedly crashing.
-
+          A deployment named awesome-application in namespace oom-scenario
+          is in CrashLoopBackOff. Pods are being OOMKilled.
           Investigate and identify the root cause
         targetNamespaces:
-          - data-processing
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
+          - oom-scenario
         analysis:
           agent: gemini
 

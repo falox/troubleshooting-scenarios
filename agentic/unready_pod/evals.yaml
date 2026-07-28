@@ -10,15 +10,9 @@
           be running but is not becoming Ready. The pod name resembles a
           Kubernetes Service, but it is actually a Pod.
 
-          Investigate why catalog-index-service is not ready, identify the
-          root cause, and propose a fix.
+          Investigate why catalog-index-service is not ready
         targetNamespaces:
           - discovery-hub
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -57,15 +51,9 @@
           be running but is not becoming Ready. The pod name resembles a
           Kubernetes Service, but it is actually a Pod.
 
-          Investigate why catalog-index-service is not ready, identify the
-          root cause, and propose a fix.
+          Investigate why catalog-index-service is not ready
         targetNamespaces:
           - discovery-hub
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -104,15 +92,9 @@
           be running but is not becoming Ready. The pod name resembles a
           Kubernetes Service, but it is actually a Pod.
 
-          Investigate why catalog-index-service is not ready, identify the
-          root cause, and propose a fix.
+          Investigate why catalog-index-service is not ready
         targetNamespaces:
           - discovery-hub
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 
