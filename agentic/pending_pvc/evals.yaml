@@ -24,9 +24,13 @@
         Root cause: The memcached-data-pvc PersistentVolumeClaim is stuck in
         Pending state because it references a StorageClass named "standard-v2"
         that does not exist in the cluster. The PVC cannot be provisioned
-        without a valid StorageClass. Fix: Update the PVC storageClassName to
-        an available StorageClass in the cluster (e.g. gp2, gp3-csi) or
-        create the missing "standard-v2" StorageClass.
+        without a valid StorageClass. Additionally, the init container
+        specifies runAsUser: 65532 which falls outside the namespace UID range
+        enforced by the restricted-v2 SCC, causing a security context
+        violation. Fix: Update the PVC storageClassName to an available
+        StorageClass in the cluster (e.g. gp2, gp3-csi) or create the missing
+        "standard-v2" StorageClass, and fix the init container's runAsUser to
+        a UID within the namespace's allowed range.
 
       turn_metrics:
         - "custom:proposal_status"
@@ -61,9 +65,13 @@
         Root cause: The memcached-data-pvc PersistentVolumeClaim is stuck in
         Pending state because it references a StorageClass named "standard-v2"
         that does not exist in the cluster. The PVC cannot be provisioned
-        without a valid StorageClass. Fix: Update the PVC storageClassName to
-        an available StorageClass in the cluster (e.g. gp2, gp3-csi) or
-        create the missing "standard-v2" StorageClass.
+        without a valid StorageClass. Additionally, the init container
+        specifies runAsUser: 65532 which falls outside the namespace UID range
+        enforced by the restricted-v2 SCC, causing a security context
+        violation. Fix: Update the PVC storageClassName to an available
+        StorageClass in the cluster (e.g. gp2, gp3-csi) or create the missing
+        "standard-v2" StorageClass, and fix the init container's runAsUser to
+        a UID within the namespace's allowed range.
 
       turn_metrics:
         - "custom:proposal_status"
@@ -98,9 +106,13 @@
         Root cause: The memcached-data-pvc PersistentVolumeClaim is stuck in
         Pending state because it references a StorageClass named "standard-v2"
         that does not exist in the cluster. The PVC cannot be provisioned
-        without a valid StorageClass. Fix: Update the PVC storageClassName to
-        an available StorageClass in the cluster (e.g. gp2, gp3-csi) or
-        create the missing "standard-v2" StorageClass.
+        without a valid StorageClass. Additionally, the init container
+        specifies runAsUser: 65532 which falls outside the namespace UID range
+        enforced by the restricted-v2 SCC, causing a security context
+        violation. Fix: Update the PVC storageClassName to an available
+        StorageClass in the cluster (e.g. gp2, gp3-csi) or create the missing
+        "standard-v2" StorageClass, and fix the init container's runAsUser to
+        a UID within the namespace's allowed range.
 
       turn_metrics:
         - "custom:proposal_status"
