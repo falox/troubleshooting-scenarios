@@ -41,13 +41,12 @@ def emit(dt, level, msg, **extra):
 
 def run():
     """Generate report-generator logs spanning 24 hours with a failure window."""
-    now = datetime.utcnow()
-    two_days_ago = now - timedelta(days=2)
-    cursor = two_days_ago - timedelta(hours=24)
+    end = datetime.utcnow()
+    cursor = end - timedelta(hours=24)
     iteration = 0
     warning_emitted = False
 
-    while cursor < two_days_ago:
+    while cursor < end:
         if in_failure_window(cursor):
             emit(
                 cursor,
