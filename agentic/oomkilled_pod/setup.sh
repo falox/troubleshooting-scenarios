@@ -2,6 +2,7 @@
 set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="data-processing"
 APP="report-generator"
 
@@ -9,6 +10,7 @@ oc apply -f "$FIXTURE_DIR/manifest.yaml"
 oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"
 
 echo "Waiting for $APP to be OOMKilled…"
+FOUND=false
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 90 ]; do
   ATTEMPT=$((ATTEMPT + 1))
@@ -16,12 +18,17 @@ until [ "$ATTEMPT" -ge 90 ]; do
     -o jsonpath='{range .items[*]}{.status.containerStatuses[0].lastState.terminated.reason}{"\n"}{end}' 2>/dev/null || true)
   if echo "$STATUSES" | grep -q "OOMKilled"; then
     echo "OOMKilled detected (attempt $ATTEMPT)"
-    exit 0
+    FOUND=true
+    break
   fi
   sleep 2
 done
 
-echo "OOMKilled not detected within timeout"
-oc get pods -n "$NS" -l "app=$APP"
-oc describe pods -n "$NS" -l "app=$APP" | tail -20
-exit 1
+if [ "$FOUND" != "true" ]; then
+  echo "OOMKilled not detected within timeout"
+  oc get pods -n "$NS" -l "app=$APP"
+  oc describe pods -n "$NS" -l "app=$APP" | tail -20
+  exit 1
+fi
+
+"$SCRIPT_DIR/wait-for-alert.sh" "DataProcessingPodRestarting"

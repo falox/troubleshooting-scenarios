@@ -15,8 +15,6 @@ oc -n "$SERVICES_NS" set image deployment/reporting-service reporting-service=qu
 oc -n "$SERVICES_NS" rollout status deployment/reporting-service --timeout=120s
 
 ROUTE=$(oc -n payments get route payments-api -o jsonpath='{.spec.host}')
-TOKEN=$(oc whoami -t)
-THANOS_HOST=$(oc -n openshift-monitoring get route thanos-querier -o jsonpath='{.spec.host}')
 
 echo ""
 echo "Waiting for connection pool exhaustion (~3 minutes)..."
@@ -29,21 +27,5 @@ while true; do
 done
 echo "payments-api is returning 503."
 
-echo "Waiting for PaymentErrorRateHigh critical alert to fire..."
-while true; do
-  ALERT_COUNT=$(curl -sk -H "Authorization: Bearer ${TOKEN}" \
-    "https://${THANOS_HOST}/api/v1/alerts" 2>/dev/null |
-    python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(sum(1 for a in data.get('data',{}).get('alerts',[])
-          if a['labels'].get('alertname')=='PaymentErrorRateHigh'
-          and a['labels'].get('severity')=='critical'
-          and a['state']=='firing'))" 2>/dev/null || echo "0")
-  if [ "$ALERT_COUNT" -gt 0 ] 2>/dev/null; then
-    break
-  fi
-  sleep 10
-done
-
-echo "Done. PaymentErrorRateHigh critical alert is firing — scenario is ready."
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../../scripts" && pwd)"
+"$SCRIPT_DIR/wait-for-alert.sh" "PaymentErrorRateHigh" "critical"

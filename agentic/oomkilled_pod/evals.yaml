@@ -5,11 +5,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          A deployment named awesome-application in namespace oom-scenario
-          is in CrashLoopBackOff. Pods are being OOMKilled.
-          Investigate and identify the root cause
+          Alert: DataProcessingPodRestarting (warning)
+          Namespace: data-processing
+          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
-          - oom-scenario
+          - data-processing
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -41,11 +47,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          A deployment named awesome-application in namespace oom-scenario
-          is in CrashLoopBackOff. Pods are being OOMKilled.
-          Investigate and identify the root cause
+          Alert: DataProcessingPodRestarting (warning)
+          Namespace: data-processing
+          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
-          - oom-scenario
+          - data-processing
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -77,11 +89,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          A deployment named awesome-application in namespace oom-scenario
-          is in CrashLoopBackOff. Pods are being OOMKilled.
-          Investigate and identify the root cause
+          Alert: DataProcessingPodRestarting (warning)
+          Namespace: data-processing
+          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
-          - oom-scenario
+          - data-processing
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

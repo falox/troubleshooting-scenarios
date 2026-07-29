@@ -8,11 +8,6 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Labels:
-            alertname: PaymentErrorRateHigh
-            namespace: payments
-            severity: critical
-
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - payments
@@ -55,11 +50,6 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Labels:
-            alertname: PaymentErrorRateHigh
-            namespace: payments
-            severity: critical
-
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - payments
@@ -102,11 +92,6 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Labels:
-            alertname: PaymentErrorRateHigh
-            namespace: payments
-            severity: critical
-
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - payments

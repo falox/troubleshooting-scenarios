@@ -6,11 +6,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          A memcached deployment in namespace cache-tier is not starting.
-          The pod is stuck in Pending state.
-          Investigate and identify the root cause
+          Alert: CacheTierPersistentVolumeClaimPending (warning)
+          Namespace: cache-tier
+          Description: PersistentVolumeClaim cache-tier/memcached-data-pvc has been in Pending state for more than 15 seconds.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - cache-tier
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -47,11 +53,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          A memcached deployment in namespace cache-tier is not starting.
-          The pod is stuck in Pending state.
-          Investigate and identify the root cause
+          Alert: CacheTierPersistentVolumeClaimPending (warning)
+          Namespace: cache-tier
+          Description: PersistentVolumeClaim cache-tier/memcached-data-pvc has been in Pending state for more than 15 seconds.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - cache-tier
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -88,11 +100,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          A memcached deployment in namespace cache-tier is not starting.
-          The pod is stuck in Pending state.
-          Investigate and identify the root cause
+          Alert: CacheTierPersistentVolumeClaimPending (warning)
+          Namespace: cache-tier
+          Description: PersistentVolumeClaim cache-tier/memcached-data-pvc has been in Pending state for more than 15 seconds.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - cache-tier
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 
