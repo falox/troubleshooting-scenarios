@@ -8,17 +8,12 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Labels:
-            alertname: PaymentErrorRateHigh
-            namespace: payments
-            severity: critical
-
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - payments
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
                 - /skills/cluster-troubleshoot/investigate-alert
         analysis:
@@ -55,17 +50,12 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Labels:
-            alertname: PaymentErrorRateHigh
-            namespace: payments
-            severity: critical
-
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - payments
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
                 - /skills/cluster-troubleshoot/investigate-alert
         analysis:
@@ -102,17 +92,12 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Labels:
-            alertname: PaymentErrorRateHigh
-            namespace: payments
-            severity: critical
-
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - payments
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
                 - /skills/cluster-troubleshoot/investigate-alert
         analysis:

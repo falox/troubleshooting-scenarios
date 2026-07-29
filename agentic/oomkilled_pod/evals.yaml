@@ -1,24 +1,21 @@
 - conversation_group_id: oomkilled_pod_openai
   tag: agentic_oomkilled_pod
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: report-generator
+          Alert: DataProcessingPodRestarting (warning)
           Namespace: data-processing
-          Status: CrashLoopBackOff
-          Description: The report-generator pods are repeatedly crashing.
-
-          Investigate and identify the root cause
+          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - data-processing
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -46,24 +43,21 @@
 - conversation_group_id: oomkilled_pod_anthropic
   tag: agentic_oomkilled_pod
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: report-generator
+          Alert: DataProcessingPodRestarting (warning)
           Namespace: data-processing
-          Status: CrashLoopBackOff
-          Description: The report-generator pods are repeatedly crashing.
-
-          Investigate and identify the root cause
+          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - data-processing
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -91,24 +85,21 @@
 - conversation_group_id: oomkilled_pod_gemini
   tag: agentic_oomkilled_pod
 
-
   turns:
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: report-generator
+          Alert: DataProcessingPodRestarting (warning)
           Namespace: data-processing
-          Status: CrashLoopBackOff
-          Description: The report-generator pods are repeatedly crashing.
-
-          Investigate and identify the root cause
+          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - data-processing
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

@@ -15,11 +15,6 @@
           cause.
         targetNamespaces:
           - catalog-mgmt
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -35,7 +30,11 @@
         show repeated TCP connection attempts returning errno 111
         (connection refused) and all retries are exhausted. The database
         service at prod-db on port 3333 is either not running, not
-        reachable, or the service name/port is misconfigured.
+        reachable, or the service name/port is misconfigured. There is no
+        Service named prod-db in the namespace, indicating the database has
+        not been deployed or the service name is wrong. Fix: create the
+        missing prod-db Service pointing to the database, or correct the
+        job's database connection configuration.
 
       turn_metrics:
         - "custom:proposal_status"
@@ -61,11 +60,6 @@
           cause.
         targetNamespaces:
           - catalog-mgmt
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -81,7 +75,11 @@
         show repeated TCP connection attempts returning errno 111
         (connection refused) and all retries are exhausted. The database
         service at prod-db on port 3333 is either not running, not
-        reachable, or the service name/port is misconfigured.
+        reachable, or the service name/port is misconfigured. There is no
+        Service named prod-db in the namespace, indicating the database has
+        not been deployed or the service name is wrong. Fix: create the
+        missing prod-db Service pointing to the database, or correct the
+        job's database connection configuration.
 
       turn_metrics:
         - "custom:proposal_status"
@@ -107,11 +105,6 @@
           cause.
         targetNamespaces:
           - catalog-mgmt
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 
@@ -127,7 +120,11 @@
         show repeated TCP connection attempts returning errno 111
         (connection refused) and all retries are exhausted. The database
         service at prod-db on port 3333 is either not running, not
-        reachable, or the service name/port is misconfigured.
+        reachable, or the service name/port is misconfigured. There is no
+        Service named prod-db in the namespace, indicating the database has
+        not been deployed or the service name is wrong. Fix: create the
+        missing prod-db Service pointing to the database, or correct the
+        job's database connection configuration.
 
       turn_metrics:
         - "custom:proposal_status"

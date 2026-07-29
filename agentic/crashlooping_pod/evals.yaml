@@ -6,19 +6,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: order-fulfillment-daemon
+          Alert: WarehouseOpsPodRestarting (warning)
           Namespace: warehouse-ops
-          Status: CrashLoopBackOff
-          Description: The order-fulfillment-daemon pod is repeatedly crashing.
-
-          Investigate and identify the root cause
+          Description: Container in pod warehouse-ops/order-fulfillment-daemon has restarted multiple times. Check application logs and resource configuration.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - warehouse-ops
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -50,19 +48,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: order-fulfillment-daemon
+          Alert: WarehouseOpsPodRestarting (warning)
           Namespace: warehouse-ops
-          Status: CrashLoopBackOff
-          Description: The order-fulfillment-daemon pod is repeatedly crashing.
-
-          Investigate and identify the root cause
+          Description: Container in pod warehouse-ops/order-fulfillment-daemon has restarted multiple times. Check application logs and resource configuration.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - warehouse-ops
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -94,19 +90,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          Pod: order-fulfillment-daemon
+          Alert: WarehouseOpsPodRestarting (warning)
           Namespace: warehouse-ops
-          Status: CrashLoopBackOff
-          Description: The order-fulfillment-daemon pod is repeatedly crashing.
-
-          Investigate and identify the root cause
+          Description: Container in pod warehouse-ops/order-fulfillment-daemon has restarted multiple times. Check application logs and resource configuration.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - warehouse-ops
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

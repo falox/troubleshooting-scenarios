@@ -6,19 +6,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          The catalog-index-service in the discovery-hub namespace appears to
-          be running but is not becoming Ready. The pod name resembles a
-          Kubernetes Service, but it is actually a Pod.
-
-          Investigate why catalog-index-service is not ready, identify the
-          root cause, and propose a fix.
+          Alert: DiscoveryHubPodNotReady (warning)
+          Namespace: discovery-hub
+          Description: Pod discovery-hub/catalog-index-service has been in a not-ready state for more than 15 seconds.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - discovery-hub
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -53,19 +51,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          The catalog-index-service in the discovery-hub namespace appears to
-          be running but is not becoming Ready. The pod name resembles a
-          Kubernetes Service, but it is actually a Pod.
-
-          Investigate why catalog-index-service is not ready, identify the
-          root cause, and propose a fix.
+          Alert: DiscoveryHubPodNotReady (warning)
+          Namespace: discovery-hub
+          Description: Pod discovery-hub/catalog-index-service has been in a not-ready state for more than 15 seconds.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - discovery-hub
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -100,19 +96,17 @@
     - turn_id: turn_1
       proposal_spec:
         request: |
-          The catalog-index-service in the discovery-hub namespace appears to
-          be running but is not becoming Ready. The pod name resembles a
-          Kubernetes Service, but it is actually a Pod.
-
-          Investigate why catalog-index-service is not ready, identify the
-          root cause, and propose a fix.
+          Alert: DiscoveryHubPodNotReady (warning)
+          Namespace: discovery-hub
+          Description: Pod discovery-hub/catalog-index-service has been in a not-ready state for more than 15 seconds.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
           - discovery-hub
         tools:
           skills:
-            - image: quay.io/afalossi/agentic-skills:latest
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
               paths:
-                - /skills/cluster-troubleshoot
+                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

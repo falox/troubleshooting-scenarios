@@ -15,11 +15,6 @@
           Investigate and identify the root cause
         targetNamespaces:
           - user-imports
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: default
 
@@ -61,11 +56,6 @@
           Investigate and identify the root cause
         targetNamespaces:
           - user-imports
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: opus
 
@@ -107,11 +97,6 @@
           Investigate and identify the root cause
         targetNamespaces:
           - user-imports
-        tools:
-          skills:
-            - image: quay.io/afalossi/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot
         analysis:
           agent: gemini
 

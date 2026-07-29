@@ -25,3 +25,6 @@ oc wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=Cra
   pod -l "app=$APP" -n "$NS" --timeout=300s
 
 echo "Setup complete: $APP is in CrashLoopBackOff state"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
+"$SCRIPT_DIR/wait-for-alert.sh" "WarehouseOpsPodRestarting"
