@@ -4,6 +4,7 @@ SUITES ?= \
 	crashlooping_pod \
 	failed_job \
 	failing_api \
+	imagepull_auth \
 	oomkilled_pod \
 	pending_pvc \
 	recurring_batch_failure \
