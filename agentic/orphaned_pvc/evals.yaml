@@ -1,0 +1,122 @@
+- conversation_group_id: orphaned_pvc_openai
+  tag: agentic_orphaned_pvc
+  setup_script: ./setup.sh
+  cleanup_script: ./cleanup.sh
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          The platform team suspects namespace pvc-orphans is paying for
+          storage nobody uses. Analyze which PersistentVolumeClaims in
+          the namespace are mounted by running workloads and which are
+          orphaned, and propose a cleanup plan for the orphaned ones.
+          Do not delete anything.
+        targetNamespaces:
+          - pvc-orphans
+        analysis:
+          agent: default
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        In use: active-data-pvc, mounted at /data by the running
+        pvc-user-app deployment. Orphaned cleanup candidates:
+        old-backup-pvc and tmp-scratch-pvc, which are referenced by no
+        pod or workload template in the namespace. The proposal should
+        recommend confirming with the owning team and then deleting the
+        two orphaned claims to release their storage, without touching
+        active-data-pvc.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: orphaned_pvc_anthropic
+  tag: agentic_orphaned_pvc
+  setup_script: ./setup.sh
+  cleanup_script: ./cleanup.sh
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          The platform team suspects namespace pvc-orphans is paying for
+          storage nobody uses. Analyze which PersistentVolumeClaims in
+          the namespace are mounted by running workloads and which are
+          orphaned, and propose a cleanup plan for the orphaned ones.
+          Do not delete anything.
+        targetNamespaces:
+          - pvc-orphans
+        analysis:
+          agent: opus
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        In use: active-data-pvc, mounted at /data by the running
+        pvc-user-app deployment. Orphaned cleanup candidates:
+        old-backup-pvc and tmp-scratch-pvc, which are referenced by no
+        pod or workload template in the namespace. The proposal should
+        recommend confirming with the owning team and then deleting the
+        two orphaned claims to release their storage, without touching
+        active-data-pvc.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: orphaned_pvc_gemini
+  tag: agentic_orphaned_pvc
+  setup_script: ./setup.sh
+  cleanup_script: ./cleanup.sh
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          The platform team suspects namespace pvc-orphans is paying for
+          storage nobody uses. Analyze which PersistentVolumeClaims in
+          the namespace are mounted by running workloads and which are
+          orphaned, and propose a cleanup plan for the orphaned ones.
+          Do not delete anything.
+        targetNamespaces:
+          - pvc-orphans
+        analysis:
+          agent: gemini
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        In use: active-data-pvc, mounted at /data by the running
+        pvc-user-app deployment. Orphaned cleanup candidates:
+        old-backup-pvc and tmp-scratch-pvc, which are referenced by no
+        pod or workload template in the namespace. The proposal should
+        recommend confirming with the owning team and then deleting the
+        two orphaned claims to release their storage, without touching
+        active-data-pvc.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
