@@ -5,6 +5,7 @@ SUITES ?= \
 	failed_job \
 	failing_api \
 	oomkilled_pod \
+	orphaned_pvc \
 	pending_pvc \
 	recurring_batch_failure \
 	refused_connections \
