@@ -5,6 +5,7 @@ SUITES ?= \
 	failed_job \
 	failing_api \
 	imagepull_auth \
+	netpol_dns \
 	oomkilled_pod \
 	orphaned_pvc \
 	pending_pvc \
