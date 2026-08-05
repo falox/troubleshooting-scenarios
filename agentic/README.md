@@ -8,6 +8,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 |-------|---------|------------|------------|------------------|
 | `failing_api` | Payment API returning 503s (100% error rate) | Reporting service leaks DB connections, exhausting the shared PostgreSQL pool | Hard | |
 | `imagepull_auth` | Pod in ImagePullBackOff | Private registry image without imagePullSecret (auth failure) | Normal | |
+| `missing_pvc` | Deployment pod never scheduled | Deployment mounts PVC `app-data` that was never created; FailedScheduling | Normal | |
 | `pending_pvc` | PVC stuck in Pending, pods cannot start | PVC references a StorageClass (`standard-v2`) that does not exist | Medium | ~30s |
 | `recurring_batch_failure` | Batch processor errors during 03:00-03:05 UTC | Upstream service has a scheduled maintenance window causing connection timeouts | Medium | |
 | `sporadic_api_timeout` | Report generator timeouts during 03:00-03:05 window | Upstream API has a scheduled maintenance window, not a bug in the application | Medium | |
