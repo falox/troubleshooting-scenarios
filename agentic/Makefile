@@ -9,6 +9,7 @@ SUITES ?= \
 	oomkilled_pod \
 	orphaned_pvc \
 	pending_pvc \
+	route_port \
 	recurring_batch_failure \
 	refused_connections \
 	sporadic_api_timeout \
