@@ -11,6 +11,7 @@ SUITES ?= \
 	recurring_batch_failure \
 	refused_connections \
 	sporadic_api_timeout \
+	svc_selector \
 	timeout_connections \
 	unbalanced_replicas \
 	unready_pod \
