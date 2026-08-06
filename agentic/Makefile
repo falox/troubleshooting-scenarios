@@ -10,6 +10,7 @@ SUITES ?= \
 	orphaned_pvc \
 	pending_pvc \
 	priorityclass \
+	route_port \
 	recurring_batch_failure \
 	refused_connections \
 	sporadic_api_timeout \
