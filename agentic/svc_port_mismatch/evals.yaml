@@ -1,0 +1,110 @@
+- conversation_group_id: svc_port_mismatch_openai
+  tag: agentic_svc_port_mismatch
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Requests to the service svc-port-svc in namespace svc-port-demo
+          are refused, although the service has endpoints and the backing
+          pod is Ready.
+
+          Investigate the root cause and fix the connectivity issue.
+        targetNamespaces:
+          - svc-port-demo
+        analysis:
+          agent: default
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the service svc-port-svc forwards to targetPort 8081
+        but the nginx container listens on 8080 (its declared
+        containerPort), so connections through the service are refused
+        even though endpoints exist. Fix: correct the service's
+        targetPort to 8080 and verify connectivity through the service.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: svc_port_mismatch_anthropic
+  tag: agentic_svc_port_mismatch
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Requests to the service svc-port-svc in namespace svc-port-demo
+          are refused, although the service has endpoints and the backing
+          pod is Ready.
+
+          Investigate the root cause and fix the connectivity issue.
+        targetNamespaces:
+          - svc-port-demo
+        analysis:
+          agent: opus
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the service svc-port-svc forwards to targetPort 8081
+        but the nginx container listens on 8080 (its declared
+        containerPort), so connections through the service are refused
+        even though endpoints exist. Fix: correct the service's
+        targetPort to 8080 and verify connectivity through the service.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: svc_port_mismatch_gemini
+  tag: agentic_svc_port_mismatch
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Requests to the service svc-port-svc in namespace svc-port-demo
+          are refused, although the service has endpoints and the backing
+          pod is Ready.
+
+          Investigate the root cause and fix the connectivity issue.
+        targetNamespaces:
+          - svc-port-demo
+        analysis:
+          agent: gemini
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the service svc-port-svc forwards to targetPort 8081
+        but the nginx container listens on 8080 (its declared
+        containerPort), so connections through the service are refused
+        even though endpoints exist. Fix: correct the service's
+        targetPort to 8080 and verify connectivity through the service.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75

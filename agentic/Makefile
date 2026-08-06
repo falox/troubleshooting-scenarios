@@ -6,12 +6,15 @@ SUITES ?= \
 	failing_api \
 	imagepull_auth \
 	missing_pvc \
+	netpol_dns \
 	oomkilled_pod \
 	orphaned_pvc \
 	pending_pvc \
+	route_port \
 	recurring_batch_failure \
 	refused_connections \
 	sporadic_api_timeout \
+	svc_port_mismatch \
 	timeout_connections \
 	unbalanced_replicas \
 	unready_pod \
