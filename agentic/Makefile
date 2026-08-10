@@ -4,6 +4,7 @@ SUITES ?= \
 	crashlooping_pod \
 	failed_job \
 	failing_api \
+	hpa_broken \
 	imagepull_auth \
 	netpol_dns \
 	oomkilled_pod \

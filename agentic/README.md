@@ -7,6 +7,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | Suite | Symptom | Root Cause | Difficulty | Alert (fires in) |
 |-------|---------|------------|------------|------------------|
 | `failing_api` | Payment API returning 503s (100% error rate) | Reporting service leaks DB connections, exhausting the shared PostgreSQL pool | Hard | |
+| `hpa_broken` | HPA shows `<unknown>` CPU target, never scales | Deployment containers have no CPU resource requests, so HPA cannot compute utilization | Normal | |
 | `imagepull_auth` | Pod in ImagePullBackOff | Private registry image without imagePullSecret (auth failure) | Normal | |
 | `netpol_dns` | App logs DNS resolution failures after security hardening | Default-deny egress NetworkPolicy blocks DNS; needs egress rule for port 5353 to openshift-dns | Medium | |
 | `pending_pvc` | PVC stuck in Pending, pods cannot start | PVC references a StorageClass (`standard-v2`) that does not exist | Medium | ~30s |

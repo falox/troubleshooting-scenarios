@@ -1,0 +1,128 @@
+- conversation_group_id: hpa_broken_openai
+  tag: agentic_hpa_broken
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          HPA: hpa-underspecified-demo
+          Namespace: hpa-scaling
+          Status: ScalingActive=False, CPU target shows <unknown>
+          Description: The HorizontalPodAutoscaler for hpa-underspecified-demo
+          never scales the app and shows its CPU target as <unknown>.
+
+          Investigate why the autoscaler cannot read metrics, fix the
+          configuration, and verify the HPA reports a real utilization value.
+        targetNamespaces:
+          - hpa-scaling
+        analysis:
+          agent: default
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: The HPA targets CPU utilization, which is computed as
+        a percentage of the pod's CPU request, but the
+        hpa-underspecified-demo containers set no resource requests. The
+        HPA reports FailedGetResourceMetric ("missing request for cpu")
+        and ScalingActive=False. Fix: Add CPU requests (e.g. 50m-100m)
+        to the deployment's containers so utilization can be computed,
+        then verify the HPA reports a concrete CPU utilization value and
+        ScalingActive=True.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: hpa_broken_anthropic
+  tag: agentic_hpa_broken
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          HPA: hpa-underspecified-demo
+          Namespace: hpa-scaling
+          Status: ScalingActive=False, CPU target shows <unknown>
+          Description: The HorizontalPodAutoscaler for hpa-underspecified-demo
+          never scales the app and shows its CPU target as <unknown>.
+
+          Investigate why the autoscaler cannot read metrics, fix the
+          configuration, and verify the HPA reports a real utilization value.
+        targetNamespaces:
+          - hpa-scaling
+        analysis:
+          agent: opus
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: The HPA targets CPU utilization, which is computed as
+        a percentage of the pod's CPU request, but the
+        hpa-underspecified-demo containers set no resource requests. The
+        HPA reports FailedGetResourceMetric ("missing request for cpu")
+        and ScalingActive=False. Fix: Add CPU requests (e.g. 50m-100m)
+        to the deployment's containers so utilization can be computed,
+        then verify the HPA reports a concrete CPU utilization value and
+        ScalingActive=True.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: hpa_broken_gemini
+  tag: agentic_hpa_broken
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          HPA: hpa-underspecified-demo
+          Namespace: hpa-scaling
+          Status: ScalingActive=False, CPU target shows <unknown>
+          Description: The HorizontalPodAutoscaler for hpa-underspecified-demo
+          never scales the app and shows its CPU target as <unknown>.
+
+          Investigate why the autoscaler cannot read metrics, fix the
+          configuration, and verify the HPA reports a real utilization value.
+        targetNamespaces:
+          - hpa-scaling
+        analysis:
+          agent: gemini
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: The HPA targets CPU utilization, which is computed as
+        a percentage of the pod's CPU request, but the
+        hpa-underspecified-demo containers set no resource requests. The
+        HPA reports FailedGetResourceMetric ("missing request for cpu")
+        and ScalingActive=False. Fix: Add CPU requests (e.g. 50m-100m)
+        to the deployment's containers so utilization can be computed,
+        then verify the HPA reports a concrete CPU utilization value and
+        ScalingActive=True.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
