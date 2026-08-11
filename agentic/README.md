@@ -8,6 +8,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 |-------|---------|------------|------------|------------------|
 | `failing_api` | Payment API returning 503s (100% error rate) | Reporting service leaks DB connections, exhausting the shared PostgreSQL pool | Hard | |
 | `imagepull_auth` | Pod in ImagePullBackOff | Private registry image without imagePullSecret (auth failure) | Normal | |
+| `limitrange_conflict` | Deployment creates no pods | App memory request (64Mi) below namespace LimitRange minimum (256Mi) | Normal | |
 | `netpol_dns` | App logs DNS resolution failures after security hardening | Default-deny egress NetworkPolicy blocks DNS; needs egress rule for port 5353 to openshift-dns | Medium | |
 | `pending_pvc` | PVC stuck in Pending, pods cannot start | PVC references a StorageClass (`standard-v2`) that does not exist | Medium | ~30s |
 | `recurring_batch_failure` | Batch processor errors during 03:00-03:05 UTC | Upstream service has a scheduled maintenance window causing connection timeouts | Medium | |
