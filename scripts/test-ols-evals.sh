@@ -10,11 +10,11 @@
 #   GCP_PROJECT_ID          - GCP project ID (auto-extracted from SA JSON if not set)
 #
 # Usage:
-#   tests/scripts/test-ols-evals.sh --artifact-dir "${ARTIFACT_DIR}"
+#   scripts/test-ols-evals.sh --artifact-dir "${ARTIFACT_DIR}"
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ARTIFACT_DIR=""
 
 while [ $# -gt 0 ]; do
