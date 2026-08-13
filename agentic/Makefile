@@ -17,6 +17,7 @@ SUITES ?= \
 	refused_connections \
 	resource_quota \
 	sporadic_api_timeout \
+	svc_selector \
 	svc_port_mismatch \
 	timeout_connections \
 	unbalanced_replicas \
