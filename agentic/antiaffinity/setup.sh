@@ -23,3 +23,4 @@ done
 echo "WARNING: FailedScheduling event not detected within 90s"
 oc get pods -n "$NS" -l app=antiaffinity-demo
 oc get events -n "$NS" --sort-by='.lastTimestamp' | tail -10
+exit 1

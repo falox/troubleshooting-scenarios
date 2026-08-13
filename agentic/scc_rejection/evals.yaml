@@ -1,0 +1,137 @@
+- conversation_group_id: scc_rejection_openai
+  tag: agentic_scc_rejection
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: scc-demo
+          Namespace: legacy-migration
+          Status: 0 pods created
+          Description: The deployment scc-demo in namespace
+          legacy-migration creates no pods. Its manifest was ported from
+          a docker-compose setup; the app is plain nginx and does not
+          actually need any special privileges. Cluster security settings
+          must not be changed. Analyze the root cause, fix the workload
+          so it runs under the cluster's standard security constraints,
+          and verify the pod is running.
+        targetNamespaces:
+          - legacy-migration
+        analysis:
+          agent: default
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod template requests privileged: true and
+        runAsUser: 0, which OpenShift's restricted SCC rejects — the
+        ReplicaSet logs FailedCreate ("unable to validate against any
+        security context constraint") and no pod is created. Fix:
+        remove the privileged and runAsUser demands from the container
+        securityContext (the nginx-unprivileged image needs neither)
+        so the pod passes the restricted SCC. Verify the pod runs
+        under the standard constraints.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: scc_rejection_anthropic
+  tag: agentic_scc_rejection
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: scc-demo
+          Namespace: legacy-migration
+          Status: 0 pods created
+          Description: The deployment scc-demo in namespace
+          legacy-migration creates no pods. Its manifest was ported from
+          a docker-compose setup; the app is plain nginx and does not
+          actually need any special privileges. Cluster security settings
+          must not be changed. Analyze the root cause, fix the workload
+          so it runs under the cluster's standard security constraints,
+          and verify the pod is running.
+        targetNamespaces:
+          - legacy-migration
+        analysis:
+          agent: opus
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod template requests privileged: true and
+        runAsUser: 0, which OpenShift's restricted SCC rejects — the
+        ReplicaSet logs FailedCreate ("unable to validate against any
+        security context constraint") and no pod is created. Fix:
+        remove the privileged and runAsUser demands from the container
+        securityContext (the nginx-unprivileged image needs neither)
+        so the pod passes the restricted SCC. Verify the pod runs
+        under the standard constraints.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: scc_rejection_gemini
+  tag: agentic_scc_rejection
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: scc-demo
+          Namespace: legacy-migration
+          Status: 0 pods created
+          Description: The deployment scc-demo in namespace
+          legacy-migration creates no pods. Its manifest was ported from
+          a docker-compose setup; the app is plain nginx and does not
+          actually need any special privileges. Cluster security settings
+          must not be changed. Analyze the root cause, fix the workload
+          so it runs under the cluster's standard security constraints,
+          and verify the pod is running.
+        targetNamespaces:
+          - legacy-migration
+        analysis:
+          agent: gemini
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod template requests privileged: true and
+        runAsUser: 0, which OpenShift's restricted SCC rejects — the
+        ReplicaSet logs FailedCreate ("unable to validate against any
+        security context constraint") and no pod is created. Fix:
+        remove the privileged and runAsUser demands from the container
+        securityContext (the nginx-unprivileged image needs neither)
+        so the pod passes the restricted SCC. Verify the pod runs
+        under the standard constraints.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75

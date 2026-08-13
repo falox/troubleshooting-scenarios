@@ -22,3 +22,4 @@ done
 echo "WARNING: CreateContainerConfigError not detected within 60s"
 oc get pods -n "$NS" -l app=missing-secret-key-demo
 oc get events -n "$NS" --sort-by='.lastTimestamp' | tail -5
+exit 1

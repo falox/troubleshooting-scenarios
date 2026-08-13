@@ -39,5 +39,6 @@ until [ "$ATTEMPT" -ge 60 ]; do
   sleep 1
 done
 
-echo "WARNING: exceeded quota event not detected within 60s, but scenario may still work"
+echo "WARNING: exceeded quota event not detected within 60s"
 oc get events -n "$NS"
+exit 1

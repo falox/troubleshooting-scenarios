@@ -21,6 +21,7 @@ SUITES ?= \
 	recurring_batch_failure \
 	refused_connections \
 	resource_quota \
+	scc_rejection \
 	sporadic_api_timeout \
 	svc_selector \
 	svc_port_mismatch \

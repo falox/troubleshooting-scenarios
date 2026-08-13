@@ -23,6 +23,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `svc_port_mismatch` | Service connections refused despite endpoints existing and pod Ready | Service targetPort (8081) doesn't match the container's listening port (8080) | Normal | |
 | `refused_connections` | Gateway-proxy returning connection refused errors | Config hot-reload loaded staging database/cache hosts into production; staging hosts unreachable from production VPC | Medium | |
 | `resource_quota` | Deployment has zero pods | ResourceQuota caps pods at 2, fully consumed by existing blocker deployment | Normal | |
+| `scc_rejection` | Deployment creates no pods | Pod template requests `privileged: true` and `runAsUser: 0`, rejected by OpenShift's restricted SCC | Normal | |
 | `crashlooping_pod` | Pod in CrashLoopBackOff | Required environment variable `DEPLOY_ENV` is missing from the deployment spec | Normal | ~3min |
 | `failed_job` | inventory-sync-validator Job fails | Job cannot connect to database at prod-db:3333 (connection refused) | Normal | |
 | `oomkilled_pod` | Pods repeatedly OOMKilled / CrashLoopBackOff | Python app has a memory leak (~1MB/s) that exceeds the 60Mi container limit | Normal | ~2min |
