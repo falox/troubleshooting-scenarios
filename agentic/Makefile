@@ -7,6 +7,7 @@ SUITES ?= \
 	failing_api \
 	hpa_broken \
 	imagepull_auth \
+	limitrange_conflict \
 	missing_pvc \
 	missing_secret_key \
 	netpol_dns \

@@ -1,0 +1,52 @@
+# The namespace LimitRange requires every container to request at least
+# 256Mi of memory, but the deployment requests only 64Mi (limit 128Mi).
+# The ReplicaSet gets "forbidden: minimum memory usage per Container is
+# 256Mi" and no pod is ever created.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: limitrange-demo
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: eval-container-limits
+  namespace: limitrange-demo
+spec:
+  limits:
+    - type: Container
+      min:
+        memory: "256Mi"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: limitrange-demo
+  namespace: limitrange-demo
+  labels:
+    app: limitrange-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: limitrange-demo
+  template:
+    metadata:
+      labels:
+        app: limitrange-demo
+    spec:
+      containers:
+        - name: app
+          image: registry.access.redhat.com/ubi9/ubi-micro@sha256:35de56a9413112f1474e392ebc35e0cf6f0fb484c8e8877bbae59b513694b41f
+          command: ["sleep", "infinity"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: "5m"
+              memory: "64Mi"
+            limits:
+              memory: "128Mi"
