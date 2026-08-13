@@ -59,6 +59,14 @@ spec:
         args: ["--config", "${config_file}"]
         ports:
         - containerPort: 8080
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          seccompProfile:
+            type: RuntimeDefault
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - name: mcp-config
           mountPath: ${MCP_CONFIG_MOUNT}

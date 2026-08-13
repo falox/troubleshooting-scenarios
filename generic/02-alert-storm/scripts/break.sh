@@ -17,7 +17,7 @@ CONFIG_HASH=$(oc get configmap payments-api-config -n payments -o jsonpath='{.da
 oc patch deployment payments-api -n payments --type=strategic -p \
   "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"checksum/config\":\"${CONFIG_HASH}\"}},\"spec\":{\"containers\":[{\"name\":\"payments-api\",\"resources\":{\"requests\":{\"memory\":\"64Mi\"},\"limits\":{\"memory\":\"128Mi\"}}}]}}}}"
 
-TOKEN=$(oc whoami -t)
+TOKEN=$(oc whoami -t 2>/dev/null || oc create token prometheus-k8s -n openshift-monitoring --duration=10m)
 THANOS_HOST=$(oc -n openshift-monitoring get route thanos-querier -o jsonpath='{.spec.host}')
 
 echo ""

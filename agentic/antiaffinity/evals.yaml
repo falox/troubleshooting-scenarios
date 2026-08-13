@@ -1,0 +1,128 @@
+- conversation_group_id: antiaffinity_openai
+  tag: agentic_antiaffinity
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: antiaffinity-demo
+          Namespace: ha-services
+          Status: Several pods stuck in Pending
+          Description: Several pods of deployment antiaffinity-demo in
+          namespace ha-services are stuck in Pending. The service only
+          needs 3 replicas spread across different nodes for high
+          availability. Analyze the root cause, fix the deployment so
+          the desired replicas all run, and verify.
+        targetNamespaces:
+          - ha-services
+        analysis:
+          agent: default
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the deployment requests 10 replicas with required
+        pod anti-affinity on kubernetes.io/hostname, allowing at most
+        one pod per node — the cluster has fewer than 10 nodes so the
+        surplus pods stay Pending with FailedScheduling events. Fix:
+        reduce replicas to 3 (the stated HA requirement) and optionally
+        soften the rule to preferred anti-affinity, then verify all
+        replicas are Running.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: antiaffinity_anthropic
+  tag: agentic_antiaffinity
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: antiaffinity-demo
+          Namespace: ha-services
+          Status: Several pods stuck in Pending
+          Description: Several pods of deployment antiaffinity-demo in
+          namespace ha-services are stuck in Pending. The service only
+          needs 3 replicas spread across different nodes for high
+          availability. Analyze the root cause, fix the deployment so
+          the desired replicas all run, and verify.
+        targetNamespaces:
+          - ha-services
+        analysis:
+          agent: opus
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the deployment requests 10 replicas with required
+        pod anti-affinity on kubernetes.io/hostname, allowing at most
+        one pod per node — the cluster has fewer than 10 nodes so the
+        surplus pods stay Pending with FailedScheduling events. Fix:
+        reduce replicas to 3 (the stated HA requirement) and optionally
+        soften the rule to preferred anti-affinity, then verify all
+        replicas are Running.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: antiaffinity_gemini
+  tag: agentic_antiaffinity
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: antiaffinity-demo
+          Namespace: ha-services
+          Status: Several pods stuck in Pending
+          Description: Several pods of deployment antiaffinity-demo in
+          namespace ha-services are stuck in Pending. The service only
+          needs 3 replicas spread across different nodes for high
+          availability. Analyze the root cause, fix the deployment so
+          the desired replicas all run, and verify.
+        targetNamespaces:
+          - ha-services
+        analysis:
+          agent: gemini
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the deployment requests 10 replicas with required
+        pod anti-affinity on kubernetes.io/hostname, allowing at most
+        one pod per node — the cluster has fewer than 10 nodes so the
+        surplus pods stay Pending with FailedScheduling events. Fix:
+        reduce replicas to 3 (the stated HA requirement) and optionally
+        soften the rule to preferred anti-affinity, then verify all
+        replicas are Running.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
