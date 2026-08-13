@@ -12,6 +12,7 @@ SUITES ?= \
 	route_port \
 	recurring_batch_failure \
 	refused_connections \
+	resource_quota \
 	sporadic_api_timeout \
 	svc_port_mismatch \
 	timeout_connections \
