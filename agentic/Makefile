@@ -6,6 +6,7 @@ SUITES ?= \
 	failed_job \
 	failing_api \
 	imagepull_auth \
+	missing_pvc \
 	missing_secret_key \
 	netpol_dns \
 	oomkilled_pod \
