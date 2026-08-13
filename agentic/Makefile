@@ -1,6 +1,7 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
 SUITES ?= \
+	antiaffinity \
 	crashlooping_pod \
 	failed_job \
 	failing_api \
