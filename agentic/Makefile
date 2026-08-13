@@ -5,6 +5,7 @@ SUITES ?= \
 	crashlooping_pod \
 	failed_job \
 	failing_api \
+	hpa_broken \
 	imagepull_auth \
 	missing_pvc \
 	missing_secret_key \

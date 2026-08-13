@@ -8,6 +8,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 |-------|---------|------------|------------|------------------|
 | `antiaffinity` | Several pods stuck in Pending | Required pod anti-affinity on hostname with 10 replicas exceeds node count; only 3 needed for HA | Normal | |
 | `failing_api` | Payment API returning 503s (100% error rate) | Reporting service leaks DB connections, exhausting the shared PostgreSQL pool | Hard | |
+| `hpa_broken` | HPA shows `<unknown>` CPU target, never scales | Deployment containers have no CPU resource requests, so HPA cannot compute utilization | Normal | |
 | `imagepull_auth` | Pod in ImagePullBackOff | Private registry image without imagePullSecret (auth failure) | Normal | |
 | `priorityclass` | Deployment creates no pods | Pod template references nonexistent PriorityClass `eval-critical-priority`; ReplicaSet FailedCreate | Normal | |
 | `missing_pvc` | Deployment pod never scheduled | Deployment mounts PVC `app-data` that was never created; FailedScheduling | Normal | |
