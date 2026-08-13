@@ -25,7 +25,7 @@ echo ""
 echo "PDB status:"
 oc get pdb -n inventory
 
-TOKEN=$(oc whoami -t)
+TOKEN=$(oc whoami -t 2>/dev/null || oc create token prometheus-k8s -n openshift-monitoring --duration=10m)
 THANOS_HOST=$(oc -n openshift-monitoring get route thanos-querier -o jsonpath='{.spec.host}')
 
 echo ""

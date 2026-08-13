@@ -23,7 +23,7 @@ api:
   timeout: 600
   # Must match llm_providers[].name in cluster OLSConfig (e.g. openai).
   provider: openai
-  model: gpt-4o-mini
+  model: gpt-5.4
   no_tools:
   system_prompt:
   cache_enabled: false

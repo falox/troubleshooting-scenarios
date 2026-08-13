@@ -6,8 +6,9 @@ Evaluation scenarios that test AI-assisted diagnosis of OpenShift Virtualization
 
 - OpenShift 4.16+ cluster
 - `oc` CLI authenticated with cluster-admin
-- `OPENAI_API_KEY` exported (used for OLS credentials and the judge LLM)
+- `OPENAI_API_KEY` exported (required for the judge LLM; also used as an OLS provider)
 - Python 3.11, 3.12, or 3.13
+- **Optional** (for Google/Anthropic providers): `GCP_SERVICE_ACCOUNT_JSON` + `GCP_PROJECT_ID` exported (see [Variables](#variables))
 
 ## KVM Requirements
 
@@ -37,11 +38,34 @@ export OPENAI_API_KEY=<your-key>
 
 cd kubevirt
 make setup    # install venv + OLS + MCP (with kubevirt toolset) + deploy broken VMs
-make evals    # run all scenarios
+make evals    # run all scenarios (default provider from system.yaml)
 make cleanup  # remove broken VMs + CNV operator + MCP server
 ```
 
-Run a single scenario:
+### Running with a specific LLM provider
+
+Override the provider and model used for OLS queries (the judge LLM is unchanged):
+
+```bash
+make evals OLS_PROVIDER=google OLS_MODEL=gemini-2.5-pro
+make evals OLS_PROVIDER=anthropic OLS_MODEL=claude-opus-4-6
+```
+
+Run a single scenario with a specific provider:
+
+```bash
+make vm_storage_failure-eval OLS_PROVIDER=google OLS_MODEL=gemini-2.5-pro
+```
+
+### Running across all providers
+
+Automatically discovers all providers configured in the cluster's OLSConfig and runs evals for each, saving results to separate directories (`results/<provider>/`):
+
+```bash
+make evals-all-providers
+```
+
+### Running a single scenario
 
 ```bash
 make vm_storage_failure-eval
@@ -90,3 +114,10 @@ Sample questions to ask OpenShift Lightspeed (or any MCP-connected AI):
 | `CNV_CHANNEL` | `stable` | OLM channel for CNV subscription |
 | `CNV_SOURCE` | `redhat-operators` | CatalogSource name |
 | `CNV_SOURCE_NS` | `openshift-marketplace` | CatalogSource namespace |
+| `OLS_PROVIDER` | *(from system.yaml)* | Override OLS provider (e.g. `openai`, `google`, `anthropic`) |
+| `OLS_MODEL` | *(from system.yaml)* | Override OLS model (e.g. `gemini-2.5-pro`, `claude-opus-4-6`) |
+| `GCP_SERVICE_ACCOUNT_JSON` | | Path to GCP credentials JSON (ADC or service account key) |
+| `GCP_PROJECT_ID` | | GCP project ID for Vertex AI |
+| `GCP_LOCATION` | | Default Vertex AI location (overridden by per-provider vars) |
+| `GCP_GOOGLE_LOCATION` | `global` | Vertex AI location for Google models |
+| `GCP_ANTHROPIC_LOCATION` | `us-east5` | Vertex AI location for Anthropic models |
