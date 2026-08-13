@@ -12,6 +12,7 @@ SUITES ?= \
 	orphaned_pvc \
 	pending_pvc \
 	route_port \
+	rbac_forbidden \
 	recurring_batch_failure \
 	refused_connections \
 	resource_quota \

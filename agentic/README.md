@@ -12,6 +12,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `missing_secret_key` | Pod in CreateContainerConfigError | Secret `db-creds` exists but lacks the `password` key referenced by the container | Normal | |
 | `netpol_dns` | App logs DNS resolution failures after security hardening | Default-deny egress NetworkPolicy blocks DNS; needs egress rule for port 5353 to openshift-dns | Medium | |
 | `pending_pvc` | PVC stuck in Pending, pods cannot start | PVC references a StorageClass (`standard-v2`) that does not exist | Medium | ~30s |
+| `rbac_forbidden` | App logging HTTP 403 from Kubernetes API | ServiceAccount has no Role/RoleBinding for pod list calls | Normal | |
 | `recurring_batch_failure` | Batch processor errors during 03:00-03:05 UTC | Upstream service has a scheduled maintenance window causing connection timeouts | Medium | |
 | `sporadic_api_timeout` | Report generator timeouts during 03:00-03:05 window | Upstream API has a scheduled maintenance window, not a bug in the application | Medium | |
 | `route_port` | Route returns 503 but pod and service are healthy | Route targets port 9090 but service only exposes 8080; router has no valid backend | Normal | |
