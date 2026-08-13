@@ -1,19 +1,25 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
 SUITES ?= \
+	antiaffinity \
 	crashlooping_pod \
 	failed_job \
 	failing_api \
 	imagepull_auth \
 	limitrange_conflict \
+	missing_pvc \
+	missing_secret_key \
 	netpol_dns \
 	oomkilled_pod \
 	orphaned_pvc \
 	pending_pvc \
+	priorityclass \
 	route_port \
 	recurring_batch_failure \
 	refused_connections \
+	resource_quota \
 	sporadic_api_timeout \
+	svc_selector \
 	svc_port_mismatch \
 	timeout_connections \
 	unbalanced_replicas \

@@ -1,0 +1,128 @@
+- conversation_group_id: missing_secret_key_openai
+  tag: agentic_missing_secret_key
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: missing-secret-key-demo
+          Namespace: credential-store
+          Status: CreateContainerConfigError
+          Description: The deployment missing-secret-key-demo in namespace
+          credential-store cannot start its container. It reads database
+          credentials from the Secret db-creds. Analyze the root cause
+          and fix it — if a credential value is missing, use the
+          placeholder value "changeme" so the team can rotate it later.
+          Verify the pod is running.
+        targetNamespaces:
+          - credential-store
+        analysis:
+          agent: default
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the container is in CreateContainerConfigError
+        because its DB_PASSWORD env var references key "password" in
+        Secret db-creds, but the secret only contains the "username"
+        key. Fix: add the missing "password" key to the db-creds
+        Secret (placeholder value "changeme") and verify the pod
+        reaches Running state.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: missing_secret_key_anthropic
+  tag: agentic_missing_secret_key
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: missing-secret-key-demo
+          Namespace: credential-store
+          Status: CreateContainerConfigError
+          Description: The deployment missing-secret-key-demo in namespace
+          credential-store cannot start its container. It reads database
+          credentials from the Secret db-creds. Analyze the root cause
+          and fix it — if a credential value is missing, use the
+          placeholder value "changeme" so the team can rotate it later.
+          Verify the pod is running.
+        targetNamespaces:
+          - credential-store
+        analysis:
+          agent: opus
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the container is in CreateContainerConfigError
+        because its DB_PASSWORD env var references key "password" in
+        Secret db-creds, but the secret only contains the "username"
+        key. Fix: add the missing "password" key to the db-creds
+        Secret (placeholder value "changeme") and verify the pod
+        reaches Running state.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75
+
+- conversation_group_id: missing_secret_key_gemini
+  tag: agentic_missing_secret_key
+
+
+  turns:
+    - turn_id: turn_1
+      proposal_spec:
+        request: |
+          Deployment: missing-secret-key-demo
+          Namespace: credential-store
+          Status: CreateContainerConfigError
+          Description: The deployment missing-secret-key-demo in namespace
+          credential-store cannot start its container. It reads database
+          credentials from the Secret db-creds. Analyze the root cause
+          and fix it — if a credential value is missing, use the
+          placeholder value "changeme" so the team can rotate it later.
+          Verify the pod is running.
+        targetNamespaces:
+          - credential-store
+        analysis:
+          agent: gemini
+
+      expected_proposal_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the container is in CreateContainerConfigError
+        because its DB_PASSWORD env var references key "password" in
+        Secret db-creds, but the secret only contains the "username"
+        key. Fix: add the missing "password" key to the db-creds
+        Secret (placeholder value "changeme") and verify the pod
+        reaches Running state.
+
+      turn_metrics:
+        - "custom:proposal_status"
+        - "custom:proposal_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:proposal_evaluation_correctness":
+          threshold: 0.75

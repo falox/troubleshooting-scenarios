@@ -19,6 +19,11 @@ MCP_OLS_NAME    ?= openshift-mcp
 SYSTEM_CONFIG   ?= ./system.yaml
 EVALS           ?= ./evals.yaml
 RESULTS_DIR     ?= ./results
+OLS_PROVIDER    ?=
+OLS_MODEL       ?=
+
+# Build optional --provider/--model flags for run-evals.sh
+_PROVIDER_FLAGS = $(if $(OLS_PROVIDER),--provider $(OLS_PROVIDER)) $(if $(OLS_MODEL),--model $(OLS_MODEL))
 
 # Shared setup (venv + preflight + OLS + MCP + connect)
 
@@ -52,6 +57,7 @@ evals:
 	@bash $(SCRIPTS_DIR)/run-evals.sh \
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
+	  $(_PROVIDER_FLAGS) \
 	  $(foreach s,$(SCENARIOS),--tag $(s))
 
 # Auto-generated per-scenario targets
@@ -62,9 +68,32 @@ $(1)-eval:
 	@bash $(SCRIPTS_DIR)/run-evals.sh \
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
+	  $(_PROVIDER_FLAGS) \
 	  --tag $(1)
 endef
 $(foreach s,$(SCENARIOS),$(eval $(call _eval_target,$(s))))
+
+# Run evals across all providers configured in the cluster's OLSConfig
+
+.PHONY: evals-all-providers
+evals-all-providers:
+	@providers=$$(oc get olsconfig cluster -o jsonpath='{range .spec.llm.providers[*]}{.name},{.models[0].name}{"\n"}{end}'); \
+	if [ -z "$$providers" ]; then \
+	  echo "ERROR: No providers found in OLSConfig"; exit 1; \
+	fi; \
+	for entry in $$providers; do \
+	  provider=$${entry%%,*}; \
+	  model=$${entry##*,}; \
+	  echo ""; \
+	  echo "============================================"; \
+	  echo "==> Provider: $$provider / $$model"; \
+	  echo "============================================"; \
+	  bash $(SCRIPTS_DIR)/run-evals.sh \
+	    --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
+	    --results-dir $(RESULTS_DIR)/$$provider --ols-url $(OLS_URL) \
+	    --provider $$provider --model $$model \
+	    $(foreach s,$(SCENARIOS),--tag $(s)); \
+	done
 
 # Help
 
@@ -74,7 +103,10 @@ help:
 	@echo "  make setup              Install venv + OLS + MCP + suite dependencies"
 	@echo "  make evals              Run all scenarios"
 	@$(foreach s,$(SCENARIOS),echo "  make $(s)-eval";)
+	@echo "  make evals-all-providers  Run all scenarios across every configured provider"
 	@echo "  make cleanup           Remove suite dependencies + MCP"
 	@echo ""
 	@echo "  OLS_URL=$(OLS_URL)  (override with OLS_URL=https://...)"
+	@echo "  OLS_PROVIDER=          Override the LLM provider (e.g. google, anthropic)"
+	@echo "  OLS_MODEL=             Override the LLM model (e.g. gemini-2.5-pro)"
 	@echo ""
