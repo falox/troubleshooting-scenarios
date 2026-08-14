@@ -19,7 +19,11 @@ NAMESPACE="openshift-lightspeed"
 
 function install_operator() {
     echo "==> Installing lightspeed-agentic-operator..."
-    bash <(curl -sL https://raw.githubusercontent.com/openshift/lightspeed-agentic-operator/main/hack/quickstart/install.sh)
+    local tmpdir
+    tmpdir="$(mktemp -d)"
+    git clone --depth 1 https://github.com/openshift/lightspeed-agentic-operator.git "$tmpdir"
+    bash "$tmpdir/hack/quickstart/install.sh"
+    rm -rf "$tmpdir"
     echo "==> Operator installed."
 }
 
