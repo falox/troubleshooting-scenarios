@@ -28,4 +28,5 @@ oc wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=Cra
 
 echo "Setup complete: $APP is in CrashLoopBackOff state"
 
-"$SCRIPT_DIR/wait-for-alert.sh" "WarehouseOpsPodRestarting"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
+"$SCRIPT_DIR/wait-for-alert.sh" "WarehouseOpsPodRestarting" "" 600
