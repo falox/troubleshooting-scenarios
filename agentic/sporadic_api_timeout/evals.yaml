@@ -4,7 +4,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The report-generator in the analytics-platform namespace is
           processing historical records. Analyze the pod logs to identify
@@ -17,7 +17,7 @@
         analysis:
           agent: default
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -33,10 +33,10 @@
         and not caused by a bug in the report-generator itself.
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
 - conversation_group_id: sporadic_api_timeout_anthropic
@@ -45,7 +45,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The report-generator in the analytics-platform namespace is
           processing historical records. Analyze the pod logs to identify
@@ -58,7 +58,7 @@
         analysis:
           agent: opus
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -74,10 +74,10 @@
         and not caused by a bug in the report-generator itself.
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
 - conversation_group_id: sporadic_api_timeout_gemini
@@ -86,7 +86,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The report-generator in the analytics-platform namespace is
           processing historical records. Analyze the pod logs to identify
@@ -99,7 +99,7 @@
         analysis:
           agent: gemini
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -115,8 +115,8 @@
         and not caused by a bug in the report-generator itself.
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
