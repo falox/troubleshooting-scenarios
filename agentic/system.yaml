@@ -19,10 +19,10 @@ agents:
     agent_config:
       timeout: 600
   eval_agent:
-    type: proposal
+    type: openshift_agentic_run
     namespace: openshift-lightspeed
     auto_approve: true
-    cleanup_proposals: false
+    cleanup_openshift_agentic_runs: false
     timeout: 600
     poll_interval: 5
 

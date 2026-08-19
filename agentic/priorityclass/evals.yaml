@@ -4,7 +4,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The deployment priorityclass-demo in namespace
           priorityclass-test is not creating any pods. Its manifest came
@@ -22,7 +22,7 @@
         analysis:
           agent: default
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -38,10 +38,10 @@
         priority) and verify the pod is created and Running.
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
 - conversation_group_id: priorityclass_anthropic
@@ -50,7 +50,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The deployment priorityclass-demo in namespace
           priorityclass-test is not creating any pods. Its manifest came
@@ -68,7 +68,7 @@
         analysis:
           agent: opus
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -84,10 +84,10 @@
         priority) and verify the pod is created and Running.
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
 - conversation_group_id: priorityclass_gemini
@@ -96,7 +96,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The deployment priorityclass-demo in namespace
           priorityclass-test is not creating any pods. Its manifest came
@@ -114,7 +114,7 @@
         analysis:
           agent: gemini
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -130,8 +130,8 @@
         priority) and verify the pod is created and Running.
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75

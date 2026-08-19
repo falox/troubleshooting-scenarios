@@ -3,7 +3,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The gateway-proxy in the ingress-layer namespace is returning
           connection refused errors. Pod logs show repeated failures.
@@ -13,7 +13,7 @@
         analysis:
           agent: default
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -30,10 +30,10 @@
         upstream endpoints (db-prod.internal, redis-prod.internal).
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
 - conversation_group_id: refused_connections_anthropic
@@ -42,7 +42,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The gateway-proxy in the ingress-layer namespace is returning
           connection refused errors. Pod logs show repeated failures.
@@ -52,7 +52,7 @@
         analysis:
           agent: opus
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -69,10 +69,10 @@
         upstream endpoints (db-prod.internal, redis-prod.internal).
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75
 
 - conversation_group_id: refused_connections_gemini
@@ -81,7 +81,7 @@
 
   turns:
     - turn_id: turn_1
-      proposal_spec:
+      openshift_agentic_run_spec:
         request: |
           The gateway-proxy in the ingress-layer namespace is returning
           connection refused errors. Pod logs show repeated failures.
@@ -91,7 +91,7 @@
         analysis:
           agent: gemini
 
-      expected_proposal_status:
+      expected_openshift_agentic_run_status:
         phase: Completed
         conditions:
           - type: Analyzed
@@ -108,8 +108,8 @@
         upstream endpoints (db-prod.internal, redis-prod.internal).
 
       turn_metrics:
-        - "custom:proposal_status"
-        - "custom:proposal_evaluation_correctness"
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
-        "custom:proposal_evaluation_correctness":
+        "custom:openshift_agentic_run_evaluation_correctness":
           threshold: 0.75

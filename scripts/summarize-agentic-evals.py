@@ -10,8 +10,8 @@ from pathlib import Path
 import yaml
 
 METRIC_LABELS = {
-    "custom:proposal_status": "Completed",
-    "custom:proposal_evaluation_correctness": "Correctness",
+    "custom:openshift_agentic_run_status": "Completed",
+    "custom:openshift_agentic_run_evaluation_correctness": "Correctness",
 }
 
 GREEN = "\033[0;32m"
