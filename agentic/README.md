@@ -7,7 +7,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | Suite | Symptom | Root Cause | Difficulty | Alert (fires in) |
 |-------|---------|------------|------------|------------------|
 | `antiaffinity` | Several pods stuck in Pending | Required pod anti-affinity on hostname with 10 replicas exceeds node count; only 3 needed for HA | Normal | |
-| `failing_api` | Payment API returning 503s (100% error rate) | Reporting service leaks DB connections, exhausting the shared PostgreSQL pool | Hard | |
+| `failing_api` | Payment API returning 503s (100% error rate) | Reporting service leaks DB connections, exhausting the shared PostgreSQL pool | Hard | ~3min |
 | `hpa_broken` | HPA shows `<unknown>` CPU target, never scales | Deployment containers have no CPU resource requests, so HPA cannot compute utilization | Normal | |
 | `imagepull_auth` | Pod in ImagePullBackOff | Private registry image without imagePullSecret (auth failure) | Normal | |
 | `limitrange_conflict` | Deployment creates no pods | App memory request (64Mi) below namespace LimitRange minimum (256Mi) | Normal | |
