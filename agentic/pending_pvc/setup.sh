@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="cache-tier"
 PVC="memcached-data-pvc"
 
+"$SCRIPT_DIR/enable-uwm.sh"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"
 
