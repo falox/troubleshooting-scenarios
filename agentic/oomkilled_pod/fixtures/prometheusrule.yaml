@@ -10,9 +10,9 @@ spec:
         - alert: DataProcessingPodRestarting
           expr: |
             kube_pod_container_status_restarts_total{namespace="data-processing"} > 2
-          for: 15s
+          for: 5s
           labels:
-            severity: warning
+            severity: critical
           annotations:
             summary: Pod {{ $labels.pod }} is restarting unexpectedly
             description: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted multiple times. Check resource limits and application logs.
