@@ -16,6 +16,7 @@ SUITES ?= \
 	pending_pvc \
 	priorityclass \
 	route_port \
+	rbac_forbidden \
 	recurring_batch_failure \
 	refused_connections \
 	resource_quota \
