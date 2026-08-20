@@ -6,6 +6,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="discovery-hub"
 POD_NAME="catalog-index-service"
 
+"$SCRIPT_DIR/enable-uwm.sh"
 echo "Applying unready_pod scenario manifests in namespace ${NS}…"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"

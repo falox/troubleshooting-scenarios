@@ -2,9 +2,11 @@
 set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="warehouse-ops"
 APP="order-fulfillment-daemon"
 
+"$SCRIPT_DIR/enable-uwm.sh"
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"
 
@@ -26,5 +28,4 @@ oc wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=Cra
 
 echo "Setup complete: $APP is in CrashLoopBackOff state"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 "$SCRIPT_DIR/wait-for-alert.sh" "WarehouseOpsPodRestarting"
