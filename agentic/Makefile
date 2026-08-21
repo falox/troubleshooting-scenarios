@@ -13,6 +13,7 @@ SUITES ?= \
 	netpol_dns \
 	oomkilled_pod \
 	orphaned_pvc \
+	overprivileged \
 	pending_pvc \
 	priorityclass \
 	route_port \

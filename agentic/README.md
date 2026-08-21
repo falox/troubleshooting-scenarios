@@ -27,6 +27,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `failed_job` | inventory-sync-validator Job fails | Job cannot connect to database at prod-db:3333 (connection refused) | Normal | |
 | `oomkilled_pod` | Pods repeatedly OOMKilled / CrashLoopBackOff | Python app has a memory leak (~1MB/s) that exceeds the 60Mi container limit | Normal | ~2min |
 | `orphaned_pvc` | PVCs attached to no workload | Two of three PVCs are not mounted by any pod or deployment | Normal | |
+| `overprivileged` | ServiceAccount bound to cluster-admin (analysis-only) | Nginx webapp SA has full admin rights but makes no API calls; propose least-privilege | Normal | |
 | `svc_selector` | Service has zero endpoints despite healthy pods | Service selector `app=svc-selector-app` doesn't match pod label `app=svc-selector-demo` | Normal | |
 | `timeout_connections` | Frontend gets connection timeouts to backend | NetworkPolicy only allows ingress from `tier=backend`, blocking `tier=frontend` pods | Normal | |
 | `unbalanced_replicas` | Namespaces have different pod counts | fleet-alpha has 6 pods vs fleet-alpha1 with 9, due to different deployment sets | Normal | |
