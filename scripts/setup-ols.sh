@@ -96,13 +96,13 @@ EOF
 # 4. Wait for operator
 echo "==> Waiting for Subscription to resolve..."
 oc wait --for=jsonpath='{.status.state}'=AtLatestKnown \
-  subscription/lightspeed-operator -n "$OLS_NS" --timeout=300s
+  subscription/lightspeed-operator -n "$OLS_NS" --timeout=480s
 
 CSV=$(oc get subscription lightspeed-operator -n "$OLS_NS" \
   -o jsonpath='{.status.currentCSV}')
 echo "==> Waiting for CSV ${CSV}..."
 oc wait --for=jsonpath='{.status.phase}'=Succeeded \
-  csv/"${CSV}" -n "$OLS_NS" --timeout=300s
+  csv/"${CSV}" -n "$OLS_NS" --timeout=480s
 fi
 
 # 5. LLM credentials
@@ -193,15 +193,15 @@ if ! $ols_installed; then
   echo "==> Waiting for lightspeed-app-server deployment to appear..."
   elapsed=0
   while ! oc get deployment lightspeed-app-server -n "$OLS_NS" -o name >/dev/null 2>&1; do
-    if [ "$elapsed" -ge 300 ]; then
-      echo "ERROR: lightspeed-app-server not created after 300s"
+    if [ "$elapsed" -ge 480 ]; then
+      echo "ERROR: lightspeed-app-server not created after 480s"
       exit 1
     fi
-    echo "  ... waiting for lightspeed-app-server (${elapsed}/300s)"
+    echo "  ... waiting for lightspeed-app-server (${elapsed}/480s)"
     sleep 5
     elapsed=$((elapsed + 5))
   done
 fi
 echo "==> Waiting for rollout..."
-oc rollout status deployment/lightspeed-app-server -n "$OLS_NS" --timeout=300s
+oc rollout status deployment/lightspeed-app-server -n "$OLS_NS" --timeout=480s
 echo "==> OLS installed and ready in ${OLS_NS}."

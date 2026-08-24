@@ -114,9 +114,11 @@ def generate_details(
     json_runs: list[list[dict]],
     csv_runs: list[list[dict]],
     descriptions: dict[str, str],
+    run_type: str = "agentic",
 ) -> str:
     """Generate per-conversation detail sections with query, responses, and judge results."""
     lines = []
+    run_label = "AgenticRun" if run_type == "agentic" else "Run"
 
     for cid in conversations:
         lines.append(f"## {cid}")
@@ -163,7 +165,7 @@ def generate_details(
         for run_idx, (json_results, csv_rows) in enumerate(relevant, 1):
             run_metrics = [r for r in json_results if r["conversation_group_id"] == cid]
 
-            lines.append(f"### AgenticRun #{run_idx}")
+            lines.append(f"### {run_label} #{run_idx}")
             lines.append("")
 
             # Metric results from JSON
@@ -245,6 +247,7 @@ def generate_markdown(
     config: dict,
     descriptions: dict[str, str],
     timestamp: str = "",
+    run_type: str = "agentic",
 ) -> str:
     header = "| Scenario | " + " | ".join(columns) + " |"
     separator = "|---|" + "|".join("---" for _ in columns) + "|"
@@ -264,7 +267,7 @@ def generate_markdown(
     if judge_config:
         lines.append(judge_config)
 
-    details = generate_details(conversations, json_runs, csv_runs, descriptions)
+    details = generate_details(conversations, json_runs, csv_runs, descriptions, run_type)
     lines.append(details)
 
     return "\n".join(lines)
@@ -341,19 +344,31 @@ def load_descriptions(evals_files: list[Path]) -> dict[str, str]:
 
 def main():
     if len(sys.argv) < 3:
-        print(f"Usage: {sys.argv[0]} RESULTS_DIR [--output FILE] FILE [FILE ...]")
+        print(f"Usage: {sys.argv[0]} RESULTS_DIR [--output FILE] [--run-type TYPE] FILE [FILE ...]")
         print("  Files ending in .yaml are treated as evals configs,")
         print("  files ending in .json as summary results.")
-        print("  --output FILE  Write summary to FILE instead of RESULTS_DIR/summary.md")
+        print("  --output FILE     Write summary to FILE instead of RESULTS_DIR/summary.md")
+        print("  --run-type TYPE   'agentic' (default) or 'ols' - changes run labels in output")
         sys.exit(1)
 
     args = sys.argv[1:]
     results_dir = Path(args.pop(0))
 
     output_path = None
-    if args and args[0] == "--output":
-        args.pop(0)
-        output_path = Path(args.pop(0))
+    run_type = "agentic"
+
+    while args and args[0].startswith("--"):
+        if args[0] == "--output":
+            args.pop(0)
+            output_path = Path(args.pop(0))
+        elif args[0] == "--run-type":
+            args.pop(0)
+            run_type = args.pop(0)
+            if run_type not in ("agentic", "ols"):
+                print(f"Error: --run-type must be 'agentic' or 'ols', got '{run_type}'")
+                sys.exit(1)
+        else:
+            break
 
     evals_files = [Path(f) for f in args if f.endswith(".yaml")]
     json_files = [Path(f) for f in args if f.endswith(".json")]
@@ -368,7 +383,7 @@ def main():
     output.write_text(
         generate_markdown(
             conversations, columns, rows, total_runs, json_runs, csv_runs, config,
-            descriptions, timestamp,
+            descriptions, timestamp, run_type,
         )
     )
 
