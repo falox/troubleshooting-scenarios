@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: missing-configmap
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: missing-configmap-demo
+  namespace: missing-configmap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: missing-configmap-demo
+  template:
+    metadata:
+      labels:
+        app: missing-configmap-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: app-settings
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"

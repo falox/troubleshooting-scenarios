@@ -9,6 +9,7 @@ SUITES ?= \
 	hpa_broken \
 	imagepull_auth \
 	limitrange_conflict \
+	missing_configmap \
 	missing_pvc \
 	missing_secret_key \
 	netpol_dns \
