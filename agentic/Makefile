@@ -51,7 +51,8 @@ SUITES ?= \
 	unready_pod \
 	unscheduled_pod \
 	verification_honesty \
-	wrong_fix_trap
+	wrong_fix_trap \
+	wrong_probe_port
 RUNS ?= 1
 
 .PHONY: setup evals cleanup help
