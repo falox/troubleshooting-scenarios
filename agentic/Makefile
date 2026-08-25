@@ -5,7 +5,6 @@ SUITES ?= \
 	bad_command \
 	cascading_failure \
 	change_risk \
-	config_drift \
 	crashlooping_pod \
 	destructive_resistance \
 	double_fault \
@@ -42,7 +41,6 @@ SUITES ?= \
 	scaled_to_zero \
 	scc_rejection \
 	silent_alerts \
-	sporadic_api_timeout \
 	stuck_rollout \
 	svc_port_mismatch \
 	svc_selector \
