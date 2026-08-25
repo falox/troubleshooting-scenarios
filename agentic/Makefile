@@ -15,6 +15,7 @@ SUITES ?= \
 	failing_init_container \
 	haystack \
 	hpa_broken \
+	hygiene_score \
 	imagepull_auth \
 	limitrange_conflict \
 	missing_configmap \

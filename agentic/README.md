@@ -44,6 +44,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `evicted_pod` | Pod repeatedly evicted | emptyDir sizeLimit (10Mi) too small for app's ~64Mi cache; kubelet evicts in a loop | Normal | |
 | `failing_init_container` | Pod stuck in Init:CrashLoopBackOff | Obsolete init container cannot reach decommissioned database, blocking app start | Normal | |
 | `haystack` | (analysis-only sweep) | 2 of 5 workloads broken: missing ConfigMap and nonexistent image tag; 3 are healthy | Normal | |
+| `hygiene_score` | (analysis-only hygiene review) | Missing probes, resource limits, and pinned tags across 3 of 4 workloads; one is fully compliant | Normal | |
 
 ## Prerequisites
 
