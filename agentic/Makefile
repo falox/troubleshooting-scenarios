@@ -34,6 +34,7 @@ SUITES ?= \
 	priorityclass \
 	rbac_forbidden \
 	recurring_batch_failure \
+	red_herring \
 	refused_connections \
 	resource_quota \
 	route_port \
