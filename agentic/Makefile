@@ -39,6 +39,7 @@ SUITES ?= \
 	resource_quota \
 	rightsizing \
 	route_port \
+	scaled_to_zero \
 	scc_rejection \
 	sporadic_api_timeout \
 	svc_port_mismatch \
