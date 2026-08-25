@@ -12,6 +12,7 @@ SUITES ?= \
 	evicted_pod \
 	failed_job \
 	failing_api \
+	failing_init_container \
 	hpa_broken \
 	imagepull_auth \
 	limitrange_conflict \
