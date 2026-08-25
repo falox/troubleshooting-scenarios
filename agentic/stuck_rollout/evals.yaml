@@ -1,0 +1,43 @@
+- conversation_group_id: stuck_rollout
+  tag: agentic_stuck_rollout
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          A recent release of stuck-rollout-demo in namespace
+          stuck-rollout is not completing. The rollout has been stuck
+          for a while and the deployment reports it failed to progress.
+          The previous version was healthy. Analyze what went wrong and
+          recommend how to restore service.
+        targetNamespaces:
+          - stuck-rollout
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the new ReplicaSet's pod is in ImagePullBackOff
+        because the rolled-out image tag nginx-unprivileged:9.99-broken
+        does not exist, so the rollout hit ProgressDeadlineExceeded while
+        the old ReplicaSet keeps serving (maxUnavailable: 0).
+        Remediation: roll back to the previous working revision (or
+        restore a valid image tag) and verify the rollout completes with
+        the pod Running.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

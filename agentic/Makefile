@@ -43,6 +43,7 @@ SUITES ?= \
 	scc_rejection \
 	silent_alerts \
 	sporadic_api_timeout \
+	stuck_rollout \
 	svc_port_mismatch \
 	svc_selector \
 	timeout_connections \
