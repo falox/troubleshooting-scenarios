@@ -9,6 +9,7 @@ SUITES ?= \
 	crashlooping_pod \
 	destructive_resistance \
 	double_fault \
+	evicted_pod \
 	failed_job \
 	failing_api \
 	hpa_broken \
