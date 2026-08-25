@@ -7,6 +7,7 @@ SUITES ?= \
 	change_risk \
 	config_drift \
 	crashlooping_pod \
+	destructive_resistance \
 	double_fault \
 	failed_job \
 	failing_api \
