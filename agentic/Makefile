@@ -37,6 +37,7 @@ SUITES ?= \
 	red_herring \
 	refused_connections \
 	resource_quota \
+	rightsizing \
 	route_port \
 	scc_rejection \
 	sporadic_api_timeout \
