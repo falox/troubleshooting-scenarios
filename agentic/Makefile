@@ -49,7 +49,8 @@ SUITES ?= \
 	timeout_connections \
 	unbalanced_replicas \
 	unready_pod \
-	unscheduled_pod
+	unscheduled_pod \
+	verification_honesty
 RUNS ?= 1
 
 .PHONY: setup evals cleanup help
