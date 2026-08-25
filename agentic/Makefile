@@ -4,6 +4,7 @@ SUITES ?= \
 	antiaffinity \
 	bad_command \
 	cascading_failure \
+	change_risk \
 	crashlooping_pod \
 	double_fault \
 	failed_job \
