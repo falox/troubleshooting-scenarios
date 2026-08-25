@@ -1,0 +1,44 @@
+- conversation_group_id: orphaned_configmaps
+  tag: agentic_orphaned_configmaps
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Namespace orphaned-configmaps has accumulated ConfigMaps over
+          time. Analyze which team-created ConfigMaps are actually
+          consumed by running workloads and which are orphaned, and
+          propose a cleanup plan. Ignore platform-managed ConfigMaps
+          (such as kube-root-ca.crt and openshift-service-ca.crt). Do
+          not delete anything.
+        targetNamespaces:
+          - orphaned-configmaps
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        In use: app-config-live, consumed via envFrom by the running
+        cm-user-app deployment. Orphaned cleanup candidates:
+        app-config-old-v1, feature-flags-2023, and debug-settings, which
+        no workload references. Platform-managed maps (kube-root-ca.crt,
+        openshift-service-ca.crt) are out of scope per the request. The
+        plan should recommend confirming ownership and deleting the three
+        orphans, leaving app-config-live untouched.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

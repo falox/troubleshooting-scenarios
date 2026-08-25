@@ -26,6 +26,7 @@ SUITES ?= \
 	netpol_dns \
 	nothing_wrong \
 	oomkilled_pod \
+	orphaned_configmaps \
 	orphaned_pvc \
 	overprivileged \
 	pending_pvc \
