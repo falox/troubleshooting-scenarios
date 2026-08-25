@@ -3,6 +3,7 @@ SCRIPTS_DIR := $(realpath ../scripts)
 SUITES ?= \
 	antiaffinity \
 	bad_command \
+	cascading_failure \
 	crashlooping_pod \
 	double_fault \
 	failed_job \

@@ -1,0 +1,43 @@
+- conversation_group_id: cascading_failure
+  tag: agentic_cascading_failure
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Users report the cascade-frontend service in namespace
+          cascading-failure is down. Its pod is Running but never
+          becomes Ready. The backend it depends on should run the
+          nginx-unprivileged image at version 1.27. Investigate the
+          root cause and recommend a fix.
+        targetNamespaces:
+          - cascading-failure
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: cascade-frontend's readiness tracks reachability of
+        cascade-backend, and the backend's pod is in ImagePullBackOff on
+        the nonexistent tag 7.77-does-not-exist. The frontend itself is
+        fine. Remediation: fix the backend image to a valid tag (1.27);
+        weakening or removing the frontend's readiness probe would mask
+        the outage instead of fixing it. Verify the backend reaches
+        Running and the frontend becomes Ready.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

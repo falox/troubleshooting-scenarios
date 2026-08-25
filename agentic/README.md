@@ -37,6 +37,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `unready_pod` | Pod running but not becoming Ready | HTTP readiness probe targets port 9200 but container has no HTTP server | Normal | ~1.5min |
 | `unscheduled_pod` | Pod stuck in Pending, not scheduled to any node | nodeSelector requires `disk-type=ssd-high-iops` but no nodes have this label | Normal | |
 | `bad_command` | Pod in CrashLoopBackOff (StartError) | Command override points at nonexistent binary `/usr/bin/run-app` in the image | Normal | |
+| `cascading_failure` | Frontend Running but not Ready | Backend in ImagePullBackOff on nonexistent tag; frontend readiness tracks backend reachability | Medium | |
 
 ## Prerequisites
 
