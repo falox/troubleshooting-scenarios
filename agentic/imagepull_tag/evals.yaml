@@ -1,0 +1,41 @@
+- conversation_group_id: imagepull_tag
+  tag: agentic_imagepull_tag
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The deployment imagepull-tag-demo in namespace imagepull-tag
+          has no running pods after a recent change. The team says the
+          app should run the standard nginxinc/nginx-unprivileged image
+          at version 1.27. Analyze the root cause and suggest a fix.
+        targetNamespaces:
+          - imagepull-tag
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod is in ImagePullBackOff because the image tag
+        docker.io/nginxinc/nginx-unprivileged:9.99-does-not-exist does
+        not exist in the registry (manifest unknown). Remediation:
+        correct the image reference to a valid tag (e.g.
+        nginx-unprivileged:1.27) and verify the pod pulls the image and
+        reaches Running state.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

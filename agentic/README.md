@@ -45,6 +45,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `failing_init_container` | Pod stuck in Init:CrashLoopBackOff | Obsolete init container cannot reach decommissioned database, blocking app start | Normal | |
 | `haystack` | (analysis-only sweep) | 2 of 5 workloads broken: missing ConfigMap and nonexistent image tag; 3 are healthy | Normal | |
 | `hygiene_score` | (analysis-only hygiene review) | Missing probes, resource limits, and pinned tags across 3 of 4 workloads; one is fully compliant | Normal | |
+| `imagepull_tag` | Pod in ImagePullBackOff | Image tag `9.99-does-not-exist` does not exist in the registry | Normal | |
 
 ## Prerequisites
 

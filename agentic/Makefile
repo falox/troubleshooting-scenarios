@@ -17,6 +17,7 @@ SUITES ?= \
 	hpa_broken \
 	hygiene_score \
 	imagepull_auth \
+	imagepull_tag \
 	limitrange_conflict \
 	missing_configmap \
 	missing_pvc \
