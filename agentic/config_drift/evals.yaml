@@ -1,0 +1,46 @@
+- conversation_group_id: config_drift
+  tag: agentic_config_drift
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The gateway-proxy deployment in namespace config-drift is
+          returning connection errors to clients since some point today,
+          although its pod is Running and Ready and no deployment rollout
+          happened. Analyze what is causing the refused connections and
+          recommend a fix. Do not make any changes.
+        targetNamespaces:
+          - config-drift
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: a configuration change, not a workload fault. The log
+        timeline shows gateway-proxy healthy against db-prod.internal and
+        redis-prod.internal, then "config change detected in
+        /config/app.yaml", after which it loaded db-staging.internal and
+        redis-staging.internal and every upstream connect fails with
+        ECONNREFUSED (staging hosts are not reachable from production).
+        The mounted ConfigMap gateway-proxy-config confirms the drift: it
+        declares environment: production but points db_host/cache_host at
+        staging. Remediation: revert the ConfigMap's upstream hosts to the
+        production endpoints (db-prod.internal, redis-prod.internal).
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

@@ -39,6 +39,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `bad_command` | Pod in CrashLoopBackOff (StartError) | Command override points at nonexistent binary `/usr/bin/run-app` in the image | Normal | |
 | `cascading_failure` | Frontend Running but not Ready | Backend in ImagePullBackOff on nonexistent tag; frontend readiness tracks backend reachability | Medium | |
 | `change_risk` | (analysis-only pre-flight review) | Proposed manifest in ConfigMap drops probes, unpins image, removes resources and securityContext | Normal | |
+| `config_drift` | Gateway returning connection errors, pod Running/Ready | ConfigMap hot-reloaded staging upstream hosts into production config | Medium | |
 
 ## Prerequisites
 

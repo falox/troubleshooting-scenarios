@@ -5,6 +5,7 @@ SUITES ?= \
 	bad_command \
 	cascading_failure \
 	change_risk \
+	config_drift \
 	crashlooping_pod \
 	double_fault \
 	failed_job \
