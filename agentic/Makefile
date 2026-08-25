@@ -28,6 +28,7 @@ SUITES ?= \
 	oomkilled_pod \
 	orphaned_configmaps \
 	orphaned_pvc \
+	out_of_scope \
 	overprivileged \
 	pending_pvc \
 	priorityclass \
