@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: legacy-migration
+  labels:
+    purpose: eval-test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scc-demo
+  namespace: legacy-migration
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scc-demo
+  template:
+    metadata:
+      labels:
+        app: scc-demo
+    spec:
+      containers:
+        - name: nginx
+          image: docker.io/nginxinc/nginx-unprivileged:1.27
+          ports:
+            - containerPort: 8080
+          securityContext:
+            privileged: true
+            runAsUser: 0
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
