@@ -24,6 +24,7 @@ SUITES ?= \
 	missing_pvc \
 	missing_secret_key \
 	netpol_dns \
+	nothing_wrong \
 	oomkilled_pod \
 	orphaned_pvc \
 	overprivileged \
