@@ -50,7 +50,8 @@ SUITES ?= \
 	unbalanced_replicas \
 	unready_pod \
 	unscheduled_pod \
-	verification_honesty
+	verification_honesty \
+	wrong_fix_trap
 RUNS ?= 1
 
 .PHONY: setup evals cleanup help
