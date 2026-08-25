@@ -1,0 +1,46 @@
+- conversation_group_id: silent_alerts
+  tag: agentic_silent_alerts
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          During a recent memory incident in namespace silent-alerts,
+          the PodMemoryHigh alert in PrometheusRule silent-alert-rules
+          never fired even though pods were far above the threshold.
+          Analyze the rules and explain why they stay silent, and
+          propose corrected rule definitions. Do not modify anything.
+        targetNamespaces:
+          - silent-alerts
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Both alerts reference metric names that do not exist:
+        PodMemoryHigh uses container_memory_working_set_byte (the real
+        metric is container_memory_working_set_bytes) and
+        PodRestartingTooOften uses
+        kube_pod_container_status_restart_total (the real metric is
+        kube_pod_container_status_restarts_total). A nonexistent metric
+        always evaluates to an empty vector, so the expressions can never
+        exceed any threshold and the alerts can never fire. The proposal
+        should give the corrected expressions using the real metric
+        names.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

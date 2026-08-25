@@ -53,6 +53,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `red_herring` | App crash-looping with decoy | Real crash-loop from missing DATABASE_URL plus intentionally not-Ready canary deployment | Medium | |
 | `rightsizing` | (analysis-only capacity review) | Deployment resource requests vastly exceed actual observed usage | Normal | |
 | `scaled_to_zero` | No pods running, service down | Deployment replicas set to 0; workload itself is healthy | Normal | |
+| `silent_alerts` | Alerts never fire despite threshold breaches | Alert expressions reference misspelled metric names; unknown metrics yield empty vectors | Normal | |
 
 ## Prerequisites
 

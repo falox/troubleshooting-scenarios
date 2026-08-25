@@ -41,6 +41,7 @@ SUITES ?= \
 	route_port \
 	scaled_to_zero \
 	scc_rejection \
+	silent_alerts \
 	sporadic_api_timeout \
 	svc_port_mismatch \
 	svc_selector \
