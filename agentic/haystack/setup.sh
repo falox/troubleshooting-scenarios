@@ -18,6 +18,11 @@ until [ "$ATTEMPT" -ge 12 ]; do
   fi
   sleep 5
 done
+if ! echo "$STATE" | grep -q "CreateContainerConfigError"; then
+  echo "ERROR: svc-charlie did not reach CreateContainerConfigError within 60s"
+  oc get pods -n "$NS" -o wide
+  exit 1
+fi
 
 echo "Waiting for svc-echo to exhibit ImagePullBackOff..."
 ATTEMPT=0
@@ -31,6 +36,11 @@ until [ "$ATTEMPT" -ge 12 ]; do
   fi
   sleep 5
 done
+if ! echo "$STATE" | grep -Eq "ErrImagePull|ImagePullBackOff"; then
+  echo "ERROR: svc-echo did not reach ImagePullBackOff within 60s"
+  oc get pods -n "$NS" -o wide
+  exit 1
+fi
 
 echo "Waiting for healthy workloads to become available..."
 for deploy in svc-alpha svc-bravo svc-delta; do

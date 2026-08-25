@@ -17,6 +17,11 @@ until [ "$ATTEMPT" -ge 24 ]; do
   fi
   sleep 5
 done
+if ! echo "$STATE" | grep -Eq "CrashLoopBackOff|Error"; then
+  echo "ERROR: herring-app did not reach expected fault state within 120s"
+  oc get pods -n "$NS" -o wide
+  exit 1
+fi
 
 echo "Waiting for maintenance-canary to be Running but not Ready..."
 ATTEMPT=0

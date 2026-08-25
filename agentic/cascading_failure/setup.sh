@@ -18,6 +18,11 @@ until [ "$ATTEMPT" -ge 24 ]; do
   fi
   sleep 5
 done
+if ! echo "$STATE" | grep -Eq "ErrImagePull|ImagePullBackOff"; then
+  echo "ERROR: cascade-backend did not reach ImagePullBackOff within 120s"
+  oc get pods -n "$NS" -o wide
+  exit 1
+fi
 
 echo "Waiting for cascade-frontend to be Running but not Ready..."
 ATTEMPT=0
