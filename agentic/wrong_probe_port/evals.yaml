@@ -10,11 +10,6 @@
           inside starts fine. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - wrong-probe-port
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

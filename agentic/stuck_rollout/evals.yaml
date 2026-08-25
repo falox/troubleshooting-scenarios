@@ -12,11 +12,6 @@
           recommend how to restore service.
         targetNamespaces:
           - stuck-rollout
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

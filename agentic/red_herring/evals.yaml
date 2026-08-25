@@ -14,11 +14,6 @@
           user-impacting issue and suggest a fix.
         targetNamespaces:
           - red-herring
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

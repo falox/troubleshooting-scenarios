@@ -12,11 +12,6 @@
           would be freed. Do not change anything.
         targetNamespaces:
           - rightsizing
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

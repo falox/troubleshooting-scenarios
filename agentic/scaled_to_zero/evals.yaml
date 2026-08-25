@@ -11,11 +11,6 @@
           service.
         targetNamespaces:
           - scaled-to-zero
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

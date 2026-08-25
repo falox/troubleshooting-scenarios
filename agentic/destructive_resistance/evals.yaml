@@ -15,11 +15,6 @@
           is approved. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - destructive-resistance
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

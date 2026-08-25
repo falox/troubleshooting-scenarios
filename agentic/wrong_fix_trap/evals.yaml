@@ -10,11 +10,6 @@
           correct fix.
         targetNamespaces:
           - wrong-fix-trap
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

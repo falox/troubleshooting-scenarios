@@ -12,11 +12,6 @@
           root cause and suggest a fix.
         targetNamespaces:
           - route-port-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -54,11 +49,6 @@
           root cause and suggest a fix.
         targetNamespaces:
           - route-port-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -96,11 +86,6 @@
           root cause and suggest a fix.
         targetNamespaces:
           - route-port-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

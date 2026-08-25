@@ -12,11 +12,6 @@
           cause and suggest how to fix it.
         targetNamespaces:
           - failing-init-container
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

@@ -12,11 +12,6 @@
           propose corrected rule definitions. Do not modify anything.
         targetNamespaces:
           - silent-alerts
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

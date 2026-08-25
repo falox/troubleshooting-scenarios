@@ -12,11 +12,6 @@
           are missing. Do not modify anything.
         targetNamespaces:
           - missing-alerts
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

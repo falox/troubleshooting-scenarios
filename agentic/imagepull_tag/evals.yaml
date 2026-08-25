@@ -11,11 +11,6 @@
           at version 1.27. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - imagepull-tag
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 

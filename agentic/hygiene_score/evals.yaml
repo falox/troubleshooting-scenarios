@@ -13,11 +13,6 @@
           Do not change anything.
         targetNamespaces:
           - hygiene-score
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
