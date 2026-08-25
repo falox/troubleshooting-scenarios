@@ -19,6 +19,7 @@ SUITES ?= \
 	imagepull_auth \
 	imagepull_tag \
 	limitrange_conflict \
+	missing_alerts \
 	missing_configmap \
 	missing_pvc \
 	missing_secret_key \

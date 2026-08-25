@@ -1,0 +1,44 @@
+- conversation_group_id: missing_alerts
+  tag: agentic_missing_alerts
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Last month two incidents in namespace missing-alerts went
+          unnoticed until users complained. Review the alerting coverage
+          for the namespace's workloads (see the PrometheusRule
+          minimal-alert-rules) and propose the high-value alerts that
+          are missing. Do not modify anything.
+        targetNamespaces:
+          - missing-alerts
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        The namespace runs the payments-api workload but its only
+        PrometheusRule (minimal-alert-rules) contains a single recording
+        rule and zero alerts. No coverage for crash loops, pod
+        availability/readiness, or memory/CPU saturation. The proposal
+        should include concrete new alert rules (e.g. restart-rate over a
+        window, deployment replicas unavailable for 10-15m, container
+        memory approaching its limit), each with a "for" duration and an
+        appropriate severity label, without modifying the existing rule.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75
