@@ -36,6 +36,7 @@ Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspee
 | `unbalanced_replicas` | Namespaces have different pod counts | fleet-alpha has 6 pods vs fleet-alpha1 with 9, due to different deployment sets | Normal | |
 | `unready_pod` | Pod running but not becoming Ready | HTTP readiness probe targets port 9200 but container has no HTTP server | Normal | ~1.5min |
 | `unscheduled_pod` | Pod stuck in Pending, not scheduled to any node | nodeSelector requires `disk-type=ssd-high-iops` but no nodes have this label | Normal | |
+| `bad_command` | Pod in CrashLoopBackOff (StartError) | Command override points at nonexistent binary `/usr/bin/run-app` in the image | Normal | |
 
 ## Prerequisites
 

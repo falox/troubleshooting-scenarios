@@ -2,6 +2,7 @@ SCRIPTS_DIR := $(realpath ../scripts)
 
 SUITES ?= \
 	antiaffinity \
+	bad_command \
 	crashlooping_pod \
 	double_fault \
 	failed_job \
@@ -18,15 +19,15 @@ SUITES ?= \
 	overprivileged \
 	pending_pvc \
 	priorityclass \
-	route_port \
 	rbac_forbidden \
 	recurring_batch_failure \
 	refused_connections \
 	resource_quota \
+	route_port \
 	scc_rejection \
 	sporadic_api_timeout \
-	svc_selector \
 	svc_port_mismatch \
+	svc_selector \
 	timeout_connections \
 	unbalanced_replicas \
 	unready_pod \
