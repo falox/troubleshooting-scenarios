@@ -1,7 +1,3 @@
-# The service selector is correct so endpoints exist, but targetPort 8081
-# doesn't match the container's listening port 8080 — every connection
-# through the service is refused. Distinct from svc-selector (zero
-# endpoints): here the endpoints are present but point at the wrong port.
 apiVersion: v1
 kind: Namespace
 metadata:

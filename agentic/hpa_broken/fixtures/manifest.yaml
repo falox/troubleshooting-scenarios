@@ -1,6 +1,3 @@
-# The deployment sets no resource requests, so the HPA's CPU utilization
-# target can never be computed — targets show <unknown> and ScalingActive
-# is False with FailedGetResourceMetric ("missing request for cpu").
 apiVersion: v1
 kind: Namespace
 metadata:

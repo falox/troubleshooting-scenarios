@@ -1,6 +1,3 @@
-# A plain web app whose ServiceAccount is bound to cluster-admin within the
-# namespace — massive over-privilege for a workload that needs nothing from
-# the API. Analysis-only: classify the risk and propose least privilege.
 apiVersion: v1
 kind: Namespace
 metadata:

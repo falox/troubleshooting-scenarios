@@ -1,7 +1,3 @@
-# The namespace LimitRange requires every container to request at least
-# 256Mi of memory, but the deployment requests only 64Mi (limit 128Mi).
-# The ReplicaSet gets "forbidden: minimum memory usage per Container is
-# 256Mi" and no pod is ever created.
 apiVersion: v1
 kind: Namespace
 metadata:
