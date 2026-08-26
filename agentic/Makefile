@@ -112,7 +112,7 @@ else
 	    --evals $$scenario/evals.yaml \
 	    --results-dir $(LOGS_DIR) \
 	    --runs $(RUNS) \
-	    --tag $(if $(TAG),$(TAG)$(COMMA))$$(echo $$scenario | tr '-' '_'); \
+	    --tag $$(echo $$scenario | tr '-' '_'); \
 	  echo "==> Cleanup: $$scenario"; \
 	  if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh; fi; \
 	done

@@ -108,50 +108,6 @@ def md_cell(passed: int, total: int) -> str:
     return f"{passed}/{total}"
 
 
-def split_model_scenario(cid: str) -> tuple[str, str]:
-    """Split 'scenario_model' into (scenario, model) using the last _ segment."""
-    parts = cid.rsplit("_", 1)
-    if len(parts) == 2:
-        return parts[0], parts[1]
-    return cid, ""
-
-
-def generate_pivot_table(
-    conversations: list[str],
-    rows: list[dict],
-) -> str:
-    """Build a model-vs-scenario pivot table with Overall results."""
-    scenarios = []
-    seen_scenarios = set()
-    models = []
-    seen_models = set()
-    pivot = {}
-
-    for cid, row in zip(conversations, rows):
-        scenario, model = split_model_scenario(cid)
-        if scenario not in seen_scenarios:
-            seen_scenarios.add(scenario)
-            scenarios.append(scenario)
-        if model not in seen_models:
-            seen_models.add(model)
-            models.append(model)
-        pivot[(model, scenario)] = row["Overall"]
-
-    if not models or not scenarios:
-        return ""
-
-    header = "| Model | " + " | ".join(scenarios) + " |"
-    separator = "|---|" + "|".join("---" for _ in scenarios) + "|"
-    lines = [header, separator]
-    for model in models:
-        cells = []
-        for scenario in scenarios:
-            value = pivot.get((model, scenario))
-            cells.append(format_cell(value) if value else "")
-        lines.append(f"| {model} | " + " | ".join(cells) + " |")
-    lines.append("")
-    return "\n".join(lines)
-
 
 def generate_details(
     conversations: list[str],
@@ -297,11 +253,7 @@ def generate_markdown(
     if formatted:
         lines.append(formatted)
 
-    pivot = generate_pivot_table(conversations, rows)
-    if pivot:
-        lines.extend(["", pivot])
-
-    lines.extend(["## Details", "", header, separator])
+    lines.extend(["", header, separator])
     for cid, row in zip(conversations, rows):
         anchor = cid.lower().replace(" ", "-")
         cells = " | ".join(format_cell(row[c]) for c in columns)
