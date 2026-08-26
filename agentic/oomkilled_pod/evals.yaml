@@ -27,11 +27,10 @@
 
       expected_outcome: >-
         Root cause: The report-generator pods are being OOMKilled because
-        the container runs a Python script that continuously allocates ~1MB
-        per second, exceeding the 60Mi memory limit. The container has a
-        deliberate memory leak that causes unbounded memory growth until the
-        kernel OOM killer terminates the process. Fix: Either increase the
-        memory limit or fix the application code to avoid the memory leak.
+        the container runs a Python script that caches every processed
+        record without eviction, causing unbounded memory growth that
+        exceeds the 60Mi memory limit. Fix: Either increase the memory
+        limit or fix the application code to bound or evict the cache.
 
       turn_metrics:
         - "custom:openshift_agentic_run_status"

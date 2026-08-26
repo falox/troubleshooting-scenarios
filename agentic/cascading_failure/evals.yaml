@@ -24,7 +24,7 @@
       expected_outcome: >-
         Root cause: order-frontend's readiness tracks reachability of
         order-backend, and the backend's pod is in ImagePullBackOff on
-        the nonexistent tag 7.77-does-not-exist. The frontend itself is
+        the nonexistent tag 1.27-hardened. The frontend itself is
         fine. Remediation: fix the backend image to a valid tag (1.27);
         weakening or removing the frontend's readiness probe would mask
         the outage instead of fixing it. Verify the backend reaches

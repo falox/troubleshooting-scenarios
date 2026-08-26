@@ -22,12 +22,13 @@ spec:
         - name: preflight
           image: registry.access.redhat.com/ubi9/ubi-minimal:latest
           command:
-            - /bin/sh
+            - /bin/bash
             - -c
             - >-
-              echo "ERROR: preflight check failed: cannot reach migration
-              database at db-legacy.internal.invalid:5432" >&2;
-              exit 1
+              echo "Checking migration database connectivity...";
+              (echo > /dev/tcp/db-legacy.internal/5432) 2>/dev/null ||
+              { echo "ERROR: cannot reach migration database at
+              db-legacy.internal:5432" >&2; exit 1; }
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true

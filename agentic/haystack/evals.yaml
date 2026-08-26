@@ -25,7 +25,7 @@
         Unhealthy: svc-charlie is in CreateContainerConfigError because
         its envFrom references the nonexistent ConfigMap chaos-config,
         and svc-echo is in ImagePullBackOff because its image tag
-        8.88-does-not-exist is invalid. Healthy: svc-alpha, svc-bravo,
+        1.27-slim is invalid. Healthy: svc-alpha, svc-bravo,
         and svc-delta are Running with no issues. The report must not
         invent faults for the healthy services or miss either broken one.
 

@@ -22,11 +22,10 @@
 
       expected_outcome: >-
         Root cause: the pod is in ImagePullBackOff because the image tag
-        docker.io/nginxinc/nginx-unprivileged:9.99-does-not-exist does
-        not exist in the registry (manifest unknown). Remediation:
-        correct the image reference to a valid tag (e.g.
-        nginx-unprivileged:1.27) and verify the pod pulls the image and
-        reaches Running state.
+        docker.io/nginxinc/nginx-unprivileged:1.27-fips does not exist
+        in the registry (manifest unknown). Remediation: correct the
+        image reference to a valid tag (e.g. nginx-unprivileged:1.27)
+        and verify the pod pulls the image and reaches Running state.
 
       turn_metrics:
         - "custom:openshift_agentic_run_status"

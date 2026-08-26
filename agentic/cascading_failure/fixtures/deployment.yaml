@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: docker.io/nginxinc/nginx-unprivileged:7.77-does-not-exist
+          image: docker.io/nginxinc/nginx-unprivileged:1.27-hardened
           ports:
             - containerPort: 8080
           securityContext:

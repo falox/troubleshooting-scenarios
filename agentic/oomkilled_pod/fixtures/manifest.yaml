@@ -29,13 +29,17 @@ spec:
         - python3
         - -c
         - |
-          import time
-          print("Starting application...")
-          data = []
+          import time, json
+          print("Starting report generator...")
+          cache = {}
+          seq = 0
           while True:
-              data.append("x" * 1000000)
-              print(f"Allocated {len(data)} MB")
-              time.sleep(1)
+              record = {"seq": seq, "status": "pending", "payload": json.dumps({"ts": seq})}
+              cache[seq] = record
+              seq += 1
+              if seq % 500 == 0:
+                  print(f"Processed {seq} records, cache size: {len(cache)}")
+              time.sleep(0.05)
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false

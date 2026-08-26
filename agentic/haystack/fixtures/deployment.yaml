@@ -155,7 +155,7 @@ spec:
     spec:
       containers:
         - name: nginx
-          image: docker.io/nginxinc/nginx-unprivileged:8.88-does-not-exist
+          image: docker.io/nginxinc/nginx-unprivileged:1.27-slim
           ports:
             - containerPort: 8080
           securityContext:

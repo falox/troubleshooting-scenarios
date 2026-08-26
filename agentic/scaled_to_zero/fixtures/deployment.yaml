@@ -9,7 +9,7 @@ metadata:
   name: newsletter-sender
   namespace: newsletter-sender
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app: newsletter-sender
