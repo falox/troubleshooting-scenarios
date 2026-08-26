@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="overprivileged-demo"
 
 oc delete deployment overprivileged-webapp -n "$NS" --ignore-not-found

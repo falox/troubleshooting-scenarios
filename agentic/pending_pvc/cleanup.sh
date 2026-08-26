@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="cache-tier"
 
 oc delete -f "$(cd "$(dirname "$0")/fixtures" && pwd)/prometheusrule.yaml" --ignore-not-found

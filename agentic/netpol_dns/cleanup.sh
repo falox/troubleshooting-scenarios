@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="netpol-dns-test"
 
 echo "Removing netpol_dns scenario resources from namespace ${NS}…"

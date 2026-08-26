@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="discovery-hub"
 
 echo "Removing unready_pod scenario resources from namespace ${NS}…"

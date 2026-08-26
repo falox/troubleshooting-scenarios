@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="credential-store"
 
 oc delete deployment missing-secret-key-demo -n "$NS" --ignore-not-found

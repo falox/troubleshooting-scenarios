@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="svc-selector-test"
 
 echo "Removing svc_selector scenario resources from namespace ${NS}…"

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="hpa-scaling"
 
 oc delete hpa hpa-underspecified-demo -n "$NS" --ignore-not-found

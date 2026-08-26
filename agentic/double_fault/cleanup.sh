@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="multi-issue-app"
 
 oc delete deployment double-fault-demo -n "$NS" --ignore-not-found

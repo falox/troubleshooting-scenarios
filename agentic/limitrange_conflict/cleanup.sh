@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="limitrange-demo"
 
 oc delete deployment limitrange-demo -n "$NS" --ignore-not-found

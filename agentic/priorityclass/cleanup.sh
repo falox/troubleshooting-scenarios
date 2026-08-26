@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="priorityclass-test"
 
 echo "Removing priorityclass scenario resources from namespace ${NS}…"

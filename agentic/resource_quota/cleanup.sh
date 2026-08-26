@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="team-onboarding"
 
 oc delete deployment quota-victim-app -n "$NS" --ignore-not-found

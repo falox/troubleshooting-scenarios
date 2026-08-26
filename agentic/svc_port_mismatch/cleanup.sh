@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 NS="svc-port-demo"
 
 echo "Removing svc_port_mismatch scenario resources from namespace ${NS}…"
