@@ -1,6 +1,6 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
-SUITES ?= \
+ALL_SCENARIOS := \
 	antiaffinity \
 	bad_command \
 	cascading_failure \
@@ -51,9 +51,34 @@ SUITES ?= \
 	verification_honesty \
 	wrong_fix_trap \
 	wrong_probe_port
+SCENARIO ?=
 RUNS ?= 1
+TAG ?=
 
-.PHONY: setup evals cleanup help
+COMMA := ,
+TAG := $(subst  ,$(COMMA),$(strip $(subst $(COMMA), ,$(TAG))))
+
+# Determine which scenarios to run:
+#   SCENARIO narrows the candidate list, TAG filters by evals.yaml tags
+ifdef SCENARIO
+  _CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
+else
+  _CANDIDATES := $(ALL_SCENARIOS)
+endif
+
+ifdef TAG
+  SCENARIOS := $(shell for d in $(_CANDIDATES); do \
+    match=true; \
+    for t in $(subst $(COMMA), ,$(TAG)); do \
+      grep -q '^    - '"$$t"'$$' $$d/evals.yaml || match=false; \
+    done; \
+    $$match && echo $$d; \
+  done)
+else
+  SCENARIOS := $(_CANDIDATES)
+endif
+
+.PHONY: setup eval cleanup help
 
 setup:
 	$(SCRIPTS_DIR)/setup-venv.sh
@@ -62,10 +87,13 @@ setup:
 	@echo "  https://github.com/openshift/lightspeed-agentic-operator/tree/main/hack/quickstart"
 	@echo "This will be automated in the future."
 
-evals:
-	@for suite in $(SUITES); do \
-	  if [ ! -d "$$suite" ]; then \
-	    echo "Error: suite '$$suite' not found. Available suites:"; \
+eval:
+ifeq ($(SCENARIOS),)
+	@echo "No scenarios match the given filters."
+else
+	@for scenario in $(SCENARIOS); do \
+	  if [ ! -d "$$scenario" ]; then \
+	    echo "Error: scenario '$$scenario' not found. Available scenarios:"; \
 	    for d in */; do \
 	      if [ -f "$$d/evals.yaml" ]; then echo "  $${d%/}"; fi; \
 	    done; \
@@ -75,32 +103,33 @@ evals:
 	$(eval DATETIME := $(shell date +%Y%m%d_%H%M%S))
 	$(eval LOGS_DIR := results/logs/$(DATETIME))
 	$(eval SUMMARY := results/results_$(DATETIME).md)
-	@for suite in $(SUITES); do \
-	  echo "==> Setup: $$suite"; \
-	  if [ -x $$suite/setup.sh ]; then bash $$suite/setup.sh; fi; \
-	  echo "==> Suite: $$suite"; \
+	@for scenario in $(SCENARIOS); do \
+	  echo "==> Setup: $$scenario"; \
+	  if [ -x $$scenario/setup.sh ]; then bash $$scenario/setup.sh; fi; \
+	  echo "==> Scenario: $$scenario"; \
 	  bash $(SCRIPTS_DIR)/run-agentic-evals.sh \
 	    --system-config system.yaml \
-	    --evals $$suite/evals.yaml \
+	    --evals $$scenario/evals.yaml \
 	    --results-dir $(LOGS_DIR) \
 	    --runs $(RUNS) \
-	    --tag agentic_$$(echo $$suite | tr '-' '_'); \
-	  echo "==> Cleanup: $$suite"; \
-	  if [ -x $$suite/cleanup.sh ]; then bash $$suite/cleanup.sh; fi; \
+	    --tag $(if $(TAG),$(TAG)$(COMMA))$$(echo $$scenario | tr '-' '_'); \
+	  echo "==> Cleanup: $$scenario"; \
+	  if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh; fi; \
 	done
 	@echo ""
 	@echo "==> Generating summary..."
 	@../venv/bin/python $(SCRIPTS_DIR)/summarize-agentic-evals.py \
 	  $(LOGS_DIR) \
 	  --output $(SUMMARY) \
-	  $(foreach s,$(SUITES),$s/evals.yaml) \
+	  $(foreach s,$(SCENARIOS),$s/evals.yaml) \
 	  $$(find $(LOGS_DIR) -name '*_summary.json' | sort)
+endif
 
 cleanup:
-	@for suite in $(SUITES); do \
-	  if [ -x $$suite/cleanup.sh ]; then \
-	    echo "==> Cleanup: $$suite"; \
-	    bash $$suite/cleanup.sh; \
+	@for scenario in $(SCENARIOS); do \
+	  if [ -x $$scenario/cleanup.sh ]; then \
+	    echo "==> Cleanup: $$scenario"; \
+	    bash $$scenario/cleanup.sh; \
 	  fi; \
 	done
 	rm -rf ../venv
@@ -111,13 +140,14 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  setup    Install venv (lightspeed-agentic-operator is manual for now)"
-	@echo "  evals    Run all $(words $(SUITES)) suites"
-	@echo "  cleanup  Run suite cleanup scripts and remove venv"
+	@echo "  eval     Run scenarios ($(words $(SCENARIOS)) selected)"
+	@echo "  cleanup  Run scenario cleanup scripts and remove venv"
 	@echo "  help     Show this help"
 	@echo ""
 	@echo "Options:"
-	@echo "  RUNS=N     Number of runs per suite (default: 1)"
-	@echo "  SUITES=... Space-separated list of suites to run (default: all)"
+	@echo "  SCENARIO=...  Comma-separated scenario(s) to run (default: all)"
+	@echo "  RUNS=N        Number of runs per scenario (default: 1)"
+	@echo "  TAG=...       Filter by tag, e.g. TAG=hard, TAG=alerts-adapter (default: none)"
 	@echo ""
-	@echo "Suites:"
-	@echo "$(SUITES)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'
+	@echo "Scenarios:"
+	@echo "$(SCENARIOS)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'

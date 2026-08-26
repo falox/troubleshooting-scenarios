@@ -1,5 +1,8 @@
 - conversation_group_id: failed_job
-  tag: agentic_failed_job
+  tag:
+    - failed_job
+    - agentic
+    - normal
   setup_script: ./setup.sh
   cleanup_script: ./cleanup.sh
 

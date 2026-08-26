@@ -1,5 +1,8 @@
 - conversation_group_id: comm-platform
-  tag: agentic_haystack
+  tag:
+    - haystack
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

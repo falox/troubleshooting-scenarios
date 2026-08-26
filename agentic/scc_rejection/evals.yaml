@@ -1,5 +1,8 @@
 - conversation_group_id: scc_rejection
-  tag: agentic_scc_rejection
+  tag:
+    - scc_rejection
+    - agentic
+    - normal
 
 
   turns:

@@ -1,5 +1,8 @@
 - conversation_group_id: missing_secret_key
-  tag: agentic_missing_secret_key
+  tag:
+    - missing_secret_key
+    - agentic
+    - normal
 
 
   turns:

@@ -1,5 +1,9 @@
 - conversation_group_id: oomkilled_pod
-  tag: agentic_oomkilled_pod
+  tag:
+    - oomkilled_pod
+    - agentic
+    - alerts-adapter
+    - normal
 
   turns:
     - turn_id: turn_1

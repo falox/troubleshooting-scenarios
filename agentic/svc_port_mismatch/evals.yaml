@@ -1,5 +1,8 @@
 - conversation_group_id: svc_port_mismatch
-  tag: agentic_svc_port_mismatch
+  tag:
+    - svc_port_mismatch
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

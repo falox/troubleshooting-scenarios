@@ -1,5 +1,8 @@
 - conversation_group_id: imagepull_auth
-  tag: agentic_imagepull_auth
+  tag:
+    - imagepull_auth
+    - agentic
+    - normal
   setup_script: ./setup.sh
   cleanup_script: ./cleanup.sh
 

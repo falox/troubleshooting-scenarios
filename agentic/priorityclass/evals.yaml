@@ -1,5 +1,8 @@
 - conversation_group_id: priorityclass
-  tag: agentic_priorityclass
+  tag:
+    - priorityclass
+    - agentic
+    - normal
 
 
   turns:

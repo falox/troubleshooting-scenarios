@@ -1,5 +1,8 @@
 - conversation_group_id: refused_connections
-  tag: agentic_refused_connections
+  tag:
+    - refused_connections
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

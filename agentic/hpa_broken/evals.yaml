@@ -1,5 +1,8 @@
 - conversation_group_id: hpa_broken
-  tag: agentic_hpa_broken
+  tag:
+    - hpa_broken
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

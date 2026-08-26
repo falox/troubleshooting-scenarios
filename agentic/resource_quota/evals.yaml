@@ -1,5 +1,8 @@
 - conversation_group_id: resource_quota
-  tag: agentic_resource_quota
+  tag:
+    - resource_quota
+    - agentic
+    - normal
 
 
   turns:

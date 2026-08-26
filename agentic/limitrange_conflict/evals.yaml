@@ -1,5 +1,8 @@
 - conversation_group_id: limitrange_conflict
-  tag: agentic_limitrange_conflict
+  tag:
+    - limitrange_conflict
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

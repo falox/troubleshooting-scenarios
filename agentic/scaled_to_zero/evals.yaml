@@ -1,5 +1,8 @@
 - conversation_group_id: scaled_to_zero
-  tag: agentic_scaled_to_zero
+  tag:
+    - scaled_to_zero
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

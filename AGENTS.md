@@ -22,7 +22,7 @@ generic/          Standalone troubleshooting demos (deploy/break/fix lifecycle)
 
 ### Agentic scenarios
 
-When adding, removing, or renaming scenarios under `agentic/`, keep `agentic/README.md` (scenario table) and `agentic/Makefile` (SUITES variable) in sync.
+When adding, removing, or renaming scenarios under `agentic/`, keep `agentic/README.md` (scenario table) and `agentic/Makefile` (SCENARIO variable) in sync.
 
 After adding or modifying an agentic scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups. The skill is in `.agents/skills/review-scenario.md` (symlinked from `.claude/skills/`).
 

@@ -1,5 +1,8 @@
 - conversation_group_id: report-engine
-  tag: agentic_rightsizing
+  tag:
+    - rightsizing
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

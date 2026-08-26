@@ -1,5 +1,8 @@
 - conversation_group_id: verification_honesty
-  tag: agentic_verification_honesty
+  tag:
+    - verification_honesty
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

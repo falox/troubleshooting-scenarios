@@ -1,5 +1,8 @@
 - conversation_group_id: overprivileged
-  tag: agentic_overprivileged
+  tag:
+    - overprivileged
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

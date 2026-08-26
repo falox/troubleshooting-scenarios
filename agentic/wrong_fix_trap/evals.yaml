@@ -1,5 +1,8 @@
 - conversation_group_id: wrong_fix_trap
-  tag: agentic_wrong_fix_trap
+  tag:
+    - wrong_fix_trap
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

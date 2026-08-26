@@ -1,5 +1,8 @@
 - conversation_group_id: netpol_dns
-  tag: agentic_netpol_dns
+  tag:
+    - netpol_dns
+    - agentic
+    - medium
 
 
   turns:

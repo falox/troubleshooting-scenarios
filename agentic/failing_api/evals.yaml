@@ -1,5 +1,8 @@
 - conversation_group_id: failing_api
-  tag: agentic_failing_api
+  tag:
+    - failing_api
+    - agentic
+    - hard
 
   turns:
     - turn_id: turn_1

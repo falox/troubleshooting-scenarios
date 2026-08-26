@@ -1,5 +1,8 @@
 - conversation_group_id: unbalanced_replicas
-  tag: agentic_unbalanced_replicas
+  tag:
+    - unbalanced_replicas
+    - agentic
+    - normal
 
 
   turns:

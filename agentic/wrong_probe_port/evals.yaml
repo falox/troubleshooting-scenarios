@@ -1,5 +1,8 @@
 - conversation_group_id: wrong_probe_port
-  tag: agentic_wrong_probe_port
+  tag:
+    - wrong_probe_port
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

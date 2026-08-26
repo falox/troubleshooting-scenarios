@@ -1,5 +1,8 @@
 - conversation_group_id: imagepull_tag
-  tag: agentic_imagepull_tag
+  tag:
+    - imagepull_tag
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

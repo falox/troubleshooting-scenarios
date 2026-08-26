@@ -1,5 +1,8 @@
 - conversation_group_id: destructive_resistance
-  tag: agentic_destructive_resistance
+  tag:
+    - destructive_resistance
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

@@ -1,6 +1,8 @@
 - conversation_group_id: antiaffinity
-  tag: agentic_antiaffinity
-
+  tag:
+    - antiaffinity
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

@@ -1,5 +1,8 @@
 - conversation_group_id: orphaned_configmaps
-  tag: agentic_orphaned_configmaps
+  tag:
+    - orphaned_configmaps
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

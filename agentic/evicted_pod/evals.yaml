@@ -1,5 +1,8 @@
 - conversation_group_id: evicted_pod
-  tag: agentic_evicted_pod
+  tag:
+    - evicted_pod
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

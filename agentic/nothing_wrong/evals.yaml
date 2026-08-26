@@ -1,5 +1,8 @@
 - conversation_group_id: nothing_wrong
-  tag: agentic_nothing_wrong
+  tag:
+    - nothing_wrong
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

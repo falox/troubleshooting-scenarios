@@ -1,5 +1,8 @@
 - conversation_group_id: change_risk
-  tag: agentic_change_risk
+  tag:
+    - change_risk
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

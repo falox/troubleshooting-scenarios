@@ -1,5 +1,9 @@
 - conversation_group_id: crashlooping_pod
-  tag: agentic_crashlooping_pod
+  tag:
+    - crashlooping_pod
+    - agentic
+    - alerts-adapter
+    - normal
 
 
   turns:

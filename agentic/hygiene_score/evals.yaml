@@ -1,5 +1,8 @@
 - conversation_group_id: hygiene_score
-  tag: agentic_hygiene_score
+  tag:
+    - hygiene_score
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

@@ -1,5 +1,8 @@
 - conversation_group_id: bad_command
-  tag: agentic_bad_command
+  tag:
+    - bad_command
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

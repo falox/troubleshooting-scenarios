@@ -1,5 +1,8 @@
 - conversation_group_id: unscheduled_pod
-  tag: agentic_unscheduled_pod
+  tag:
+    - unscheduled_pod
+    - agentic
+    - normal
 
 
   turns:

@@ -1,5 +1,8 @@
 - conversation_group_id: out_of_scope
-  tag: agentic_out_of_scope
+  tag:
+    - out_of_scope
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

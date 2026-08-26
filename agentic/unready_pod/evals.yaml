@@ -1,5 +1,9 @@
 - conversation_group_id: unready_pod
-  tag: agentic_unready_pod
+  tag:
+    - unready_pod
+    - agentic
+    - alerts-adapter
+    - normal
 
 
   turns:

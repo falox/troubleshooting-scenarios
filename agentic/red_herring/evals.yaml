@@ -1,5 +1,8 @@
 - conversation_group_id: red_herring
-  tag: agentic_red_herring
+  tag:
+    - red_herring
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1

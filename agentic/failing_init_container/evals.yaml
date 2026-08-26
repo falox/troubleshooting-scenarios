@@ -1,5 +1,8 @@
 - conversation_group_id: failing_init_container
-  tag: agentic_failing_init_container
+  tag:
+    - failing_init_container
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

@@ -1,5 +1,8 @@
 - conversation_group_id: double_fault
-  tag: agentic_double_fault
+  tag:
+    - double_fault
+    - agentic
+    - medium
 
 
   turns:

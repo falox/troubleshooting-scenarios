@@ -1,5 +1,8 @@
 - conversation_group_id: rbac_forbidden
-  tag: agentic_rbac_forbidden
+  tag:
+    - rbac_forbidden
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1

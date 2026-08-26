@@ -1,5 +1,8 @@
 - conversation_group_id: svc_selector
-  tag: agentic_svc_selector
+  tag:
+    - svc_selector
+    - agentic
+    - normal
 
 
   turns:

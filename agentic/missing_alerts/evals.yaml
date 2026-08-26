@@ -1,5 +1,9 @@
 - conversation_group_id: missing_alerts
-  tag: agentic_missing_alerts
+  tag:
+    - missing_alerts
+    - agentic
+    - alerts-adapter
+    - medium
 
   turns:
     - turn_id: turn_1

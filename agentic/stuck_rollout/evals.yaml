@@ -1,5 +1,8 @@
 - conversation_group_id: stuck_rollout
-  tag: agentic_stuck_rollout
+  tag:
+    - stuck_rollout
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1
