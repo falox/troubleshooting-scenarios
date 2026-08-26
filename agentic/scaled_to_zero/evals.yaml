@@ -1,0 +1,34 @@
+- conversation_group_id: scaled_to_zero
+  tag: agentic_scaled_to_zero
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Users report that the web application scaled-to-zero-demo in
+          namespace scaled-to-zero is completely down and no traffic is
+          being served. Investigate why and recommend how to restore
+          service.
+        targetNamespaces:
+          - scaled-to-zero
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the deployment scaled-to-zero-demo has replicas set
+        to 0, so no pods exist. The workload itself is healthy and there
+        are no error events. Remediation: scale the deployment back up
+        (e.g. to 1 replica) and verify the pod reaches Running and Ready.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

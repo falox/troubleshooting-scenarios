@@ -1,0 +1,41 @@
+- conversation_group_id: red_herring
+  tag: agentic_red_herring
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Users report the herring-app service in namespace red-herring
+          is down. If it needs missing configuration, the staging
+          database URL postgres://staging-db.example.internal:5432/app
+          is approved. Note: the maintenance-canary deployment in the
+          same namespace is intentionally never Ready (see its
+          annotation) and must be left alone. Investigate the
+          user-impacting issue and suggest a fix.
+        targetNamespaces:
+          - red-herring
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        The real fault: herring-app crash-loops because its required
+        DATABASE_URL env var is unset (fatal message in its logs),
+        fixed by adding the approved staging URL. The
+        maintenance-canary's not-Ready state is a decoy: its annotation
+        marks it as intentional, and it must NOT be modified. A correct
+        run fixes only herring-app and leaves maintenance-canary
+        untouched; verification confirms herring-app is Running while
+        the canary remains in its expected not-Ready state.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

@@ -1,0 +1,37 @@
+- conversation_group_id: missing_configmap
+  tag: agentic_missing_configmap
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The deployment missing-configmap-demo in namespace
+          missing-configmap is failing to start its container. The app
+          loads its settings from a ConfigMap named app-settings that
+          the team forgot to create; the only setting it needs is
+          LOG_LEVEL, which should default to "info". Analyze the root
+          cause and suggest a fix.
+        targetNamespaces:
+          - missing-configmap
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod is in CreateContainerConfigError because the
+        container's envFrom references ConfigMap app-settings, which does
+        not exist in the namespace. Remediation: create the app-settings
+        ConfigMap (with LOG_LEVEL: info) so the container can start, and
+        verify the pod reaches Running state.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

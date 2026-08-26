@@ -1,0 +1,37 @@
+- conversation_group_id: evicted_pod
+  tag: agentic_evicted_pod
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Pods for deployment ephemeral-eviction-demo in namespace
+          evicted-pod keep getting killed and recreated. The app
+          legitimately needs to build a local cache of roughly 64Mi at
+          startup. Analyze the root cause and propose a fix so the cache
+          fits.
+        targetNamespaces:
+          - evicted-pod
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod writes a ~64Mi cache into an emptyDir volume
+        capped at sizeLimit 10Mi, so the kubelet evicts the pod ("Usage
+        of EmptyDir volume ... exceeds the limit") and the deployment
+        recreates it in a loop. Remediation: raise the emptyDir sizeLimit
+        (e.g. to 128Mi) so the cache fits, and verify the pod stays
+        Running without further evictions.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

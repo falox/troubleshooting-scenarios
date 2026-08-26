@@ -1,0 +1,37 @@
+- conversation_group_id: failing_init_container
+  tag: agentic_failing_init_container
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The deployment init-container-demo in namespace
+          failing-init-container never starts its application container.
+          Its init container runs a pre-flight check against a migration
+          database that has since been decommissioned. Analyze the root
+          cause and suggest how to fix it.
+        targetNamespaces:
+          - failing-init-container
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod is stuck in Init:CrashLoopBackOff because the
+        "preflight" init container always fails ("cannot reach migration
+        database at db-legacy.internal.invalid:5432"), so the nginx
+        container never starts. Remediation: remove the obsolete init
+        container from the deployment and verify the pod reaches Running
+        state.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

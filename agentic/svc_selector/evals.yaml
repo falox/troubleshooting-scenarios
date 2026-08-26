@@ -11,11 +11,6 @@
           running and healthy. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - svc-selector-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -53,11 +48,6 @@
           running and healthy. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - svc-selector-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -95,11 +85,6 @@
           running and healthy. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - svc-selector-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

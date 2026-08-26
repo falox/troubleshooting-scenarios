@@ -14,11 +14,6 @@
           posture.
         targetNamespaces:
           - netpol-dns-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -62,11 +57,6 @@
           posture.
         targetNamespaces:
           - netpol-dns-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -110,11 +100,6 @@
           posture.
         targetNamespaces:
           - netpol-dns-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

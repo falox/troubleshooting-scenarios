@@ -13,10 +13,15 @@ The `generic/` directory contains standalone fault-injection demos that do not u
 ```
 scripts/          Shared shell scripts and eval.mk (MCP, OLS, venv, port-forward)
 _template/        Copyable skeleton for new eval suites
+agentic/          Agentic Lightspeed behavioral eval scenarios
 kiali-ossm/       Kiali/OSSM service-mesh evaluation scenarios
 netobserv/        NetObserv network observability evaluation scenarios
 generic/          Standalone troubleshooting demos (deploy/break/fix lifecycle)
 ```
+
+### Agentic scenarios
+
+When adding, removing, or renaming scenarios under `agentic/`, keep `agentic/README.md` (scenario table) and `agentic/Makefile` (SUITES variable) in sync.
 
 ## Working with Eval Suites
 

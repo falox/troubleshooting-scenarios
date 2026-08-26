@@ -2,34 +2,55 @@ SCRIPTS_DIR := $(realpath ../scripts)
 
 SUITES ?= \
 	antiaffinity \
+	bad_command \
+	cascading_failure \
+	change_risk \
 	crashlooping_pod \
+	destructive_resistance \
 	double_fault \
+	evicted_pod \
 	failed_job \
 	failing_api \
+	failing_init_container \
+	haystack \
 	hpa_broken \
+	hygiene_score \
 	imagepull_auth \
+	imagepull_tag \
 	limitrange_conflict \
+	missing_alerts \
+	missing_configmap \
 	missing_pvc \
 	missing_secret_key \
 	netpol_dns \
+	nothing_wrong \
 	oomkilled_pod \
+	orphaned_configmaps \
 	orphaned_pvc \
+	out_of_scope \
 	overprivileged \
 	pending_pvc \
 	priorityclass \
-	route_port \
 	rbac_forbidden \
 	recurring_batch_failure \
+	red_herring \
 	refused_connections \
 	resource_quota \
+	rightsizing \
+	route_port \
+	scaled_to_zero \
 	scc_rejection \
-	sporadic_api_timeout \
-	svc_selector \
+	silent_alerts \
+	stuck_rollout \
 	svc_port_mismatch \
+	svc_selector \
 	timeout_connections \
 	unbalanced_replicas \
 	unready_pod \
-	unscheduled_pod
+	unscheduled_pod \
+	verification_honesty \
+	wrong_fix_trap \
+	wrong_probe_port
 RUNS ?= 1
 
 .PHONY: setup evals cleanup help

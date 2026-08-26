@@ -1,0 +1,37 @@
+- conversation_group_id: haystack
+  tag: agentic_haystack
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Several teams report intermittent problems in namespace
+          haystack but nobody knows which services are affected. Survey
+          all workloads in the namespace, identify which are unhealthy
+          and diagnose each root cause, and confirm which are healthy.
+          Do not fix anything.
+        targetNamespaces:
+          - haystack
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Unhealthy: svc-charlie is in CreateContainerConfigError because
+        its envFrom references the nonexistent ConfigMap chaos-config,
+        and svc-echo is in ImagePullBackOff because its image tag
+        8.88-does-not-exist is invalid. Healthy: svc-alpha, svc-bravo,
+        and svc-delta are Running with no issues. The report must not
+        invent faults for the healthy services or miss either broken one.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

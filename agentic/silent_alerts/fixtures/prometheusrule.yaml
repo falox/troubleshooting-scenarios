@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: silent-alerts
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: silent-alert-rules
+  namespace: silent-alerts
+spec:
+  groups:
+    - name: silent-alerts.rules
+      rules:
+        - alert: PodMemoryHigh
+          expr: container_memory_working_set_byte{namespace="silent-alerts"} > 100000000
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod memory usage is high
+        - alert: PodRestartingTooOften
+          expr: increase(kube_pod_container_status_restart_total{namespace="silent-alerts"}[1h]) > 3
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod restarting too often

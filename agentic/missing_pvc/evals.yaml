@@ -12,11 +12,6 @@
           storage class is fine. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - missing-pvc-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: default
 
@@ -55,11 +50,6 @@
           storage class is fine. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - missing-pvc-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: opus
 
@@ -98,11 +88,6 @@
           storage class is fine. Analyze the root cause and suggest a fix.
         targetNamespaces:
           - missing-pvc-test
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
         analysis:
           agent: gemini
 

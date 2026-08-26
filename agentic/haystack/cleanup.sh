@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
+
+oc delete -f "$FIXTURE_DIR/deployment.yaml" --ignore-not-found --wait=false
+oc delete configmap chaos-config -n haystack --ignore-not-found
+oc delete namespace haystack --ignore-not-found
+
+echo "Cleanup complete: removed haystack namespace and resources"
