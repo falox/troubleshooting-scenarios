@@ -5,14 +5,14 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Namespace orphaned-configmaps has accumulated ConfigMaps over
+          Namespace deploy-artifacts has accumulated ConfigMaps over
           time. Analyze which team-created ConfigMaps are actually
           consumed by running workloads and which are orphaned, and
           propose a cleanup plan. Ignore platform-managed ConfigMaps
           (such as kube-root-ca.crt and openshift-service-ca.crt). Do
           not delete anything.
         targetNamespaces:
-          - orphaned-configmaps
+          - deploy-artifacts
         analysis:
           agent: default
 
@@ -25,7 +25,7 @@
       expected_outcome: >-
         In use: app-config-live, consumed via envFrom by the running
         cm-user-app deployment. Orphaned cleanup candidates:
-        app-config-old-v1, feature-flags-2023, and debug-settings, which
+        app-config-v1, feature-flags, and debug-settings, which
         no workload references. Platform-managed maps (kube-root-ca.crt,
         openshift-service-ca.crt) are out of scope per the request. The
         plan should recommend confirming ownership and deleting the three

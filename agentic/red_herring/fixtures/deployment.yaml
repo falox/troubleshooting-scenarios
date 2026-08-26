@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: red-herring
+  name: payment-gateway
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: herring-app
-  namespace: red-herring
+  name: gateway-app
+  namespace: payment-gateway
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: herring-app
+      app: gateway-app
   template:
     metadata:
       labels:
-        app: herring-app
+        app: gateway-app
     spec:
       containers:
         - name: app
@@ -47,8 +47,8 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: maintenance-canary
-  namespace: red-herring
+  name: gateway-monitor
+  namespace: payment-gateway
   annotations:
     lightspeed-eval/note: >-
       Canary deployment -- intentionally not Ready. Its readiness probe is
@@ -57,11 +57,11 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app: maintenance-canary
+      app: gateway-monitor
   template:
     metadata:
       labels:
-        app: maintenance-canary
+        app: gateway-monitor
       annotations:
         lightspeed-eval/note: intentionally not Ready -- expected state
     spec:

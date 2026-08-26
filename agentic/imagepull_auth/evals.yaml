@@ -7,14 +7,14 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          The deployment imagepull-auth-app in namespace imagepull-auth
+          The deployment media-processor in namespace media-processing
           cannot start its pod. The image
           quay.io/noexistingorg/internal-app:1.0 is published in a
           private registry organization. Analyze why the pod is not
           starting and explain what the team needs to do to fix it.
           Do not make any changes.
         targetNamespaces:
-          - imagepull-auth
+          - media-processing
         analysis:
           agent: default
 

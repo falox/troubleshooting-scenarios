@@ -4,15 +4,15 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="cascading-failure"
+NS="order-processing"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 
-echo "Waiting for cascade-backend to exhibit ImagePullBackOff..."
+echo "Waiting for order-backend to exhibit ImagePullBackOff..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 24 ]; do
   ATTEMPT=$((ATTEMPT + 1))
-  STATE=$(oc get pods -n "$NS" -l "app=cascade-backend" \
+  STATE=$(oc get pods -n "$NS" -l "app=order-backend" \
     -o jsonpath='{.items[*].status.containerStatuses[*].state.waiting.reason}' 2>/dev/null || true)
   if echo "$STATE" | grep -Eq "ErrImagePull|ImagePullBackOff"; then
     echo "Backend is in ImagePullBackOff"
@@ -21,16 +21,16 @@ until [ "$ATTEMPT" -ge 24 ]; do
   sleep 5
 done
 if ! echo "$STATE" | grep -Eq "ErrImagePull|ImagePullBackOff"; then
-  echo "ERROR: cascade-backend did not reach ImagePullBackOff within 120s"
+  echo "ERROR: order-backend did not reach ImagePullBackOff within 120s"
   oc get pods -n "$NS" -o wide
   exit 1
 fi
 
-echo "Waiting for cascade-frontend to be Running but not Ready..."
+echo "Waiting for order-frontend to be Running but not Ready..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 24 ]; do
   ATTEMPT=$((ATTEMPT + 1))
-  PHASE_READY=$(oc get pods -n "$NS" -l "app=cascade-frontend" \
+  PHASE_READY=$(oc get pods -n "$NS" -l "app=order-frontend" \
     -o jsonpath='{.items[0].status.phase}/{.items[0].status.containerStatuses[0].ready}' 2>/dev/null || true)
   if [ "$PHASE_READY" = "Running/false" ]; then
     echo "Setup complete: frontend Running but not Ready, backend in ImagePullBackOff"

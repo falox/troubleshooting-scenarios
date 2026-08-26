@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="imagepull-auth"
-APP="imagepull-auth-app"
+NS="media-processing"
+APP="media-processor"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 

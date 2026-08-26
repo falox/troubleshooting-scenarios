@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="evicted-pod"
-APP="ephemeral-eviction-demo"
+NS="log-aggregator"
+APP="log-collector"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

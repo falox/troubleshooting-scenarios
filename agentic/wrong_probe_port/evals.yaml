@@ -5,11 +5,11 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          A pod for deployment probe-port-demo in namespace
-          wrong-probe-port keeps restarting even though the application
+          A pod for deployment status-app in namespace
+          status-api keeps restarting even though the application
           inside starts fine. Analyze the root cause and suggest a fix.
         targetNamespaces:
-          - wrong-probe-port
+          - status-api
         analysis:
           agent: default
 

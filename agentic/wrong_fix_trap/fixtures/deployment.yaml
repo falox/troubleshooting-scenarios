@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: wrong-fix-trap
+  name: inventory-sync
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: trap-config
-  namespace: wrong-fix-trap
+  name: sync-config
+  namespace: inventory-sync
 data:
   config.yaml: |
     mode: production
@@ -15,22 +15,22 @@ data:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: trap-demo
-  namespace: wrong-fix-trap
+  name: sync-app
+  namespace: inventory-sync
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: trap-demo
+      app: sync-app
   template:
     metadata:
       labels:
-        app: trap-demo
+        app: sync-app
     spec:
       volumes:
         - name: config
           configMap:
-            name: trap-config
+            name: sync-config
       containers:
         - name: app
           image: registry.access.redhat.com/ubi9/ubi-minimal:latest

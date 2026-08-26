@@ -4,9 +4,9 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="svc-selector-test"
-APP="svc-selector-demo"
-SVC="svc-selector-svc"
+NS="auth-proxy"
+APP="proxy-app"
+SVC="proxy-svc"
 
 echo "Applying svc_selector scenario manifests in namespace ${NS}…"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"

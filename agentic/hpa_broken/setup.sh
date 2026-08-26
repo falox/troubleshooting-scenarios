@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="hpa-scaling"
-DEPLOY="hpa-underspecified-demo"
+NS="product-catalog"
+DEPLOY="catalog-api"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 

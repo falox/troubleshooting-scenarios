@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: failing-init-container
+  name: onboarding-app
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: init-container-demo
-  namespace: failing-init-container
+  name: onboarding-worker
+  namespace: onboarding-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: init-container-demo
+      app: onboarding-worker
   template:
     metadata:
       labels:
-        app: init-container-demo
+        app: onboarding-worker
     spec:
       initContainers:
         - name: preflight

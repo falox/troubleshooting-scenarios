@@ -6,6 +6,6 @@ set -euo pipefail
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
 oc delete -f "$FIXTURE_DIR/deployment.yaml" --ignore-not-found --wait=false
-oc delete namespace imagepull-tag --ignore-not-found
+oc delete namespace asset-renderer --ignore-not-found
 
-echo "Cleanup complete: removed imagepull-tag namespace and resources"
+echo "Cleanup complete: removed asset-renderer namespace and resources"

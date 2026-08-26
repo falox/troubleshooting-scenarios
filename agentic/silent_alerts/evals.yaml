@@ -5,13 +5,13 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          During a recent memory incident in namespace silent-alerts,
-          the PodMemoryHigh alert in PrometheusRule silent-alert-rules
+          During a recent memory incident in namespace email-dispatcher,
+          the PodMemoryHigh alert in PrometheusRule email-dispatcher-rules
           never fired even though pods were far above the threshold.
           Analyze the rules and explain why they stay silent, and
           propose corrected rule definitions. Do not modify anything.
         targetNamespaces:
-          - silent-alerts
+          - email-dispatcher
         analysis:
           agent: default
 

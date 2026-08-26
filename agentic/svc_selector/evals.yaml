@@ -6,11 +6,11 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          The service svc-selector-svc in namespace svc-selector-test
+          The service proxy-svc in namespace auth-proxy
           serves no traffic even though its backing application is
           running and healthy. Analyze the root cause and suggest a fix.
         targetNamespaces:
-          - svc-selector-test
+          - auth-proxy
         analysis:
           agent: default
 
@@ -21,9 +21,9 @@
             status: "True"
 
       expected_outcome: >-
-        Root cause: the service svc-selector-svc selects pods labelled
-        app=svc-selector-app, but the deployment's pods are labelled
-        app=svc-selector-demo, so the service has zero endpoints while
+        Root cause: the service proxy-svc selects pods labelled
+        app=proxy-backend, but the deployment's pods are labelled
+        app=proxy-app, so the service has zero endpoints while
         the pods are Running and Ready. Remediation: fix the service
         selector (or the pod labels) so they match, and verify the
         service's endpoints are populated with the ready pod.

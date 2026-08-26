@@ -5,13 +5,13 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          A recent release of stuck-rollout-demo in namespace
-          stuck-rollout is not completing. The rollout has been stuck
+          A recent release of shipping-tracker in namespace
+          shipping-tracker is not completing. The rollout has been stuck
           for a while and the deployment reports it failed to progress.
           The previous version was healthy. Analyze what went wrong and
           recommend how to restore service.
         targetNamespaces:
-          - stuck-rollout
+          - shipping-tracker
         analysis:
           agent: default
 

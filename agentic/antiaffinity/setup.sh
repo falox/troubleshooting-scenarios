@@ -4,11 +4,11 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="ha-services"
+NS="inventory-cache"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 
-echo "Waiting for FailedScheduling events on antiaffinity-demo pods..."
+echo "Waiting for FailedScheduling events on cache-cluster pods..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 90 ]; do
   ATTEMPT=$((ATTEMPT + 1))
@@ -23,6 +23,6 @@ until [ "$ATTEMPT" -ge 90 ]; do
 done
 
 echo "WARNING: FailedScheduling event not detected within 90s"
-oc get pods -n "$NS" -l app=antiaffinity-demo
+oc get pods -n "$NS" -l app=cache-cluster
 oc get events -n "$NS" --sort-by='.lastTimestamp' | tail -10
 exit 1

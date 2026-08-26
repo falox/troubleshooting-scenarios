@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="pvc-orphans"
-APP="pvc-user-app"
+NS="artifact-storage"
+APP="storage-app"
 
 # Guard: a default StorageClass is required for PVCs to bind.
 if ! oc get storageclass -o jsonpath='{range .items[?(@.metadata.annotations.storageclass\.kubernetes\.io/is-default-class=="true")]}{.metadata.name}{end}' | grep -q .; then
@@ -18,4 +18,4 @@ oc apply -f "$FIXTURE_DIR/manifest.yaml"
 echo "Waiting for $APP deployment to become available..."
 oc wait deployment "$APP" -n "$NS" --for=condition=Available --timeout=180s
 
-echo "Setup complete: $APP is running with active-data-pvc bound; old-backup-pvc and tmp-scratch-pvc are orphaned"
+echo "Setup complete: $APP is running with primary-data bound; backup-data and scratch-data are orphaned"

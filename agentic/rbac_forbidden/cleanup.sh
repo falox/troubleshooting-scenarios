@@ -3,9 +3,9 @@ set -euo pipefail
 
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-NS="rbac-forbidden"
+NS="pod-inspector"
 
-oc delete deployment rbac-forbidden-demo -n "$NS" --ignore-not-found
+oc delete deployment inspector-app -n "$NS" --ignore-not-found
 oc delete serviceaccount app-inspector-sa -n "$NS" --ignore-not-found
 
 # Remove agent-created RBAC scoped to the scenario ServiceAccount.
@@ -27,4 +27,4 @@ done
 
 oc delete namespace "$NS" --ignore-not-found
 
-echo "Cleanup complete: removed rbac-forbidden namespace and resources"
+echo "Cleanup complete: removed pod-inspector namespace and resources"

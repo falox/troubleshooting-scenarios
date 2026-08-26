@@ -5,15 +5,15 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Namespace: overprivileged-demo
+          Namespace: fleet-dashboard
           Task: RBAC security audit
           Description: The security team is auditing namespace
-          overprivileged-demo. Review the RBAC bindings of the workloads'
+          fleet-dashboard. Review the RBAC bindings of the workloads'
           ServiceAccounts, assess whether any grant more access than the
           workload needs, and propose the least-privilege replacement.
           Do not change anything.
         targetNamespaces:
-          - overprivileged-demo
+          - fleet-dashboard
         analysis:
           agent: default
 
@@ -27,7 +27,7 @@
         The ServiceAccount webapp-sa is bound to the cluster-admin
         ClusterRole via the RoleBinding webapp-admin-binding, granting it
         full admin rights over the namespace — while the workload using
-        it (overprivileged-webapp, a plain nginx) makes no Kubernetes API
+        it (dashboard-app, a plain nginx) makes no Kubernetes API
         calls at all. This is a high-risk over-privilege: a compromised
         pod could read every secret and modify every resource in the
         namespace. Proposal: delete the webapp-admin-binding (the app

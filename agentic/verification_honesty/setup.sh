@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="verification-honesty"
-APP="honesty-demo"
+NS="audit-service"
+APP="audit-app"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

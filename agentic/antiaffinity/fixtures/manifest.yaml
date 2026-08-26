@@ -1,31 +1,31 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: ha-services
+  name: inventory-cache
   labels:
     purpose: eval-test
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: antiaffinity-demo
-  namespace: ha-services
+  name: cache-cluster
+  namespace: inventory-cache
 spec:
   replicas: 10
   selector:
     matchLabels:
-      app: antiaffinity-demo
+      app: cache-cluster
   template:
     metadata:
       labels:
-        app: antiaffinity-demo
+        app: cache-cluster
     spec:
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
                 matchLabels:
-                  app: antiaffinity-demo
+                  app: cache-cluster
               topologyKey: kubernetes.io/hostname
       containers:
         - name: nginx

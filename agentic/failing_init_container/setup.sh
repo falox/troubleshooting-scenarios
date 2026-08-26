@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="failing-init-container"
-APP="init-container-demo"
+NS="onboarding-app"
+APP="onboarding-worker"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

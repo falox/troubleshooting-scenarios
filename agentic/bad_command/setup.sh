@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="bad-command"
-APP="bad-command-demo"
+NS="web-proxy"
+APP="proxy-server"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

@@ -3,6 +3,6 @@ set -euo pipefail
 
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-oc delete namespace out-of-scope --ignore-not-found
+oc delete namespace external-integration --ignore-not-found
 
-echo "Cleanup complete: removed out-of-scope namespace"
+echo "Cleanup complete: removed external-integration namespace"

@@ -3,7 +3,7 @@ set -euo pipefail
 
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-NS="netpol-dns-test"
+NS="search-indexer"
 
 echo "Removing netpol_dns scenario resources from namespace ${NS}…"
 oc delete -f "$(cd "$(dirname "$0")/fixtures" && pwd)/manifest.yaml" --ignore-not-found

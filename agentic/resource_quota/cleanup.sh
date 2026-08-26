@@ -5,8 +5,8 @@ set -euo pipefail
 
 NS="team-onboarding"
 
-oc delete deployment quota-victim-app -n "$NS" --ignore-not-found
-oc delete deployment quota-blocker -n "$NS" --ignore-not-found
+oc delete deployment onboarding-app -n "$NS" --ignore-not-found
+oc delete deployment setup-worker -n "$NS" --ignore-not-found
 oc delete resourcequota team-pod-quota -n "$NS" --ignore-not-found
 oc delete namespace "$NS" --ignore-not-found
 

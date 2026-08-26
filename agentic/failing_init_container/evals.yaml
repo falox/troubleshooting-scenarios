@@ -5,13 +5,13 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          The deployment init-container-demo in namespace
-          failing-init-container never starts its application container.
+          The deployment onboarding-worker in namespace
+          onboarding-app never starts its application container.
           Its init container runs a pre-flight check against a migration
           database that has since been decommissioned. Analyze the root
           cause and suggest how to fix it.
         targetNamespaces:
-          - failing-init-container
+          - onboarding-app
         analysis:
           agent: default
 

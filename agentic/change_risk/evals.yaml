@@ -6,13 +6,13 @@
       openshift_agentic_run_spec:
         request: |
           Before the next release, review the proposed manifest stored
-          in ConfigMap orders-api-proposed-change (key manifest.yaml)
-          in namespace change-risk against the currently running
+          in ConfigMap orders-api-candidate (key manifest.yaml)
+          in namespace checkout-api against the currently running
           orders-api deployment. Flag every regression the change would
           introduce and recommend whether the rollout should proceed.
           Do not apply the manifest or change anything.
         targetNamespaces:
-          - change-risk
+          - checkout-api
         analysis:
           agent: default
 

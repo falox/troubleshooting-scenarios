@@ -1,17 +1,17 @@
-- conversation_group_id: rightsizing
-  tag: agentic_rightsizing
+- conversation_group_id: report-engine
+  tag: agentic_report-engine
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Capacity costs in namespace rightsizing are under review.
-          Compare the resource requests of the oversized-api deployment
+          Capacity costs in namespace report-engine are under review.
+          Compare the resource requests of the report-api deployment
           against its actual observed usage and propose right-sized
           requests and limits with an estimate of the capacity that
           would be freed. Do not change anything.
         targetNamespaces:
-          - rightsizing
+          - report-engine
         analysis:
           agent: default
 
@@ -22,7 +22,7 @@
             status: "True"
 
       expected_outcome: >-
-        oversized-api requests a full CPU and 1Gi of memory per replica
+        report-api requests a full CPU and 1Gi of memory per replica
         (2 replicas, 2 CPUs / 2Gi reserved), while actual observed usage
         of the idle nginx is on the order of a few millicores and a few
         tens of Mi per pod. The proposal should recommend drastically

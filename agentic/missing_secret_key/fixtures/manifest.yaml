@@ -17,17 +17,17 @@ stringData:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: missing-secret-key-demo
+  name: credential-app
   namespace: credential-store
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: missing-secret-key-demo
+      app: credential-app
   template:
     metadata:
       labels:
-        app: missing-secret-key-demo
+        app: credential-app
     spec:
       containers:
         - name: nginx

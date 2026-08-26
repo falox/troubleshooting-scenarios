@@ -1,22 +1,22 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: bad-command
+  name: web-proxy
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: bad-command-demo
-  namespace: bad-command
+  name: proxy-server
+  namespace: web-proxy
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: bad-command-demo
+      app: proxy-server
   template:
     metadata:
       labels:
-        app: bad-command-demo
+        app: proxy-server
     spec:
       containers:
         - name: nginx

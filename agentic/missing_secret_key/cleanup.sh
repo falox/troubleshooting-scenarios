@@ -5,7 +5,7 @@ set -euo pipefail
 
 NS="credential-store"
 
-oc delete deployment missing-secret-key-demo -n "$NS" --ignore-not-found
+oc delete deployment credential-app -n "$NS" --ignore-not-found
 oc delete secret db-creds -n "$NS" --ignore-not-found
 oc delete namespace "$NS" --ignore-not-found
 

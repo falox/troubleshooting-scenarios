@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="priorityclass-test"
-APP="priorityclass-demo"
+NS="job-scheduler"
+APP="scheduler-app"
 
 echo "Applying priorityclass scenario manifests in namespace ${NS}…"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
@@ -14,7 +14,7 @@ echo "Confirming no pods are created due to missing PriorityClass (up to 60s)…
 ATTEMPT=0
 until oc get events -n "$NS" \
   --field-selector "reason=FailedCreate" \
-  -o jsonpath='{.items[*].message}' 2>/dev/null | grep -q "eval-critical-priority"; do
+  -o jsonpath='{.items[*].message}' 2>/dev/null | grep -q "workload-priority"; do
   ATTEMPT=$((ATTEMPT + 1))
   if [ "$ATTEMPT" -ge 20 ]; then
     echo "ERROR: FailedCreate event for missing PriorityClass not found after 60s"

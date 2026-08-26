@@ -6,10 +6,10 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Deployment: missing-secret-key-demo
+          Deployment: credential-app
           Namespace: credential-store
           Status: CreateContainerConfigError
-          Description: The deployment missing-secret-key-demo in namespace
+          Description: The deployment credential-app in namespace
           credential-store cannot start its container. It reads database
           credentials from the Secret db-creds. Analyze the root cause
           and fix it — if a credential value is missing, use the

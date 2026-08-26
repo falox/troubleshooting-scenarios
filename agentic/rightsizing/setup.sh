@@ -4,8 +4,8 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="rightsizing"
-APP="oversized-api"
+NS="report-engine"
+APP="report-api"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

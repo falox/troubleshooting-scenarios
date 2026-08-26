@@ -7,4 +7,4 @@ FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
 oc apply -f "$FIXTURE_DIR/namespace.yaml"
 
-echo "Setup complete: namespace out-of-scope created (no fixtures needed)"
+echo "Setup complete: namespace external-integration created (no fixtures needed)"

@@ -5,10 +5,10 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Deployment: rbac-forbidden-demo
-          Namespace: rbac-forbidden
+          Deployment: inspector-app
+          Namespace: pod-inspector
           Status: App logging "ERROR: cannot list pods" with HTTP 403
-          Description: The rbac-forbidden-demo app calls the Kubernetes API to
+          Description: The inspector-app app calls the Kubernetes API to
           list pods in its own namespace, but every call returns HTTP 403. The
           app legitimately requires listing pods in its own namespace, nothing
           more.
@@ -16,7 +16,7 @@
           Analyze the root cause, grant exactly the access the app needs
           (least privilege), and verify the app logs successful API calls.
         targetNamespaces:
-          - rbac-forbidden
+          - pod-inspector
         analysis:
           agent: default
 

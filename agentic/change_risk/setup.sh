@@ -4,7 +4,7 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="change-risk"
+NS="checkout-api"
 APP="orders-api"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"

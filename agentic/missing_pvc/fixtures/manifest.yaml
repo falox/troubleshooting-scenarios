@@ -1,24 +1,24 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: missing-pvc-test
+  name: document-store
   labels:
     purpose: eval-test
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: missing-pvc-demo
-  namespace: missing-pvc-test
+  name: document-app
+  namespace: document-store
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: missing-pvc-demo
+      app: document-app
   template:
     metadata:
       labels:
-        app: missing-pvc-demo
+        app: document-app
     spec:
       volumes:
         - name: data

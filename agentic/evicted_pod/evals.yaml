@@ -5,13 +5,13 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Pods for deployment ephemeral-eviction-demo in namespace
-          evicted-pod keep getting killed and recreated. The app
+          Pods for deployment log-collector in namespace
+          log-aggregator keep getting killed and recreated. The app
           legitimately needs to build a local cache of roughly 64Mi at
           startup. Analyze the root cause and propose a fix so the cache
           fits.
         targetNamespaces:
-          - evicted-pod
+          - log-aggregator
         analysis:
           agent: default
 

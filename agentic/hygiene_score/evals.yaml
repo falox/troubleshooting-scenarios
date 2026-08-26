@@ -6,13 +6,13 @@
       openshift_agentic_run_spec:
         request: |
           The platform team wants a hygiene report for namespace
-          hygiene-score. Review every Deployment for production
+          platform-services. Review every Deployment for production
           guardrails (health probes, resource requests and limits,
           pinned image tags) and produce a prioritized list of issues
           per workload, distinguishing quick wins from bigger changes.
           Do not change anything.
         targetNamespaces:
-          - hygiene-score
+          - platform-services
         analysis:
           agent: default
 

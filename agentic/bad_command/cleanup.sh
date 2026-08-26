@@ -6,6 +6,6 @@ set -euo pipefail
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
 oc delete -f "$FIXTURE_DIR/deployment.yaml" --ignore-not-found --wait=false
-oc delete namespace bad-command --ignore-not-found
+oc delete namespace web-proxy --ignore-not-found
 
-echo "Cleanup complete: removed bad-command namespace and resources"
+echo "Cleanup complete: removed web-proxy namespace and resources"

@@ -5,7 +5,7 @@ set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
-NS="missing-alerts"
+NS="event-processor"
 APP="payments-api"
 
 "$SCRIPT_DIR/enable-uwm.sh"

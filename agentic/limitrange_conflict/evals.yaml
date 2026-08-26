@@ -5,10 +5,10 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Deployment: limitrange-demo
-          Namespace: limitrange-demo
+          Deployment: dashboard-app
+          Namespace: analytics-dashboard
           Status: No pods created (0/1 replicas available)
-          Description: The deployment limitrange-demo is not creating any pods.
+          Description: The deployment dashboard-app is not creating any pods.
           This namespace has a resource policy set by the platform team that
           is authoritative and must not be changed — applications must comply
           with it.
@@ -16,7 +16,7 @@
           Analyze the root cause, bring the app into compliance, and verify
           its pod is running.
         targetNamespaces:
-          - limitrange-demo
+          - analytics-dashboard
         analysis:
           agent: default
 
@@ -28,7 +28,7 @@
 
       expected_outcome: >-
         Root cause: The namespace LimitRange eval-container-limits requires
-        every container to use at least 256Mi of memory, but limitrange-demo
+        every container to use at least 256Mi of memory, but dashboard-app
         requests 64Mi (limit 128Mi). The ReplicaSet gets "forbidden: minimum
         memory usage per Container is 256Mi" and no pod is ever created.
         Fix: Raise the deployment's memory request and limit to at least

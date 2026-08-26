@@ -6,15 +6,15 @@
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Deployment: quota-victim-app
+          Deployment: onboarding-app
           Namespace: team-onboarding
           Status: 0 pods running
-          Description: The new deployment quota-victim-app in namespace
+          Description: The new deployment onboarding-app in namespace
           team-onboarding has zero pods and users cannot reach it. The
-          existing quota-blocker workload must keep running. The platform
+          existing setup-worker workload must keep running. The platform
           team confirmed the namespace's pod quota is outdated and may be
           raised to accommodate the new app. Analyze the root cause,
-          remediate, and verify quota-victim-app is running.
+          remediate, and verify onboarding-app is running.
         targetNamespaces:
           - team-onboarding
         analysis:
@@ -28,11 +28,11 @@
 
       expected_outcome: >-
         Root cause: the namespace's ResourceQuota team-pod-quota caps
-        pods at 2, fully consumed by quota-blocker's 2 replicas — the
-        quota-victim-app ReplicaSet fails pod creation with "exceeded
+        pods at 2, fully consumed by setup-worker's 2 replicas — the
+        onboarding-app ReplicaSet fails pod creation with "exceeded
         quota" events and no pod is ever created. Fix: raise the pod
         quota (e.g. to 3 or more, as authorized by the platform team)
-        without touching quota-blocker, and verify quota-victim-app's
+        without touching setup-worker, and verify onboarding-app's
         pod is created and Running.
 
       turn_metrics:

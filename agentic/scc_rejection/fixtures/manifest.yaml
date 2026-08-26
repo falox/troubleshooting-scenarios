@@ -8,17 +8,17 @@ metadata:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: scc-demo
+  name: migration-app
   namespace: legacy-migration
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: scc-demo
+      app: migration-app
   template:
     metadata:
       labels:
-        app: scc-demo
+        app: migration-app
     spec:
       containers:
         - name: nginx

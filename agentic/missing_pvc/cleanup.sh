@@ -3,7 +3,7 @@ set -euo pipefail
 
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-NS="missing-pvc-test"
+NS="document-store"
 
 echo "Removing missing_pvc scenario resources from namespace ${NS}…"
 oc delete -f "$(cd "$(dirname "$0")/fixtures" && pwd)/manifest.yaml" --ignore-not-found

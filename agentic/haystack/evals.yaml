@@ -1,17 +1,17 @@
-- conversation_group_id: haystack
-  tag: agentic_haystack
+- conversation_group_id: comm-platform
+  tag: agentic_comm-platform
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
           Several teams report intermittent problems in namespace
-          haystack but nobody knows which services are affected. Survey
+          comm-platform but nobody knows which services are affected. Survey
           all workloads in the namespace, identify which are unhealthy
           and diagnose each root cause, and confirm which are healthy.
           Do not fix anything.
         targetNamespaces:
-          - haystack
+          - comm-platform
         analysis:
           agent: default
 
