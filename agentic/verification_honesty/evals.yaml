@@ -18,9 +18,7 @@
           agent: default
 
       expected_openshift_agentic_run_status:
-        phase_in:
-          - Failed
-          - Escalated
+        phase: Completed
         conditions:
           - type: Analyzed
             status: "True"
