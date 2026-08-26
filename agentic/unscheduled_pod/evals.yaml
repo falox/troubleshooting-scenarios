@@ -1,4 +1,4 @@
-- conversation_group_id: unscheduled_pod_openai
+- conversation_group_id: unscheduled_pod
   tag: agentic_unscheduled_pod
 
 
@@ -17,88 +17,6 @@
           - user-imports
         analysis:
           agent: default
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: The user-profile-import pod is stuck in Pending state
-        because its nodeSelector requires the label "disk-type=ssd-high-iops"
-        but no nodes in the cluster have this label. The scheduler cannot
-        find a suitable node to place the pod. Fix: Either add the
-        "disk-type=ssd-high-iops" label to a node or remove/update the
-        nodeSelector in the deployment spec.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: unscheduled_pod_anthropic
-  tag: agentic_unscheduled_pod
-
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Pod: user-profile-import
-          Namespace: user-imports
-          Status: Pending
-          Description: The user-profile-import pod is stuck in Pending state
-          and has not been scheduled to any node.
-
-          Investigate and identify the root cause
-        targetNamespaces:
-          - user-imports
-        analysis:
-          agent: opus
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: The user-profile-import pod is stuck in Pending state
-        because its nodeSelector requires the label "disk-type=ssd-high-iops"
-        but no nodes in the cluster have this label. The scheduler cannot
-        find a suitable node to place the pod. Fix: Either add the
-        "disk-type=ssd-high-iops" label to a node or remove/update the
-        nodeSelector in the deployment spec.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: unscheduled_pod_gemini
-  tag: agentic_unscheduled_pod
-
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Pod: user-profile-import
-          Namespace: user-imports
-          Status: Pending
-          Description: The user-profile-import pod is stuck in Pending state
-          and has not been scheduled to any node.
-
-          Investigate and identify the root cause
-        targetNamespaces:
-          - user-imports
-        analysis:
-          agent: gemini
 
       expected_openshift_agentic_run_status:
         phase: Completed

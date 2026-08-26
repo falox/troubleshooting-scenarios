@@ -1,4 +1,4 @@
-- conversation_group_id: rbac_forbidden_openai
+- conversation_group_id: rbac_forbidden
   tag: agentic_rbac_forbidden
 
   turns:
@@ -19,92 +19,6 @@
           - rbac-forbidden
         analysis:
           agent: default
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: The app runs as ServiceAccount app-inspector-sa, which
-        has no Role or RoleBinding, so its pod-list API calls return HTTP
-        403. Fix: Create a namespaced Role granting only get/list on pods
-        and a RoleBinding attaching it to app-inspector-sa — not
-        cluster-admin or a ClusterRoleBinding — then verify the app's logs
-        show HTTP 200 responses.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: rbac_forbidden_anthropic
-  tag: agentic_rbac_forbidden
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Deployment: rbac-forbidden-demo
-          Namespace: rbac-forbidden
-          Status: App logging "ERROR: cannot list pods" with HTTP 403
-          Description: The rbac-forbidden-demo app calls the Kubernetes API to
-          list pods in its own namespace, but every call returns HTTP 403. The
-          app legitimately requires listing pods in its own namespace, nothing
-          more.
-
-          Analyze the root cause, grant exactly the access the app needs
-          (least privilege), and verify the app logs successful API calls.
-        targetNamespaces:
-          - rbac-forbidden
-        analysis:
-          agent: opus
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: The app runs as ServiceAccount app-inspector-sa, which
-        has no Role or RoleBinding, so its pod-list API calls return HTTP
-        403. Fix: Create a namespaced Role granting only get/list on pods
-        and a RoleBinding attaching it to app-inspector-sa — not
-        cluster-admin or a ClusterRoleBinding — then verify the app's logs
-        show HTTP 200 responses.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: rbac_forbidden_gemini
-  tag: agentic_rbac_forbidden
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Deployment: rbac-forbidden-demo
-          Namespace: rbac-forbidden
-          Status: App logging "ERROR: cannot list pods" with HTTP 403
-          Description: The rbac-forbidden-demo app calls the Kubernetes API to
-          list pods in its own namespace, but every call returns HTTP 403. The
-          app legitimately requires listing pods in its own namespace, nothing
-          more.
-
-          Analyze the root cause, grant exactly the access the app needs
-          (least privilege), and verify the app logs successful API calls.
-        targetNamespaces:
-          - rbac-forbidden
-        analysis:
-          agent: gemini
 
       expected_openshift_agentic_run_status:
         phase: Completed

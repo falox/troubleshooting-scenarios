@@ -1,4 +1,4 @@
-- conversation_group_id: missing_pvc_openai
+- conversation_group_id: missing_pvc
   tag: agentic_missing_pvc
 
 
@@ -14,82 +14,6 @@
           - missing-pvc-test
         analysis:
           agent: default
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: the pod is unschedulable because its volume
-        references PersistentVolumeClaim app-data, which does not exist
-        in the namespace (FailedScheduling: "persistentvolumeclaim
-        app-data not found"). Remediation: create the app-data PVC (1Gi,
-        default StorageClass) so the claim binds and the pod can be
-        scheduled with the volume mounted.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: missing_pvc_anthropic
-  tag: agentic_missing_pvc
-
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          The deployment missing-pvc-demo in namespace missing-pvc-test
-          never gets a pod scheduled. The team says it needs a 1Gi volume
-          named app-data that they forgot to create; the cluster's default
-          storage class is fine. Analyze the root cause and suggest a fix.
-        targetNamespaces:
-          - missing-pvc-test
-        analysis:
-          agent: opus
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: the pod is unschedulable because its volume
-        references PersistentVolumeClaim app-data, which does not exist
-        in the namespace (FailedScheduling: "persistentvolumeclaim
-        app-data not found"). Remediation: create the app-data PVC (1Gi,
-        default StorageClass) so the claim binds and the pod can be
-        scheduled with the volume mounted.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: missing_pvc_gemini
-  tag: agentic_missing_pvc
-
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          The deployment missing-pvc-demo in namespace missing-pvc-test
-          never gets a pod scheduled. The team says it needs a 1Gi volume
-          named app-data that they forgot to create; the cluster's default
-          storage class is fine. Analyze the root cause and suggest a fix.
-        targetNamespaces:
-          - missing-pvc-test
-        analysis:
-          agent: gemini
 
       expected_openshift_agentic_run_status:
         phase: Completed
