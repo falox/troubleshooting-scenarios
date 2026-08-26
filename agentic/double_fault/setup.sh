@@ -21,6 +21,7 @@ until [ "$ATTEMPT" -ge 60 ]; do
   sleep 1
 done
 
-echo "WARNING: CreateContainerConfigError not detected within 60s"
+echo "ERROR: CreateContainerConfigError not detected within 60s"
 oc get pods -n "$NS" -l app=double-fault-demo
 oc get events -n "$NS" --sort-by='.lastTimestamp' | tail -5
+exit 1
