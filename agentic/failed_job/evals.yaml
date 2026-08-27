@@ -2,6 +2,7 @@
   tag:
     - failed_job
     - agentic
+    - core
     - normal
   setup_script: ./setup.sh
   cleanup_script: ./cleanup.sh

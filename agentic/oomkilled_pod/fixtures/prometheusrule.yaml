@@ -15,4 +15,4 @@ spec:
             severity: critical
           annotations:
             summary: Pod {{ $labels.pod }} is restarting unexpectedly
-            description: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted multiple times. Check resource limits and application logs.
+            description: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted multiple times.

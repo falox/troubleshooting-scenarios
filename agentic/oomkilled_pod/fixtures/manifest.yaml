@@ -29,17 +29,13 @@ spec:
         - python3
         - -c
         - |
-          import time, json
+          import time
           print("Starting report generator...")
-          cache = {}
-          seq = 0
+          cache = []
           while True:
-              record = {"seq": seq, "status": "pending", "payload": json.dumps({"ts": seq})}
-              cache[seq] = record
-              seq += 1
-              if seq % 500 == 0:
-                  print(f"Processed {seq} records, cache size: {len(cache)}")
-              time.sleep(0.05)
+              cache.append("x" * 1048576)
+              print(f"Cached {len(cache)} report chunks")
+              time.sleep(1)
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false

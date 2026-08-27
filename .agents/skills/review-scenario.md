@@ -49,6 +49,7 @@ Search fixture YAML for `#` comment lines. Flag comments that:
 Also check for inline values that disclose the answer without needing a comment:
 - Image tags containing `does-not-exist`, `fake`, `broken`, `invalid`, or impossible version numbers
 - `replicas: 0` directly in the YAML (vs. scaling to zero at runtime in setup.sh)
+- PrometheusRule annotations (`summary`, `description`) that contain troubleshooting instructions (e.g. "Check resource limits", "Inspect application logs", "Verify storage class"). Annotations should state what is happening, not how to fix it.
 
 ## 4. Realism check
 

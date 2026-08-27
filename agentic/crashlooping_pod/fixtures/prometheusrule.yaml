@@ -15,4 +15,4 @@ spec:
             severity: warning
           annotations:
             summary: Pod {{ $labels.pod }} is restarting frequently
-            description: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted multiple times. Check application logs and resource configuration.
+            description: Container {{ $labels.container }} in pod {{ $labels.namespace }}/{{ $labels.pod }} has restarted multiple times.
