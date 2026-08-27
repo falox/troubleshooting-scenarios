@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="warehouse-ops"
@@ -28,5 +30,4 @@ oc wait --for=jsonpath='{.status.containerStatuses[0].state.waiting.reason}'=Cra
 
 echo "Setup complete: $APP is in CrashLoopBackOff state"
 
-SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 "$SCRIPT_DIR/wait-for-alert.sh" "WarehouseOpsPodRestarting" "" 600

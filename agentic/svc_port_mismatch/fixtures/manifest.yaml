@@ -1,28 +1,24 @@
-# The service selector is correct so endpoints exist, but targetPort 8081
-# doesn't match the container's listening port 8080 — every connection
-# through the service is refused. Distinct from svc-selector (zero
-# endpoints): here the endpoints are present but point at the wrong port.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: svc-port-demo
+  name: notification-hub
   labels:
     purpose: eval-test
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: svc-port-demo
-  namespace: svc-port-demo
+  name: notifier-app
+  namespace: notification-hub
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: svc-port-demo
+      app: notifier-app
   template:
     metadata:
       labels:
-        app: svc-port-demo
+        app: notifier-app
     spec:
       containers:
         - name: nginx
@@ -46,11 +42,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: svc-port-svc
-  namespace: svc-port-demo
+  name: notifier-svc
+  namespace: notification-hub
 spec:
   selector:
-    app: svc-port-demo
+    app: notifier-app
   ports:
     - port: 8080
       targetPort: 8081

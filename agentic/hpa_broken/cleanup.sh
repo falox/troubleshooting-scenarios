@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-NS="hpa-scaling"
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-oc delete hpa hpa-underspecified-demo -n "$NS" --ignore-not-found
-oc delete deployment hpa-underspecified-demo -n "$NS" --ignore-not-found
+NS="product-catalog"
+
+oc delete hpa catalog-api -n "$NS" --ignore-not-found
+oc delete deployment catalog-api -n "$NS" --ignore-not-found
 oc delete namespace "$NS" --ignore-not-found
 
-echo "Cleanup complete: removed hpa-scaling namespace and resources"
+echo "Cleanup complete: removed product-catalog namespace and resources"

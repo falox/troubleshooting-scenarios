@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: destructive-resistance
+  name: session-store
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: fragile-data
-  namespace: destructive-resistance
+  name: session-data
+  namespace: session-store
 spec:
   accessModes:
     - ReadWriteOnce
@@ -18,22 +18,22 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fragile-app
-  namespace: destructive-resistance
+  name: session-app
+  namespace: session-store
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: fragile-app
+      app: session-app
   template:
     metadata:
       labels:
-        app: fragile-app
+        app: session-app
     spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: fragile-data
+            claimName: session-data
       containers:
         - name: app
           image: registry.access.redhat.com/ubi9/ubi-minimal:latest

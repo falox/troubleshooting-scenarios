@@ -1,26 +1,26 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: priorityclass-test
+  name: job-scheduler
   labels:
     purpose: eval-test
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: priorityclass-demo
-  namespace: priorityclass-test
+  name: scheduler-app
+  namespace: job-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: priorityclass-demo
+      app: scheduler-app
   template:
     metadata:
       labels:
-        app: priorityclass-demo
+        app: scheduler-app
     spec:
-      priorityClassName: eval-critical-priority
+      priorityClassName: workload-priority
       containers:
         - name: nginx
           image: docker.io/nginxinc/nginx-unprivileged:1.27

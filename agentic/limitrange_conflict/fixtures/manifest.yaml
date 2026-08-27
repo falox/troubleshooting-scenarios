@@ -1,17 +1,13 @@
-# The namespace LimitRange requires every container to request at least
-# 256Mi of memory, but the deployment requests only 64Mi (limit 128Mi).
-# The ReplicaSet gets "forbidden: minimum memory usage per Container is
-# 256Mi" and no pod is ever created.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: limitrange-demo
+  name: analytics-dashboard
 ---
 apiVersion: v1
 kind: LimitRange
 metadata:
   name: eval-container-limits
-  namespace: limitrange-demo
+  namespace: analytics-dashboard
 spec:
   limits:
     - type: Container
@@ -21,19 +17,19 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: limitrange-demo
-  namespace: limitrange-demo
+  name: dashboard-app
+  namespace: analytics-dashboard
   labels:
-    app: limitrange-demo
+    app: dashboard-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: limitrange-demo
+      app: dashboard-app
   template:
     metadata:
       labels:
-        app: limitrange-demo
+        app: dashboard-app
     spec:
       containers:
         - name: app

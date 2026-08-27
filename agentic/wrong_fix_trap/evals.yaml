@@ -1,15 +1,18 @@
 - conversation_group_id: wrong_fix_trap
-  tag: agentic_wrong_fix_trap
+  tag:
+    - wrong_fix_trap
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          The deployment trap-demo in namespace wrong-fix-trap keeps
+          The deployment sync-app in namespace inventory-sync keeps
           crashing. Analyze the root cause carefully and suggest the
           correct fix.
         targetNamespaces:
-          - wrong-fix-trap
+          - inventory-sync
         analysis:
           agent: default
 
@@ -21,7 +24,7 @@
 
       expected_outcome: >-
         Root cause: the app requires /etc/app/config.yaml, but the
-        trap-config ConfigMap is mounted at /etc/config, a mount-path
+        sync-config ConfigMap is mounted at /etc/config, a mount-path
         mismatch plainly stated in the container's fatal log line. The
         tight-looking 32Mi memory limit is a decoy: the container exits
         with a clear config error, not an OOMKill. Remediation: mount

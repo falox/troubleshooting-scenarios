@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: change-risk
+  name: checkout-api
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: orders-api
-  namespace: change-risk
+  namespace: checkout-api
 spec:
   replicas: 2
   selector:
@@ -45,15 +45,15 @@ spec:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: orders-api-proposed-change
-  namespace: change-risk
+  name: orders-api-candidate
+  namespace: checkout-api
 data:
   manifest.yaml: |
     apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: orders-api
-      namespace: change-risk
+      namespace: checkout-api
     spec:
       replicas: 1
       selector:

@@ -1,17 +1,20 @@
 - conversation_group_id: cascading_failure
-  tag: agentic_cascading_failure
+  tag:
+    - cascading_failure
+    - agentic
+    - medium
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Users report the cascade-frontend service in namespace
-          cascading-failure is down. Its pod is Running but never
+          Users report the order-frontend service in namespace
+          order-processing is down. Its pod is Running but never
           becomes Ready. The backend it depends on should run the
           nginx-unprivileged image at version 1.27. Investigate the
           root cause and recommend a fix.
         targetNamespaces:
-          - cascading-failure
+          - order-processing
         analysis:
           agent: default
 
@@ -22,9 +25,9 @@
             status: "True"
 
       expected_outcome: >-
-        Root cause: cascade-frontend's readiness tracks reachability of
-        cascade-backend, and the backend's pod is in ImagePullBackOff on
-        the nonexistent tag 7.77-does-not-exist. The frontend itself is
+        Root cause: order-frontend's readiness tracks reachability of
+        order-backend, and the backend's pod is in ImagePullBackOff on
+        the nonexistent tag 1.27-hardened. The frontend itself is
         fine. Remediation: fix the backend image to a valid tag (1.27);
         weakening or removing the frontend's readiness probe would mask
         the outage instead of fixing it. Verify the backend reaches

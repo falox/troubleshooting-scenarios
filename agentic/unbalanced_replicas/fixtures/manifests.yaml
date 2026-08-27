@@ -8,7 +8,6 @@ kind: Namespace
 metadata:
   name: fleet-alpha1
 ---
-# --- fleet-alpha: 6 workloads (mix of Pods and Deployments) ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -159,7 +158,6 @@ spec:
           cpu: "5m"
           memory: "16Mi"
 ---
-# --- fleet-alpha1: 9 workloads (Deployments only) ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -1,17 +1,20 @@
 - conversation_group_id: bad_command
-  tag: agentic_bad_command
+  tag:
+    - bad_command
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          The deployment bad-command-demo in namespace bad-command
+          The deployment proxy-server in namespace web-proxy
           stopped working after someone edited its manifest. The
           container is a stock nginx-unprivileged image that worked
           fine with its default entrypoint. Investigate the root cause
           and recommend how to restore it.
         targetNamespaces:
-          - bad-command
+          - web-proxy
         analysis:
           agent: default
 

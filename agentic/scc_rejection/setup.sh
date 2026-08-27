@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 NS="legacy-migration"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 
-echo "Waiting for SCC rejection FailedCreate event on scc-demo..."
+echo "Waiting for SCC rejection FailedCreate event on migration-app..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 60 ]; do
   ATTEMPT=$((ATTEMPT + 1))

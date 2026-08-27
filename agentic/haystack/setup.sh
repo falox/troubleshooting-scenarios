@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="haystack"
+NS="comm-platform"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

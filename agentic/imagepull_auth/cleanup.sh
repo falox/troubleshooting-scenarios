@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-oc delete namespace imagepull-auth --ignore-not-found
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-echo "Cleanup complete: removed imagepull-auth namespace"
+oc delete namespace media-processing --ignore-not-found
+
+echo "Cleanup complete: removed media-processing namespace"

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="imagepull-auth"
-APP="imagepull-auth-app"
+NS="media-processing"
+APP="media-processor"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 
@@ -14,9 +16,12 @@ until [ "$ATTEMPT" -ge 30 ]; do
   STATE=$(oc get pods -n "$NS" -l "app=$APP" \
     -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || true)
   if [[ "$STATE" == "ErrImagePull" || "$STATE" == "ImagePullBackOff" ]]; then
-    break
+    echo "Setup complete: $APP is in ImagePullBackOff state"
+    exit 0
   fi
   sleep 4
 done
 
-echo "Setup complete: $APP is in ImagePullBackOff state"
+echo "ERROR: $APP did not reach ImagePullBackOff within 120s"
+oc get pods -n "$NS" -o wide
+exit 1

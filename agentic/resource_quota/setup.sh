@@ -1,31 +1,33 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 NS="team-onboarding"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 
-echo "Waiting for quota-blocker to consume the pod quota..."
+echo "Waiting for setup-worker to consume the pod quota..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 120 ]; do
   ATTEMPT=$((ATTEMPT + 1))
-  READY=$(oc get deployment quota-blocker -n "$NS" \
+  READY=$(oc get deployment setup-worker -n "$NS" \
     -o jsonpath='{.status.readyReplicas}' 2>/dev/null || echo "0")
   if [ "$READY" = "2" ]; then
-    echo "quota-blocker is fully available (attempt $ATTEMPT)"
+    echo "setup-worker is fully available (attempt $ATTEMPT)"
     break
   fi
   sleep 1
 done
 
 if [ "$READY" != "2" ]; then
-  echo "ERROR: quota-blocker did not become available within 120s"
-  oc get deployment quota-blocker -n "$NS"
+  echo "ERROR: setup-worker did not become available within 120s"
+  oc get deployment setup-worker -n "$NS"
   exit 1
 fi
 
-echo "Confirming quota-victim-app pod creation is rejected by the quota..."
+echo "Confirming onboarding-app pod creation is rejected by the quota..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 60 ]; do
   ATTEMPT=$((ATTEMPT + 1))

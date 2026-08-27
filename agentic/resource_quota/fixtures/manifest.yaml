@@ -17,17 +17,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: quota-blocker
+  name: setup-worker
   namespace: team-onboarding
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: quota-blocker
+      app: setup-worker
   template:
     metadata:
       labels:
-        app: quota-blocker
+        app: setup-worker
     spec:
       containers:
         - name: nginx
@@ -50,17 +50,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: quota-victim-app
+  name: onboarding-app
   namespace: team-onboarding
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: quota-victim-app
+      app: onboarding-app
   template:
     metadata:
       labels:
-        app: quota-victim-app
+        app: onboarding-app
     spec:
       containers:
         - name: nginx

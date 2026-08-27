@@ -1,17 +1,21 @@
 - conversation_group_id: missing_alerts
-  tag: agentic_missing_alerts
+  tag:
+    - missing_alerts
+    - agentic
+    - alerts-adapter
+    - medium
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Last month two incidents in namespace missing-alerts went
+          Last month two incidents in namespace event-processor went
           unnoticed until users complained. Review the alerting coverage
           for the namespace's workloads (see the PrometheusRule
-          minimal-alert-rules) and propose the high-value alerts that
+          event-processor-rules) and propose the high-value alerts that
           are missing. Do not modify anything.
         targetNamespaces:
-          - missing-alerts
+          - event-processor
         analysis:
           agent: default
 
@@ -23,7 +27,7 @@
 
       expected_outcome: >-
         The namespace runs the payments-api workload but its only
-        PrometheusRule (minimal-alert-rules) contains a single recording
+        PrometheusRule (event-processor-rules) contains a single recording
         rule and zero alerts. No coverage for crash loops, pod
         availability/readiness, or memory/CPU saturation. The proposal
         should include concrete new alert rules (e.g. restart-rate over a

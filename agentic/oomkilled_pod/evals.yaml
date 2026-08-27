@@ -1,5 +1,9 @@
-- conversation_group_id: oomkilled_pod_openai
-  tag: agentic_oomkilled_pod
+- conversation_group_id: oomkilled_pod
+  tag:
+    - oomkilled_pod
+    - agentic
+    - alerts-adapter
+    - normal
 
   turns:
     - turn_id: turn_1
@@ -27,95 +31,10 @@
 
       expected_outcome: >-
         Root cause: The report-generator pods are being OOMKilled because
-        the container runs a Python script that continuously allocates ~1MB
-        per second, exceeding the 60Mi memory limit. The container has a
-        deliberate memory leak that causes unbounded memory growth until the
-        kernel OOM killer terminates the process. Fix: Either increase the
-        memory limit or fix the application code to avoid the memory leak.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: oomkilled_pod_anthropic
-  tag: agentic_oomkilled_pod
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Alert: DataProcessingPodRestarting (warning)
-          Namespace: data-processing
-          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
-          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
-        targetNamespaces:
-          - data-processing
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
-        analysis:
-          agent: opus
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: The report-generator pods are being OOMKilled because
-        the container runs a Python script that continuously allocates ~1MB
-        per second, exceeding the 60Mi memory limit. The container has a
-        deliberate memory leak that causes unbounded memory growth until the
-        kernel OOM killer terminates the process. Fix: Either increase the
-        memory limit or fix the application code to avoid the memory leak.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: oomkilled_pod_gemini
-  tag: agentic_oomkilled_pod
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Alert: DataProcessingPodRestarting (warning)
-          Namespace: data-processing
-          Description: Container in pod data-processing/report-generator has restarted multiple times. Check resource limits and application logs.
-          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
-        targetNamespaces:
-          - data-processing
-        tools:
-          skills:
-            - image: quay.io/openshiftanalytics/agentic-skills:latest
-              paths:
-                - /skills/cluster-troubleshoot/investigate-alert
-        analysis:
-          agent: gemini
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Root cause: The report-generator pods are being OOMKilled because
-        the container runs a Python script that continuously allocates ~1MB
-        per second, exceeding the 60Mi memory limit. The container has a
-        deliberate memory leak that causes unbounded memory growth until the
-        kernel OOM killer terminates the process. Fix: Either increase the
-        memory limit or fix the application code to avoid the memory leak.
+        the container runs a Python script that caches every processed
+        record without eviction, causing unbounded memory growth that
+        exceeds the 60Mi memory limit. Fix: Either increase the memory
+        limit or fix the application code to bound or evict the cache.
 
       turn_metrics:
         - "custom:openshift_agentic_run_status"

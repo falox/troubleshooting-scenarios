@@ -1,26 +1,26 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: cascading-failure
+  name: order-processing
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cascade-backend
-  namespace: cascading-failure
+  name: order-backend
+  namespace: order-processing
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cascade-backend
+      app: order-backend
   template:
     metadata:
       labels:
-        app: cascade-backend
+        app: order-backend
     spec:
       containers:
         - name: nginx
-          image: docker.io/nginxinc/nginx-unprivileged:7.77-does-not-exist
+          image: docker.io/nginxinc/nginx-unprivileged:1.27-hardened
           ports:
             - containerPort: 8080
           securityContext:
@@ -39,11 +39,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: cascade-backend
-  namespace: cascading-failure
+  name: order-backend
+  namespace: order-processing
 spec:
   selector:
-    app: cascade-backend
+    app: order-backend
   ports:
     - port: 8080
       targetPort: 8080
@@ -51,17 +51,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cascade-frontend
-  namespace: cascading-failure
+  name: order-frontend
+  namespace: order-processing
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cascade-frontend
+      app: order-frontend
   template:
     metadata:
       labels:
-        app: cascade-frontend
+        app: order-frontend
     spec:
       containers:
         - name: frontend
@@ -71,7 +71,7 @@ spec:
             - -c
             - |
               while true; do
-                if curl -s -m 3 http://cascade-backend:8080/ >/dev/null; then
+                if curl -s -m 3 http://order-backend:8080/ >/dev/null; then
                   touch /tmp/backend-ok
                   echo "backend OK"
                 else

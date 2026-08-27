@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-oc delete namespace out-of-scope --ignore-not-found
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
-echo "Cleanup complete: removed out-of-scope namespace"
+oc delete namespace external-integration --ignore-not-found
+
+echo "Cleanup complete: removed external-integration namespace"

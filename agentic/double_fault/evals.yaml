@@ -1,21 +1,24 @@
-- conversation_group_id: double_fault_openai
-  tag: agentic_double_fault
+- conversation_group_id: double_fault
+  tag:
+    - double_fault
+    - agentic
+    - medium
 
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Deployment: double-fault-demo
-          Namespace: multi-issue-app
+          Deployment: booking-app
+          Namespace: booking-service
           Status: Pod will not stay up
-          Description: The deployment double-fault-demo in namespace
-          multi-issue-app will not stay up. The app expects a ConfigMap
-          named df-settings whose only needed key is LOG_LEVEL (default
+          Description: The deployment booking-app in namespace
+          booking-service will not stay up. The app expects a ConfigMap
+          named app-settings whose only needed key is LOG_LEVEL (default
           "info"). There may be more than one problem — restore the pod
           to a stable Running state and verify it stays healthy.
         targetNamespaces:
-          - multi-issue-app
+          - booking-service
         analysis:
           agent: default
 
@@ -27,96 +30,10 @@
 
       expected_outcome: >-
         Two independent faults: (1) the container's envFrom references
-        the missing ConfigMap df-settings (CreateContainerConfigError),
+        the missing ConfigMap app-settings (CreateContainerConfigError),
         and (2) the liveness probe targets port 8081 while nginx listens
         on 8080, which kills the container as soon as fault 1 is fixed.
-        Fix: create the df-settings ConfigMap (LOG_LEVEL: info) AND
-        correct the liveness probe port to 8080, then verify the pod is
-        Running with no restart growth.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: double_fault_anthropic
-  tag: agentic_double_fault
-
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Deployment: double-fault-demo
-          Namespace: multi-issue-app
-          Status: Pod will not stay up
-          Description: The deployment double-fault-demo in namespace
-          multi-issue-app will not stay up. The app expects a ConfigMap
-          named df-settings whose only needed key is LOG_LEVEL (default
-          "info"). There may be more than one problem — restore the pod
-          to a stable Running state and verify it stays healthy.
-        targetNamespaces:
-          - multi-issue-app
-        analysis:
-          agent: opus
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Two independent faults: (1) the container's envFrom references
-        the missing ConfigMap df-settings (CreateContainerConfigError),
-        and (2) the liveness probe targets port 8081 while nginx listens
-        on 8080, which kills the container as soon as fault 1 is fixed.
-        Fix: create the df-settings ConfigMap (LOG_LEVEL: info) AND
-        correct the liveness probe port to 8080, then verify the pod is
-        Running with no restart growth.
-
-      turn_metrics:
-        - "custom:openshift_agentic_run_status"
-        - "custom:openshift_agentic_run_evaluation_correctness"
-      turn_metrics_metadata:
-        "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.75
-
-- conversation_group_id: double_fault_gemini
-  tag: agentic_double_fault
-
-
-  turns:
-    - turn_id: turn_1
-      openshift_agentic_run_spec:
-        request: |
-          Deployment: double-fault-demo
-          Namespace: multi-issue-app
-          Status: Pod will not stay up
-          Description: The deployment double-fault-demo in namespace
-          multi-issue-app will not stay up. The app expects a ConfigMap
-          named df-settings whose only needed key is LOG_LEVEL (default
-          "info"). There may be more than one problem — restore the pod
-          to a stable Running state and verify it stays healthy.
-        targetNamespaces:
-          - multi-issue-app
-        analysis:
-          agent: gemini
-
-      expected_openshift_agentic_run_status:
-        phase: Completed
-        conditions:
-          - type: Analyzed
-            status: "True"
-
-      expected_outcome: >-
-        Two independent faults: (1) the container's envFrom references
-        the missing ConfigMap df-settings (CreateContainerConfigError),
-        and (2) the liveness probe targets port 8081 while nginx listens
-        on 8080, which kills the container as soon as fault 1 is fixed.
-        Fix: create the df-settings ConfigMap (LOG_LEVEL: info) AND
+        Fix: create the app-settings ConfigMap (LOG_LEVEL: info) AND
         correct the liveness probe port to 8080, then verify the pod is
         Running with no restart growth.
 

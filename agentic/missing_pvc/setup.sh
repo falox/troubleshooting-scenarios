@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="missing-pvc-test"
-APP="missing-pvc-demo"
+NS="document-store"
+APP="document-app"
 
 echo "Applying missing_pvc scenario manifests in namespace ${NS}…"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"

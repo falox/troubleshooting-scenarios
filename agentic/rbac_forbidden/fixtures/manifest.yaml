@@ -1,34 +1,30 @@
-# The app lists pods in its own namespace via the Kubernetes API, but its
-# ServiceAccount has no Role/RoleBinding — every call returns HTTP 403 and
-# the app logs it. The fix is a least-privilege Role (get/list pods) bound
-# to app-inspector-sa.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: rbac-forbidden
+  name: pod-inspector
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: app-inspector-sa
-  namespace: rbac-forbidden
+  namespace: pod-inspector
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: rbac-forbidden-demo
-  namespace: rbac-forbidden
+  name: inspector-app
+  namespace: pod-inspector
   labels:
-    app: rbac-forbidden-demo
+    app: inspector-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: rbac-forbidden-demo
+      app: inspector-app
   template:
     metadata:
       labels:
-        app: rbac-forbidden-demo
+        app: inspector-app
     spec:
       serviceAccountName: app-inspector-sa
       containers:

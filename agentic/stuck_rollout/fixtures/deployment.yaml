@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: stuck-rollout
+  name: shipping-tracker
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stuck-rollout-demo
-  namespace: stuck-rollout
+  name: shipping-tracker
+  namespace: shipping-tracker
 spec:
   replicas: 1
   progressDeadlineSeconds: 60
@@ -18,11 +18,11 @@ spec:
       maxSurge: 1
   selector:
     matchLabels:
-      app: stuck-rollout-demo
+      app: shipping-tracker
   template:
     metadata:
       labels:
-        app: stuck-rollout-demo
+        app: shipping-tracker
     spec:
       containers:
         - name: nginx

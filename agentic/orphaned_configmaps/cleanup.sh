@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
 oc delete -f "$FIXTURE_DIR/deployment.yaml" --ignore-not-found --wait=false
-oc delete namespace orphaned-configmaps --ignore-not-found
+oc delete namespace deploy-artifacts --ignore-not-found
 
-echo "Cleanup complete: removed orphaned-configmaps namespace and resources"
+echo "Cleanup complete: removed deploy-artifacts namespace and resources"

@@ -1,18 +1,21 @@
 - conversation_group_id: missing_configmap
-  tag: agentic_missing_configmap
+  tag:
+    - missing_configmap
+    - agentic
+    - normal
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          The deployment missing-configmap-demo in namespace
-          missing-configmap is failing to start its container. The app
+          The deployment feature-app in namespace
+          feature-service is failing to start its container. The app
           loads its settings from a ConfigMap named app-settings that
           the team forgot to create; the only setting it needs is
           LOG_LEVEL, which should default to "info". Analyze the root
           cause and suggest a fix.
         targetNamespaces:
-          - missing-configmap
+          - feature-service
         analysis:
           agent: default
 

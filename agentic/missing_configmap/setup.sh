@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="missing-configmap"
-APP="missing-configmap-demo"
+NS="feature-service"
+APP="feature-app"
 
 oc apply -f "$FIXTURE_DIR/deployment.yaml"
 

@@ -1,26 +1,26 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: imagepull-auth
+  name: media-processing
   labels:
     purpose: eval-test
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: imagepull-auth-app
-  namespace: imagepull-auth
+  name: media-processor
+  namespace: media-processing
   labels:
-    app: imagepull-auth-app
+    app: media-processor
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: imagepull-auth-app
+      app: media-processor
   template:
     metadata:
       labels:
-        app: imagepull-auth-app
+        app: media-processor
     spec:
       containers:
         - name: internal-app

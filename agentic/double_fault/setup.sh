@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="multi-issue-app"
+NS="booking-service"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 
-echo "Waiting for CreateContainerConfigError on double-fault-demo..."
+echo "Waiting for CreateContainerConfigError on booking-app..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 60 ]; do
   ATTEMPT=$((ATTEMPT + 1))
-  STATUS=$(oc get pods -n "$NS" -l app=double-fault-demo \
+  STATUS=$(oc get pods -n "$NS" -l app=booking-app \
     -o jsonpath='{.items[0].status.containerStatuses[0].state.waiting.reason}' 2>/dev/null || true)
   if [ "$STATUS" = "CreateContainerConfigError" ]; then
     echo "Setup complete: CreateContainerConfigError detected (attempt $ATTEMPT)"
@@ -19,6 +21,7 @@ until [ "$ATTEMPT" -ge 60 ]; do
   sleep 1
 done
 
-echo "WARNING: CreateContainerConfigError not detected within 60s"
-oc get pods -n "$NS" -l app=double-fault-demo
+echo "ERROR: CreateContainerConfigError not detected within 60s"
+oc get pods -n "$NS" -l app=booking-app
 oc get events -n "$NS" --sort-by='.lastTimestamp' | tail -5
+exit 1

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
-NS="missing-alerts"
+NS="event-processor"
 APP="payments-api"
 
 "$SCRIPT_DIR/enable-uwm.sh"

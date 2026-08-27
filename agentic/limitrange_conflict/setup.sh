@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
-NS="limitrange-demo"
-DEPLOY="limitrange-demo"
+NS="analytics-dashboard"
+DEPLOY="dashboard-app"
 
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
 

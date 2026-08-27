@@ -1,22 +1,19 @@
-# A plain web app whose ServiceAccount is bound to cluster-admin within the
-# namespace — massive over-privilege for a workload that needs nothing from
-# the API. Analysis-only: classify the risk and propose least privilege.
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: overprivileged-demo
+  name: fleet-dashboard
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: webapp-sa
-  namespace: overprivileged-demo
+  namespace: fleet-dashboard
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: webapp-admin-binding
-  namespace: overprivileged-demo
+  namespace: fleet-dashboard
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -24,24 +21,24 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: webapp-sa
-    namespace: overprivileged-demo
+    namespace: fleet-dashboard
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: overprivileged-webapp
-  namespace: overprivileged-demo
+  name: dashboard-app
+  namespace: fleet-dashboard
   labels:
-    app: overprivileged-webapp
+    app: dashboard-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: overprivileged-webapp
+      app: dashboard-app
   template:
     metadata:
       labels:
-        app: overprivileged-webapp
+        app: dashboard-app
     spec:
       serviceAccountName: webapp-sa
       containers:

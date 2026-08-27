@@ -1,24 +1,24 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: route-port-test
+  name: customer-portal
   labels:
     purpose: eval-test
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: route-port-demo
-  namespace: route-port-test
+  name: portal-app
+  namespace: customer-portal
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: route-port-demo
+      app: portal-app
   template:
     metadata:
       labels:
-        app: route-port-demo
+        app: portal-app
     spec:
       containers:
         - name: nginx
@@ -47,11 +47,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: route-port-svc
-  namespace: route-port-test
+  name: portal-svc
+  namespace: customer-portal
 spec:
   selector:
-    app: route-port-demo
+    app: portal-app
   ports:
     - name: web
       port: 8080
@@ -60,11 +60,11 @@ spec:
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
-  name: route-port-demo
-  namespace: route-port-test
+  name: portal-app
+  namespace: customer-portal
 spec:
   to:
     kind: Service
-    name: route-port-svc
+    name: portal-svc
   port:
     targetPort: 9090
