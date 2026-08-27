@@ -9,10 +9,10 @@ APP="batch-processor"
 
 oc create namespace "$NS" 2>/dev/null || true
 
-oc create secret generic batch-processor-logs-script \
-  --from-file=generate_logs.py="$FIXTURE_DIR/generate_logs.py" \
-  -n "$NS" --dry-run=client -o yaml | oc apply -f -
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
+oc create configmap batch-processor-entrypoint \
+  --from-file=entrypoint.py="$FIXTURE_DIR/entrypoint.py" \
+  -n "$NS" --dry-run=client -o yaml | oc apply -f -
 
 # Define the three sentinel strings we need
 SENTINELS=(

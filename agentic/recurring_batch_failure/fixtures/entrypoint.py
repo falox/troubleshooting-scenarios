@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate batch-processor logs showing a 03:00-03:05 failure window."""
+
 
 import csv
 import io
@@ -14,12 +14,12 @@ UPSTREAM = "https://pipeline-intake.corp.net/submit"
 
 
 def write_row(writer, dt, severity, event, detail=""):
-    """Append a single CSV row to the writer."""
+
     writer.writerow([dt.isoformat() + "Z", severity, "batch-processor", event, detail])
 
 
 def generate():
-    """Generate 24 hours of batch-processor logs with a recurring failure window."""
+
     buf = io.StringIO()
     writer = csv.writer(buf, quoting=csv.QUOTE_MINIMAL)
 

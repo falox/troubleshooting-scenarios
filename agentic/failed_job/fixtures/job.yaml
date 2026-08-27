@@ -27,13 +27,13 @@ spec:
           type: RuntimeDefault
       volumes:
       - name: scripts
-        secret:
-          secretName: inventory-sync-logs-script
+        configMap:
+          name: inventory-sync-entrypoint
           defaultMode: 0555
       containers:
       - name: sync-worker
         image: python:3.11-alpine
-        command: ["python3", "/opt/scripts/generate_logs.py"]
+        command: ["python3", "/opt/scripts/entrypoint.py"]
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

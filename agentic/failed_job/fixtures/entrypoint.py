@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Simulate an inventory sync process that fails to reach its database."""
+
 
 import logging
 import sys
@@ -18,7 +18,7 @@ MAX_RETRIES = 4
 
 
 def try_connect(attempt):
-    """Simulate a single TCP connection attempt to the database."""
+
     log.info(
         "Opening TCP socket to %s:%d (attempt %d/%d)",
         DB_HOST,
@@ -32,7 +32,7 @@ def try_connect(attempt):
 
 
 def main():
-    """Run the inventory-sync failure simulation."""
+
     log.info("inventory-sync-validator starting up")
     log.info("Reading database coordinates from environment")
     log.info("Resolved endpoint %s:%d via service discovery", DB_HOST, DB_PORT)

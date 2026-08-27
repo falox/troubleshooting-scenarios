@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
-"""Simulate a gateway-proxy that reloads config and starts hitting wrong endpoints."""
 
 import time
 
 
 def emit(ts, level, msg):
-    """Print a structured log line for the gateway-proxy component."""
     print(f"ts={ts} level={level} component=gateway-proxy msg={msg}")
 
 
 def main():
-    """Generate gateway-proxy logs showing config drift from prod to staging."""
     # Healthy startup
     emit("2026-01-15T10:00:00.000Z", "INFO", "gateway-proxy v3.1.0 booting")
     emit("2026-01-15T10:00:00.150Z", "INFO", "resolved upstream db-prod.internal:5432")
@@ -24,7 +21,6 @@ def main():
         "listening on :8080, ready to accept traffic",
     )
 
-    # Normal requests
     for path, ms in [
         ("/api/users/123", 45),
         ("/api/orders", 89),
@@ -33,7 +29,7 @@ def main():
         emit(f"2026-01-15T10:01:{ms:02d}.000Z", "INFO", f"200 {path} ({ms}ms)")
     emit("2026-01-15T10:01:15.000Z", "INFO", "periodic probe result=healthy")
 
-    # Root cause: config drift
+    # Config reload
     print("2026-01-15T10:05:00.000Z [WARN] Configuration file change detected")
     emit(
         "2026-01-15T10:05:00.100Z",
@@ -62,7 +58,6 @@ def main():
         "attempting to establish pools to new upstreams",
     )
 
-    # Connection refused flood
     emit(
         "2026-01-15T10:05:01.000Z",
         "ERROR",
@@ -157,7 +152,6 @@ def main():
             f"2026-01-15T10:07:{s}.200Z [HTTP] 500 GET /api/health - Connection refused"
         )
 
-    # Keep pod running
     while True:
         time.sleep(30)
 

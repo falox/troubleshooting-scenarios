@@ -7,13 +7,11 @@ FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 NS="ingress-layer"
 APP="gateway-proxy"
 
-oc create namespace "$NS" 2>/dev/null || true
-
-# Inject the Python log generator as a secret, then apply the deployment
-oc create secret generic gateway-proxy-log-script \
-  --from-file=generate_logs.py="$FIXTURE_DIR/generate_logs.py" \
-  -n "$NS" --dry-run=client -o yaml | oc apply -f -
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
+
+oc create configmap gateway-proxy-entrypoint \
+  --from-file=entrypoint.py="$FIXTURE_DIR/entrypoint.py" \
+  -n "$NS" --dry-run=client -o yaml | oc apply -f -
 
 # Wait until the pod is ready and both sentinel log lines are present
 ATTEMPT=0

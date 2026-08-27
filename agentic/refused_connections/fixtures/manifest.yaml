@@ -1,3 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-layer
+  labels:
+    purpose: eval-test
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gateway-proxy-config
+  namespace: ingress-layer
+data:
+  app.yaml: |
+    environment: production
+    db_host: db-staging.internal
+    db_port: 5432
+    cache_host: redis-staging.internal
+    cache_port: 6379
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -18,9 +38,9 @@ spec:
         component: ingress
     spec:
       containers:
-      - name: log-emitter
+      - name: proxy
         image: python:3.11-alpine
-        command: ["python3", "-u", "/opt/scripts/generate_logs.py"]
+        command: ["python3", "-u", "/opt/scripts/entrypoint.py"]
         securityContext:
           runAsNonRoot: true
           allowPrivilegeEscalation: false
@@ -31,6 +51,9 @@ spec:
         - name: scripts
           mountPath: /opt/scripts
           readOnly: true
+        - name: config
+          mountPath: /config
+          readOnly: true
         resources:
           requests:
             cpu: "10m"
@@ -39,6 +62,9 @@ spec:
             memory: "96Mi"
       volumes:
       - name: scripts
-        secret:
-          secretName: gateway-proxy-log-script
+        configMap:
+          name: gateway-proxy-entrypoint
           defaultMode: 0555
+      - name: config
+        configMap:
+          name: gateway-proxy-config

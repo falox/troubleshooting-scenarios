@@ -19,6 +19,7 @@ The argument is a scenario directory name under `agentic/` (e.g. `bad_command`).
 
 Read every file in `agentic/$SCENARIO/`:
 - `fixtures/*.yaml` (all files)
+- `fixtures/*.py` (all files)
 - `setup.sh`
 - `cleanup.sh`
 - `evals.yaml`
@@ -35,6 +36,8 @@ Flag names that:
 - Reveal the test intent (`trap-demo`, `herring-app`, `fragile-app`)
 - Carry test-context markers: `-demo`, `-test`, `eval-` prefixes/suffixes
 - Use temporal hints that encode the answer: `old-`, year stamps, `legacy-` (when the scenario tests orphan detection)
+- Reveal the scenario is synthetic: container names like `log-emitter`, `fault-injector`; script filenames like `generate_logs.py`, `simulate_*.py`; Secret/ConfigMap names containing `log-script`, `logs-script`, or `fault`
+- Include `eval/scenario` or similar annotations that label the test case
 
 Neutral names are business-domain names that a real team would use: `payments`, `warehouse-ops`, `report-generator`, `media-processing`.
 
@@ -45,6 +48,8 @@ Search fixture YAML for `#` comment lines. Flag comments that:
 - State the expected error message or behavior
 - Reveal the fix
 - Give away structural information an LLM should discover (e.g. "6 workloads here, 9 there")
+
+Check Python scripts in `fixtures/` for docstrings or comments that describe the fault, the simulation intent, or the expected diagnosis (e.g. `"""Simulate a gateway that reloads config"""`, `# Root cause: config drift`). The LLM can read these via `oc get configmap -o yaml` or `oc get secret -o yaml`.
 
 Also check for inline values that disclose the answer without needing a comment:
 - Image tags containing `does-not-exist`, `fake`, `broken`, `invalid`, or impossible version numbers
