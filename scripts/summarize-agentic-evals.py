@@ -50,12 +50,13 @@ def _find_amended_yaml(json_path: Path) -> Path | None:
         return candidates[0]
     if not candidates:
         return None
-    json_ts = json_path.stem.replace("evaluation_", "").replace("_summary", "")
+    json_ts = int(json_path.stem.replace("evaluation_", "").replace("_summary", ""))
+    best, best_diff = None, float("inf")
     for c in candidates:
-        amended_ts = c.stem.replace("evals_amended_", "")
-        if abs(int(amended_ts) - int(json_ts)) <= 5:
-            return c
-    return None
+        diff = abs(int(c.stem.replace("evals_amended_", "")) - json_ts)
+        if diff <= 5 and diff < best_diff:
+            best, best_diff = c, diff
+    return best
 
 
 def load_amended_data(json_files: list[Path]) -> list[list[dict]]:
