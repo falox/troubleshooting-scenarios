@@ -2,7 +2,7 @@
   tag:
     - agentic
     - core
-    - normal
+    - difficulty_normal
   setup_script: ./setup.sh
   cleanup_script: ./cleanup.sh
 

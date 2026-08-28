@@ -1,7 +1,7 @@
 - conversation_group_id: unscheduled_pod
   tag:
     - agentic
-    - normal
+    - difficulty_normal
 
 
   turns:

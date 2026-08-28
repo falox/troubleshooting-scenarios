@@ -1,7 +1,7 @@
 - conversation_group_id: blocked_dns
   tag:
     - agentic
-    - medium
+    - difficulty_medium
 
 
   turns:

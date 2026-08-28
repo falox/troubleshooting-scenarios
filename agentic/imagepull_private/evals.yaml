@@ -1,7 +1,7 @@
 - conversation_group_id: imagepull_private
   tag:
     - agentic
-    - normal
+    - difficulty_normal
   setup_script: ./setup.sh
   cleanup_script: ./cleanup.sh
 

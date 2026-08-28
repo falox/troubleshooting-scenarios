@@ -1,7 +1,7 @@
 - conversation_group_id: partial_fix
   tag:
     - agentic
-    - medium
+    - difficulty_medium
 
   turns:
     - turn_id: turn_1

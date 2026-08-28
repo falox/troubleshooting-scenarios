@@ -1,7 +1,7 @@
 - conversation_group_id: excessive_permissions
   tag:
     - agentic
-    - medium
+    - difficulty_medium
 
   turns:
     - turn_id: turn_1

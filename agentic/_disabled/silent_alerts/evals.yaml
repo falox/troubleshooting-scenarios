@@ -1,7 +1,7 @@
 - conversation_group_id: silent_alerts
   tag:
     - agentic
-    - medium
+    - difficulty_medium
 
   turns:
     - turn_id: turn_1

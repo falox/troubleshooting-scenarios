@@ -1,7 +1,7 @@
 - conversation_group_id: failed_replicaset
   tag:
     - agentic
-    - normal
+    - difficulty_normal
 
 
   turns:

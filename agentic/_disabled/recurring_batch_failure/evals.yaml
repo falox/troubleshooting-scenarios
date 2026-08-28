@@ -1,7 +1,7 @@
 - conversation_group_id: recurring_batch_failure
   tag:
     - agentic
-    - medium
+    - difficulty_medium
 
 
   turns:

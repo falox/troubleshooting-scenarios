@@ -1,7 +1,7 @@
 - conversation_group_id: unknown_autoscaler
   tag:
     - agentic
-    - normal
+    - difficulty_normal
 
   turns:
     - turn_id: turn_1

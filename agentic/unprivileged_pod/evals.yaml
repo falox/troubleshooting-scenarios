@@ -1,7 +1,7 @@
 - conversation_group_id: unprivileged_pod
   tag:
     - agentic
-    - normal
+    - difficulty_normal
 
 
   turns:

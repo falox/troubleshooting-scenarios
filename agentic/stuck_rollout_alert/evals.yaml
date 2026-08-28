@@ -3,7 +3,7 @@
     - agentic
     - core
     - alert
-    - normal
+    - difficulty_normal
 
   turns:
     - turn_id: turn_1

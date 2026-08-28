@@ -1,7 +1,7 @@
 - conversation_group_id: exhausted_quota
   tag:
     - agentic
-    - normal
+    - difficulty_normal
 
 
   turns:

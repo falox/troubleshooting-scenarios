@@ -1,7 +1,7 @@
 - conversation_group_id: red_herring
   tag:
     - agentic
-    - medium
+    - difficulty_medium
 
   turns:
     - turn_id: turn_1
