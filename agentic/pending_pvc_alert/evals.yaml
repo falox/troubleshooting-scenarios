@@ -1,9 +1,8 @@
 - conversation_group_id: pending_pvc
   tag:
-    - pending_pvc
     - agentic
     - core
-    - alerts-adapter
+    - alert
     - medium
 
 

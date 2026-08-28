@@ -1,6 +1,5 @@
 - conversation_group_id: forbidden_api
   tag:
-    - forbidden_api
     - agentic
     - normal
 

@@ -1,6 +1,5 @@
 - conversation_group_id: refused_service
   tag:
-    - refused_service
     - agentic
     - core
     - normal

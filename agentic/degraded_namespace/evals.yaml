@@ -1,6 +1,5 @@
 - conversation_group_id: degraded_namespace
   tag:
-    - degraded_namespace
     - agentic
     - medium
 

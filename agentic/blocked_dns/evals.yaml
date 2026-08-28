@@ -1,6 +1,5 @@
 - conversation_group_id: blocked_dns
   tag:
-    - blocked_dns
     - agentic
     - medium
 

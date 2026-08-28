@@ -4,9 +4,12 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="team-onboarding"
 
+"$SCRIPT_DIR/enable-uwm.sh"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
+oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"
 
 echo "Waiting for setup-worker to consume the pod quota..."
 ATTEMPT=0
@@ -36,11 +39,9 @@ until [ "$ATTEMPT" -ge 60 ]; do
     -o jsonpath='{.items[*].message}' 2>/dev/null || true)
   if echo "$EVENTS" | grep -q "exceeded quota"; then
     echo "Setup complete: quota exceeded event detected (attempt $ATTEMPT)"
-    exit 0
+    break
   fi
   sleep 1
 done
 
-echo "WARNING: exceeded quota event not detected within 60s"
-oc get events -n "$NS"
-exit 1
+"$SCRIPT_DIR/wait-for-alert.sh" "TeamOnboardingDeploymentUnavailable" "" 600

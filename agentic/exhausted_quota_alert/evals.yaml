@@ -1,21 +1,19 @@
-- conversation_group_id: failing_api
+- conversation_group_id: exhausted_quota_alert
   tag:
-    - failing_api
     - agentic
-    - core
-    - alerts-adapter
-    - hard
+    - alert
+    - normal
 
   turns:
     - turn_id: turn_1
       openshift_agentic_run_spec:
         request: |
-          Alert: PaymentErrorRateHigh (critical)
-          Namespace: payments
-          Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
+          Alert: TeamOnboardingDeploymentUnavailable (warning)
+          Namespace: team-onboarding
+          Description: Deployment team-onboarding/onboarding-app has 0 available replicas for more than 15 seconds.
           Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
         targetNamespaces:
-          - payments
+          - team-onboarding
         tools:
           skills:
             - image: quay.io/openshiftanalytics/agentic-skills:latest
@@ -31,16 +29,17 @@
             status: "True"
 
       expected_outcome: >-
-        Root cause: shared-services/reporting-service is repeatedly opening DB connections
-        and not releasing them properly, exhausting PostgreSQL connection slots.
-        payments/payments-api cannot obtain a DB connection and returns 503.
-        if mentioned, reconciliation-service CrashLooping is a separate issue, NOT RELATED
-        to the DB connection exhaustion.
-        Fix: rollback, restart, or scale down reporting-service.
+        Root cause: the namespace's ResourceQuota team-pod-quota caps
+        pods at 2, fully consumed by setup-worker's 2 replicas -- the
+        onboarding-app ReplicaSet fails pod creation with "exceeded
+        quota" events and no pod is ever created. Acceptable fixes:
+        raise the pod quota (e.g. to 3 or more) to accommodate both
+        workloads, or scale down setup-worker to free a pod slot.
+        Either way, verify onboarding-app's pod is created and Running.
 
       turn_metrics:
         - "custom:openshift_agentic_run_status"
         - "custom:openshift_agentic_run_evaluation_correctness"
       turn_metrics_metadata:
         "custom:openshift_agentic_run_evaluation_correctness":
-          threshold: 0.80
+          threshold: 0.75

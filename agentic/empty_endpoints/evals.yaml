@@ -1,6 +1,5 @@
 - conversation_group_id: empty_endpoints
   tag:
-    - empty_endpoints
     - agentic
     - core
     - normal

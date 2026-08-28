@@ -1,6 +1,5 @@
 - conversation_group_id: unbalanced_replicas
   tag:
-    - unbalanced_replicas
     - agentic
     - core
     - normal

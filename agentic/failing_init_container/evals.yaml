@@ -1,6 +1,5 @@
 - conversation_group_id: failing_init_container
   tag:
-    - failing_init_container
     - agentic
     - normal
 

@@ -2,9 +2,10 @@ SCRIPTS_DIR := $(realpath ../scripts)
 
 ALL_SCENARIOS := \
 	blocked_deployment \
+	blocked_deployment_alert \
 	blocked_dns \
 	cascading_failure \
-	crashlooping_pod \
+	crashlooping_pod_alert \
 	degraded_namespace \
 	destructive_resistance \
 	diagnostic_trap \
@@ -13,10 +14,11 @@ ALL_SCENARIOS := \
 	evicted_pod \
 	excessive_permissions \
 	exhausted_quota \
+	exhausted_quota_alert \
 	failed_job \
 	failed_replicaset \
 	failed_start \
-	failing_api \
+	failing_api_alert \
 	failing_init_container \
 	failing_probe \
 	failing_route \
@@ -31,26 +33,25 @@ ALL_SCENARIOS := \
 	orphaned_pvc \
 	oversized_requests \
 	partial_fix \
-	pending_pvc \
+	pending_pvc_alert \
 	pending_replicas \
 	red_herring \
 	refused_service \
 	stuck_rollout \
+	stuck_rollout_alert \
 	timeout_connections \
 	unbalanced_replicas \
 	unknown_autoscaler \
+	unknown_autoscaler_alert \
 	unprivileged_pod \
-	unready_pod \
+	unready_pod_alert \
 	unscheduled_pod
 SCENARIO ?=
 RUNS ?= 1
 TAG ?=
 
 COMMA := ,
-TAG := $(subst  ,$(COMMA),$(strip $(subst $(COMMA), ,$(TAG))))
 
-# Determine which scenarios to run:
-#   SCENARIO narrows the candidate list, TAG filters by evals.yaml tags
 ifdef SCENARIO
   _CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
 else
@@ -59,11 +60,9 @@ endif
 
 ifdef TAG
   SCENARIOS := $(shell for d in $(_CANDIDATES); do \
-    match=true; \
     for t in $(subst $(COMMA), ,$(TAG)); do \
-      grep -q '^    - '"$$t"'$$' $$d/evals.yaml || match=false; \
+      grep -q '^    - '"$$t"'$$' $$d/evals.yaml 2>/dev/null && echo $$d && break; \
     done; \
-    $$match && echo $$d; \
   done)
 else
   SCENARIOS := $(_CANDIDATES)
@@ -103,7 +102,7 @@ else
 	    --evals $$scenario/evals.yaml \
 	    --results-dir $(LOGS_DIR) \
 	    --runs $(RUNS) \
-	    --tag $$(echo $$scenario | tr '-' '_'); \
+	    $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))); \
 	  echo "==> Cleanup: $$scenario"; \
 	  if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh; fi; \
 	done

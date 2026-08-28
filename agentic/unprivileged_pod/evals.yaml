@@ -1,6 +1,5 @@
 - conversation_group_id: unprivileged_pod
   tag:
-    - unprivileged_pod
     - agentic
     - normal
 

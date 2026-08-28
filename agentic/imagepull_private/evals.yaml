@@ -1,6 +1,5 @@
 - conversation_group_id: imagepull_private
   tag:
-    - imagepull_private
     - agentic
     - normal
   setup_script: ./setup.sh

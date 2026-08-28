@@ -1,6 +1,5 @@
 - conversation_group_id: stuck_rollout
   tag:
-    - stuck_rollout
     - agentic
     - core
     - normal

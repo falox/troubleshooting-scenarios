@@ -4,13 +4,14 @@ set -euo pipefail
 "$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")/../../scripts" && pwd)"
 NS="analytics-dashboard"
-DEPLOY="dashboard-app"
 
+"$SCRIPT_DIR/enable-uwm.sh"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"
+oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"
 
-# Wait for the ReplicaSet to report the LimitRange violation
-echo "Waiting for ReplicaSet FailedCreate event…"
+echo "Waiting for ReplicaSet FailedCreate event..."
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 60 ]; do
   ATTEMPT=$((ATTEMPT + 1))
@@ -19,11 +20,9 @@ until [ "$ATTEMPT" -ge 60 ]; do
     -o jsonpath='{.items[*].message}' 2>/dev/null || true)
   if echo "$MESSAGES" | grep -qi "minimum memory usage"; then
     echo "Setup complete: LimitRange violation detected (attempt $ATTEMPT)"
-    exit 0
+    break
   fi
   sleep 2
 done
 
-echo "LimitRange violation event not detected within 120s"
-oc get events -n "$NS"
-exit 1
+"$SCRIPT_DIR/wait-for-alert.sh" "AnalyticsDashboardDeploymentUnavailable" "" 600

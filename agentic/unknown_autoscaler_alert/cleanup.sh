@@ -1,0 +1,1 @@
+../unknown_autoscaler/cleanup.sh

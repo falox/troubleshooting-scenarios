@@ -1,6 +1,5 @@
 - conversation_group_id: missing_alerts
   tag:
-    - missing_alerts
     - agentic
     - medium
 

@@ -1,6 +1,5 @@
 - conversation_group_id: cascading_failure
   tag:
-    - cascading_failure
     - agentic
     - core
     - medium

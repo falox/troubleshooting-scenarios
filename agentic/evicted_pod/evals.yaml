@@ -1,6 +1,5 @@
 - conversation_group_id: evicted_pod
   tag:
-    - evicted_pod
     - agentic
     - core
     - normal

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE --evals FILE --results-dir DIR --ols-url URL [--provider NAME] [--model NAME] --tag TAG [--tag TAG ...]"
+  echo "Usage: $0 --system-config FILE --evals FILE --results-dir DIR --ols-url URL [--provider NAME] [--model NAME] --tags TAG [TAG ...]"
   exit 1
 }
 
@@ -23,7 +23,7 @@ while [ $# -gt 0 ]; do
     --ols-url)       OLS_URL="$2"; shift 2 ;;
     --provider)      OLS_PROVIDER="$2"; shift 2 ;;
     --model)         OLS_MODEL="$2"; shift 2 ;;
-    --tag)           TAGS+=("$2"); shift 2 ;;
+    --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;
     *) echo "Unknown arg: $1"; usage ;;
   esac
 done
@@ -99,7 +99,7 @@ if [ "$ok" != "true" ]; then
 fi
 echo "==> OLS OK at ${OLS_URL}"
 
-# 4. Run lightspeed-eval for each tag
+# 4. Run lightspeed-eval
 AUTH_TOKEN="$(oc whoami -t 2>/dev/null || true)"
 if [ -z "$AUTH_TOKEN" ]; then
   echo "==> No OAuth token found, creating service account token..."
@@ -107,15 +107,13 @@ if [ -z "$AUTH_TOKEN" ]; then
   AUTH_TOKEN="$(oc create token default -n "$OLS_NS" --duration=1h)"
 fi
 
-for tag in "${TAGS[@]}"; do
-  echo ""
-  echo "==> Running eval: ${tag}"
-  API_KEY="$AUTH_TOKEN" "${VENV_DIR}/bin/lightspeed-eval" \
-    --system-config "$RUNTIME_CONFIG" \
-    --output-dir "$RESULTS_DIR" \
-    --eval-data "$EVALS" \
-    --tag "$tag"
-done
+echo ""
+echo "==> Running eval: tags=${TAGS[*]}"
+API_KEY="$AUTH_TOKEN" "${VENV_DIR}/bin/lightspeed-eval" \
+  --system-config "$RUNTIME_CONFIG" \
+  --output-dir "$RESULTS_DIR" \
+  --eval-data "$EVALS" \
+  --tags "${TAGS[@]}"
 
 echo ""
 echo "==> All evals complete. Results in ${RESULTS_DIR}/"

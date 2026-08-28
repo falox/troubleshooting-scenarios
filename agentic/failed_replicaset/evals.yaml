@@ -1,6 +1,5 @@
 - conversation_group_id: failed_replicaset
   tag:
-    - failed_replicaset
     - agentic
     - normal
 

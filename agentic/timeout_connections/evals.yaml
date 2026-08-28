@@ -1,6 +1,5 @@
 - conversation_group_id: timeout_connections
   tag:
-    - timeout_connections
     - agentic
     - core
     - normal

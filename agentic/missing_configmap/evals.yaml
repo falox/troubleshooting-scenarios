@@ -1,6 +1,5 @@
 - conversation_group_id: missing_configmap
   tag:
-    - missing_configmap
     - agentic
     - core
     - normal

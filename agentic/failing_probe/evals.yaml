@@ -1,6 +1,5 @@
 - conversation_group_id: failing_probe
   tag:
-    - failing_probe
     - agentic
     - normal
 

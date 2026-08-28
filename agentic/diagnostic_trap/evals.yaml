@@ -1,6 +1,5 @@
 - conversation_group_id: diagnostic_trap
   tag:
-    - diagnostic_trap
     - agentic
     - core
     - medium

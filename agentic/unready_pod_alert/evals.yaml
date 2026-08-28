@@ -1,9 +1,8 @@
 - conversation_group_id: unready_pod
   tag:
-    - unready_pod
     - agentic
     - core
-    - alerts-adapter
+    - alert
     - normal
 
 

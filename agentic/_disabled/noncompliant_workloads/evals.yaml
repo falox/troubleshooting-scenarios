@@ -1,6 +1,5 @@
 - conversation_group_id: noncompliant_workloads
   tag:
-    - noncompliant_workloads
     - agentic
     - medium
 

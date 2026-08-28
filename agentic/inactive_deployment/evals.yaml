@@ -1,6 +1,5 @@
 - conversation_group_id: inactive_deployment
   tag:
-    - inactive_deployment
     - agentic
     - normal
 

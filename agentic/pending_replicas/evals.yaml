@@ -1,6 +1,5 @@
 - conversation_group_id: pending_replicas
   tag:
-    - pending_replicas
     - agentic
     - normal
 

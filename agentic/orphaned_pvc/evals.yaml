@@ -1,6 +1,5 @@
 - conversation_group_id: orphaned_pvc
   tag:
-    - orphaned_pvc
     - agentic
     - normal
   setup_script: ./setup.sh

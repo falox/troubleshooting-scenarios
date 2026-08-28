@@ -1,6 +1,5 @@
 - conversation_group_id: refused_connections
   tag:
-    - refused_connections
     - agentic
     - core
     - medium

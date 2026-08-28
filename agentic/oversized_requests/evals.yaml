@@ -1,6 +1,5 @@
 - conversation_group_id: oversized_requests
   tag:
-    - oversized_requests
     - agentic
     - medium
 

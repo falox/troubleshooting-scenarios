@@ -28,7 +28,7 @@ Collect every Kubernetes resource name, label value, and shell variable assignme
 
 ## 2. Consistency check
 
-Verify that `conversation_group_id` in `evals.yaml` matches the scenario directory name. Flag any mismatch as a **FAIL**-level issue; the id must always equal the directory name.
+Verify that every `conversation_group_id` in `evals.yaml` matches the scenario directory name, optionally with a `_alert` suffix (e.g. `blocked_deployment` and `blocked_deployment_alert` are both valid for directory `blocked_deployment`). Flag any other mismatch as a **FAIL**-level issue.
 
 ## 3. Naming check
 

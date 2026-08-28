@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: analytics-dashboard-alerts
+  namespace: analytics-dashboard
+spec:
+  groups:
+    - name: analytics-dashboard.workloads
+      rules:
+        - alert: AnalyticsDashboardDeploymentUnavailable
+          expr: |
+            kube_deployment_status_replicas_available{namespace="analytics-dashboard", deployment="dashboard-app"} == 0
+          for: 15s
+          labels:
+            severity: warning
+          annotations:
+            summary: Deployment {{ $labels.deployment }} has no available replicas
+            description: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has 0 available replicas for more than 15 seconds.
