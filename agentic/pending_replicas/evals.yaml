@@ -1,0 +1,44 @@
+- conversation_group_id: pending_replicas
+  tag:
+    - pending_replicas
+    - agentic
+    - normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Deployment: cache-cluster
+          Namespace: inventory-cache
+          Status: Several pods stuck in Pending
+          Description: Several pods of deployment cache-cluster in
+          namespace inventory-cache are stuck in Pending. The service only
+          needs 3 replicas spread across different nodes for high
+          availability. Analyze the root cause, fix the deployment so
+          the desired replicas all run, and verify.
+        targetNamespaces:
+          - inventory-cache
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the deployment requests 10 replicas with required
+        pod anti-affinity on kubernetes.io/hostname, allowing at most
+        one pod per node — the cluster has fewer than 10 nodes so the
+        surplus pods stay Pending with FailedScheduling events. Fix:
+        reduce replicas to 3 (the stated HA requirement) and optionally
+        soften the rule to preferred anti-affinity, then verify all
+        replicas are Running.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

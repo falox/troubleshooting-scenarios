@@ -1,0 +1,44 @@
+- conversation_group_id: unsafe_rollout
+  tag:
+    - unsafe_rollout
+    - agentic
+    - medium
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Before the next release, review the proposed manifest stored
+          in ConfigMap orders-api-candidate (key manifest.yaml)
+          in namespace checkout-api against the currently running
+          orders-api deployment. Flag every regression the change would
+          introduce and recommend whether the rollout should proceed.
+          Do not apply the manifest or change anything.
+        targetNamespaces:
+          - checkout-api
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        The proposed manifest would introduce five regressions versus the
+        running orders-api: it drops the readiness probe, switches the
+        pinned nginx-unprivileged:1.27 image to a floating :latest tag,
+        removes all resource requests and limits, cuts replicas from 2
+        to 1 (losing redundancy), and drops the container securityContext
+        hardening (allowPrivilegeEscalation/runAsNonRoot/drop-ALL).
+        Recommendation: block the rollout until the manifest restores the
+        probe, pins the image, reinstates resources and securityContext,
+        and justifies the replica reduction.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

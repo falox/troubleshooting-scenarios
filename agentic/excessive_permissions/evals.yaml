@@ -1,0 +1,45 @@
+- conversation_group_id: excessive_permissions
+  tag:
+    - excessive_permissions
+    - agentic
+    - medium
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Namespace: fleet-dashboard
+          Task: RBAC security audit
+          Description: The security team is auditing namespace
+          fleet-dashboard. Review the RBAC bindings of the workloads'
+          ServiceAccounts, assess whether any grant more access than the
+          workload needs, and propose the least-privilege replacement.
+          Do not change anything.
+        targetNamespaces:
+          - fleet-dashboard
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        The ServiceAccount webapp-sa is bound to the cluster-admin
+        ClusterRole via the RoleBinding webapp-admin-binding, granting it
+        full admin rights over the namespace — while the workload using
+        it (dashboard-app, a plain nginx) makes no Kubernetes API
+        calls at all. This is a high-risk over-privilege: a compromised
+        pod could read every secret and modify every resource in the
+        namespace. Proposal: delete the webapp-admin-binding (the app
+        needs no API access) or, if some access is later required, bind a
+        purpose-built minimal Role instead.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

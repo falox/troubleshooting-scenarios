@@ -2,6 +2,7 @@
   tag:
     - missing_configmap
     - agentic
+    - core
     - normal
 
   turns:

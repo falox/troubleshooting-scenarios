@@ -6,6 +6,8 @@ Scenarios parked here are excluded from evaluation runs. Reasons include:
   synthetic demo application rather than a genuine production issue.
 - The scenario does not apply given current technical limitations of
   Lightspeed Agentic.
+- The scenario tests a capability (e.g. hygiene review, pre-flight analysis)
+  that is not specific to troubleshooting.
 
 These scenarios are candidates for revision and re-enablement in the future.
 
@@ -19,3 +21,5 @@ These scenarios are candidates for revision and re-enablement in the future.
 | `nothing_wrong` | The fixture deploys only a Deployment without a Service or Route. The agent correctly verifies the pod is healthy, but the missing Service is too strong a signal: the agent concludes the lack of network exposure is the root cause and proposes creating Service/Route resources, violating the "no mutation" requirement (0/4 correctness, all 0.10). Needs a Service added to the fixture so the app is genuinely complete and the agent has no plausible gap to latch onto. |
 | `refused_connections` | Two issues ([OBSINTA-1555](https://redhat.atlassian.net/browse/OBSINTA-1555)): (1) the pod runs `python:3.11-alpine` with a script mounted via ConfigMap, so the LLM can identify the workload as a synthetic log generator by inspecting the pod spec; (2) the expected outcome requires identifying a hot-reload mechanism that only exists in the scripted log narrative, not in actual cluster signals. Needs a custom container image with a realistic entrypoint, and a broader expected outcome that accepts "staging endpoints in production" without requiring the hot-reload detail. |
 | `silent_alerts` | The agent lacks RBAC permissions to read PrometheusRule resources, so it cannot see the misspelled metric names and speculates about unrelated causes (0/4 correctness). |
+| `noncompliant_workloads` | Tests workload hygiene review (probes, limits, pinned tags), not troubleshooting. Not specific to the troubleshooting evaluation. |
+| `unsafe_rollout` | Tests pre-flight manifest review (dropped probes, unpinned image, removed securityContext), not troubleshooting. Not specific to the troubleshooting evaluation. |

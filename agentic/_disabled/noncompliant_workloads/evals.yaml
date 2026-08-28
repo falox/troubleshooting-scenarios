@@ -1,0 +1,43 @@
+- conversation_group_id: noncompliant_workloads
+  tag:
+    - noncompliant_workloads
+    - agentic
+    - medium
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The platform team wants a hygiene report for namespace
+          platform-services. Review every Deployment for production
+          guardrails (health probes, resource requests and limits,
+          pinned image tags) and produce a prioritized list of issues
+          per workload, distinguishing quick wins from bigger changes.
+          Do not change anything.
+        targetNamespaces:
+          - platform-services
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Per-workload findings: web-frontend uses a floating :latest image
+        tag and has no health probes; batch-worker has no resource
+        requests or limits at all; legacy-api has no probes and requests
+        without limits; billing-api is fully compliant (pinned tag,
+        probes, requests and limits) and needs no changes. The report
+        should prioritize the gaps (missing limits and probes as quick
+        wins) and explicitly note billing-api as clean rather than
+        inventing issues for it.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

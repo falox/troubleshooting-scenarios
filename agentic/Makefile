@@ -1,49 +1,47 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
 ALL_SCENARIOS := \
-	antiaffinity \
-	bad_command \
+	blocked_deployment \
+	blocked_dns \
 	cascading_failure \
-	change_risk \
 	crashlooping_pod \
+	degraded_namespace \
 	destructive_resistance \
+	diagnostic_trap \
 	double_fault \
+	empty_endpoints \
 	evicted_pod \
+	excessive_permissions \
+	exhausted_quota \
 	failed_job \
+	failed_replicaset \
+	failed_start \
 	failing_api \
 	failing_init_container \
-	haystack \
-	hpa_broken \
-	hygiene_score \
-	imagepull_auth \
-	imagepull_tag \
-	limitrange_conflict \
+	failing_probe \
+	failing_route \
+	forbidden_api \
+	imagepull_missing \
+	imagepull_private \
+	inactive_deployment \
 	missing_configmap \
 	missing_pvc \
 	missing_secret_key \
-	netpol_dns \
 	orphaned_configmaps \
 	orphaned_pvc \
-	overprivileged \
+	oversized_requests \
+	partial_fix \
 	pending_pvc \
-	priorityclass \
-	rbac_forbidden \
+	pending_replicas \
 	red_herring \
-	resource_quota \
-	rightsizing \
-	route_port \
-	scaled_to_zero \
-	scc_rejection \
+	refused_service \
 	stuck_rollout \
-	svc_port_mismatch \
-	svc_selector \
 	timeout_connections \
 	unbalanced_replicas \
+	unknown_autoscaler \
+	unprivileged_pod \
 	unready_pod \
-	unscheduled_pod \
-	verification_honesty \
-	wrong_fix_trap \
-	wrong_probe_port
+	unscheduled_pod
 SCENARIO ?=
 RUNS ?= 1
 TAG ?=

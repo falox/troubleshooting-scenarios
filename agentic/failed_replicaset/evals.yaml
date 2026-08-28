@@ -1,0 +1,43 @@
+- conversation_group_id: failed_replicaset
+  tag:
+    - failed_replicaset
+    - agentic
+    - normal
+
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The deployment scheduler-app in namespace
+          job-scheduler is not creating any pods. Its manifest came
+          from a different cluster, and the priority class it references
+          is a leftover that does not exist here — the app does not need
+          special scheduling priority. Analyze the root cause and suggest
+          a fix.
+        targetNamespaces:
+          - job-scheduler
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the pod template references
+        priorityClassName workload-priority, which does not exist on
+        this cluster — the ReplicaSet gets FailedCreate ("no
+        PriorityClass with name workload-priority was found") and no
+        pod is ever created. Remediation: remove the stale
+        priorityClassName from the pod template (the app needs no special
+        priority) and verify the pod is created and Running.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

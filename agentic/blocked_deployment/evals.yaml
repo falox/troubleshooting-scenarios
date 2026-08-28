@@ -1,0 +1,46 @@
+- conversation_group_id: blocked_deployment
+  tag:
+    - blocked_deployment
+    - agentic
+    - normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Deployment: dashboard-app
+          Namespace: analytics-dashboard
+          Status: No pods created (0/1 replicas available)
+          Description: The deployment dashboard-app is not creating any pods.
+          This namespace has a resource policy set by the platform team that
+          is authoritative and must not be changed — applications must comply
+          with it.
+
+          Analyze the root cause, bring the app into compliance, and verify
+          its pod is running.
+        targetNamespaces:
+          - analytics-dashboard
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: The namespace LimitRange eval-container-limits requires
+        every container to use at least 256Mi of memory, but dashboard-app
+        requests 64Mi (limit 128Mi). The ReplicaSet gets "forbidden: minimum
+        memory usage per Container is 256Mi" and no pod is ever created.
+        Fix: Raise the deployment's memory request and limit to at least
+        256Mi (the LimitRange must not be modified) and verify the pod is
+        created and Running.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

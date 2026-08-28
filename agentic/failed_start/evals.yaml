@@ -1,0 +1,40 @@
+- conversation_group_id: failed_start
+  tag:
+    - failed_start
+    - agentic
+    - normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The deployment proxy-server in namespace web-proxy
+          stopped working after someone edited its manifest. The
+          container is a stock nginx-unprivileged image that worked
+          fine with its default entrypoint. Investigate the root cause
+          and recommend how to restore it.
+        targetNamespaces:
+          - web-proxy
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the container has a command override
+        (/usr/bin/run-app) pointing at a binary that does not exist in
+        the image, so it fails with StartError ("executable file not
+        found") and crash-loops. Remediation: remove the bad command
+        override so the image's default entrypoint runs, and verify the
+        pod reaches Running state without restarts.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75
