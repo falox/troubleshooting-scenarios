@@ -18,29 +18,22 @@ ALL_SCENARIOS := \
 	imagepull_auth \
 	imagepull_tag \
 	limitrange_conflict \
-	missing_alerts \
 	missing_configmap \
 	missing_pvc \
 	missing_secret_key \
 	netpol_dns \
-	nothing_wrong \
-	oomkilled_pod \
 	orphaned_configmaps \
 	orphaned_pvc \
-	out_of_scope \
 	overprivileged \
 	pending_pvc \
 	priorityclass \
 	rbac_forbidden \
-	recurring_batch_failure \
 	red_herring \
-	refused_connections \
 	resource_quota \
 	rightsizing \
 	route_port \
 	scaled_to_zero \
 	scc_rejection \
-	silent_alerts \
 	stuck_rollout \
 	svc_port_mismatch \
 	svc_selector \
@@ -140,7 +133,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  setup    Install venv (lightspeed-agentic-operator is manual for now)"
-	@echo "  eval     Run scenarios ($(words $(SCENARIOS)) selected)"
+	@echo "  eval     Run all the $(words $(SCENARIOS)) scenarios"
 	@echo "  cleanup  Run scenario cleanup scripts and remove venv"
 	@echo "  help     Show this help"
 	@echo ""

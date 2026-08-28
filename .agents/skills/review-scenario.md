@@ -26,7 +26,11 @@ Read every file in `agentic/$SCENARIO/`:
 
 Collect every Kubernetes resource name, label value, and shell variable assignment (`NS=`, `APP=`, `DEPLOY=`).
 
-## 2. Naming check
+## 2. Consistency check
+
+Verify that `conversation_group_id` in `evals.yaml` matches the scenario directory name. Flag any mismatch as a **FAIL**-level issue; the id must always equal the directory name.
+
+## 3. Naming check
 
 For each name collected, answer: **does this name tell an LLM what the problem is before it runs a single cluster command?**
 
@@ -41,7 +45,7 @@ Flag names that:
 
 Neutral names are business-domain names that a real team would use: `payments`, `warehouse-ops`, `report-generator`, `media-processing`.
 
-## 3. Comment and disclosure check
+## 4. Comment and disclosure check
 
 Search fixture YAML for `#` comment lines. Flag comments that:
 - Explain the root cause or the fault
@@ -56,7 +60,7 @@ Also check for inline values that disclose the answer without needing a comment:
 - `replicas: 0` directly in the YAML (vs. scaling to zero at runtime in setup.sh)
 - PrometheusRule annotations (`summary`, `description`) that contain troubleshooting instructions (e.g. "Check resource limits", "Inspect application logs", "Verify storage class"). Annotations should state what is happening, not how to fix it.
 
-## 4. Realism check
+## 5. Realism check
 
 For each fault in the scenario, answer: **can an LLM diagnose this by reading `oc get <resource> -o yaml` without needing runtime signals (events, logs, pod status, describe, metrics)?**
 
@@ -66,7 +70,7 @@ Classify:
 - **MODERATE**: the YAML is a strong hint but cluster signals add information. Port mismatches, missing referenced resources, suspicious nodeSelectors. Note whether reading the YAML IS the realistic diagnostic path for this type of issue (it often is for selector mismatches, probe ports, RBAC bindings).
 - **OK**: the fault requires runtime investigation. Log analysis, connection behavior, metrics comparison, runtime state changes.
 
-## 5. Request text check
+## 6. Request text check
 
 Read the `request:` field in `evals.yaml`. Flag if it:
 - States the root cause outright
@@ -75,12 +79,15 @@ Read the `request:` field in `evals.yaml`. Flag if it:
 
 The request should describe **symptoms** (alerts, user reports, observed behavior), not causes.
 
-## 6. Report
+## 7. Report
 
 Output a structured report:
 
 ```
 ## Scenario: <name>
+
+### Consistency
+[conversation_group_id vs directory name: match or mismatch]
 
 ### Naming
 [list each problematic name -> what it hints at -> suggested fix]

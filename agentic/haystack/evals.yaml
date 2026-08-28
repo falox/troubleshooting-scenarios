@@ -1,4 +1,4 @@
-- conversation_group_id: comm-platform
+- conversation_group_id: haystack
   tag:
     - haystack
     - agentic
