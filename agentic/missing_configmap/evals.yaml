@@ -1,8 +1,8 @@
 - conversation_group_id: missing_configmap
   tag:
-    - missing_configmap
     - agentic
-    - normal
+    - core
+    - difficulty_normal
 
   turns:
     - turn_id: turn_1

@@ -9,8 +9,8 @@ JOB="inventory-sync-validator"
 
 echo "Applying failed_job scenario manifests in namespace ${NS}…"
 oc apply -f "$FIXTURE_DIR/job.yaml"
-oc create secret generic inventory-sync-logs-script \
-  --from-file=generate_logs.py="$FIXTURE_DIR/generate_logs.py" \
+oc create configmap inventory-sync-entrypoint \
+  --from-file=entrypoint.py="$FIXTURE_DIR/entrypoint.py" \
   -n "$NS" --dry-run=client -o yaml | oc apply -f -
 
 echo "Waiting for job log sentinels (up to 60s)…"

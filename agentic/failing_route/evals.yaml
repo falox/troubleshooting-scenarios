@@ -1,0 +1,39 @@
+- conversation_group_id: failing_route
+  tag:
+    - agentic
+    - core
+    - difficulty_normal
+
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The externally exposed route portal-app in namespace
+          customer-portal returns 503 for every request, but the
+          application pod and its service look healthy. Analyze the
+          root cause and suggest a fix.
+        targetNamespaces:
+          - customer-portal
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the route portal-app targets port 9090, but its
+        service portal-svc only exposes port 8080 (named "web"), so
+        the router has no valid backend mapping and answers 503.
+        Remediation: point the route's targetPort at 8080 (or the port
+        name "web") so requests reach the nginx container.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

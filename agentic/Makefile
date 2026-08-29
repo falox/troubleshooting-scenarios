@@ -1,65 +1,57 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
 ALL_SCENARIOS := \
-	antiaffinity \
-	bad_command \
+	blocked_deployment \
+	blocked_deployment_alert \
+	blocked_dns \
 	cascading_failure \
-	change_risk \
-	crashlooping_pod \
+	crashlooping_pod_alert \
+	degraded_namespace \
 	destructive_resistance \
+	diagnostic_trap \
 	double_fault \
+	empty_endpoints \
 	evicted_pod \
+	excessive_permissions \
+	exhausted_quota \
+	exhausted_quota_alert \
 	failed_job \
-	failing_api \
+	failed_replicaset \
+	failed_start \
+	failing_api_alert \
 	failing_init_container \
-	haystack \
-	hpa_broken \
-	hygiene_score \
-	imagepull_auth \
-	imagepull_tag \
-	limitrange_conflict \
-	missing_alerts \
+	failing_probe \
+	failing_route \
+	forbidden_api \
+	imagepull_missing \
+	imagepull_private \
+	inactive_deployment \
 	missing_configmap \
 	missing_pvc \
 	missing_secret_key \
-	netpol_dns \
-	nothing_wrong \
-	oomkilled_pod \
 	orphaned_configmaps \
 	orphaned_pvc \
-	out_of_scope \
-	overprivileged \
-	pending_pvc \
-	priorityclass \
-	rbac_forbidden \
-	recurring_batch_failure \
+	oversized_requests \
+	partial_fix \
+	pending_pvc_alert \
+	pending_replicas \
 	red_herring \
-	refused_connections \
-	resource_quota \
-	rightsizing \
-	route_port \
-	scaled_to_zero \
-	scc_rejection \
-	silent_alerts \
+	refused_service \
 	stuck_rollout \
-	svc_port_mismatch \
-	svc_selector \
+	stuck_rollout_alert \
 	timeout_connections \
 	unbalanced_replicas \
-	unready_pod \
-	unscheduled_pod \
-	verification_honesty \
-	wrong_fix_trap \
-	wrong_probe_port
+	unknown_autoscaler \
+	unknown_autoscaler_alert \
+	unprivileged_pod \
+	unready_pod_alert \
+	unscheduled_pod
 SCENARIO ?=
 RUNS ?= 1
 TAG ?=
 
 COMMA := ,
-TAG := $(subst  ,$(COMMA),$(strip $(subst $(COMMA), ,$(TAG))))
 
-# Determine which scenarios to run:
-#   SCENARIO narrows the candidate list, TAG filters by evals.yaml tags
 ifdef SCENARIO
   _CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
 else
@@ -68,11 +60,9 @@ endif
 
 ifdef TAG
   SCENARIOS := $(shell for d in $(_CANDIDATES); do \
-    match=true; \
     for t in $(subst $(COMMA), ,$(TAG)); do \
-      grep -q '^    - '"$$t"'$$' $$d/evals.yaml || match=false; \
+      grep -q '^    - '"$$t"'$$' $$d/evals.yaml 2>/dev/null && echo $$d && break; \
     done; \
-    $$match && echo $$d; \
   done)
 else
   SCENARIOS := $(_CANDIDATES)
@@ -112,7 +102,7 @@ else
 	    --evals $$scenario/evals.yaml \
 	    --results-dir $(LOGS_DIR) \
 	    --runs $(RUNS) \
-	    --tag $$(echo $$scenario | tr '-' '_'); \
+	    $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))); \
 	  echo "==> Cleanup: $$scenario"; \
 	  if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh; fi; \
 	done
@@ -140,7 +130,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  setup    Install venv (lightspeed-agentic-operator is manual for now)"
-	@echo "  eval     Run scenarios ($(words $(SCENARIOS)) selected)"
+	@echo "  eval     Run all the $(words $(SCENARIOS)) scenarios"
 	@echo "  cleanup  Run scenario cleanup scripts and remove venv"
 	@echo "  help     Show this help"
 	@echo ""

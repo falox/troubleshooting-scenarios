@@ -1,0 +1,46 @@
+- conversation_group_id: unknown_autoscaler_alert
+  tag:
+    - agentic
+    - alert
+    - difficulty_normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Alert: ProductCatalogHpaInactive (warning)
+          Namespace: product-catalog
+          Description: HPA product-catalog/catalog-api reports ScalingActive=False and cannot compute target metrics.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
+        targetNamespaces:
+          - product-catalog
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: The HPA targets CPU utilization, which is computed as
+        a percentage of the pod's CPU request, but the
+        catalog-api containers set no resource requests. The
+        HPA reports FailedGetResourceMetric ("missing request for cpu")
+        and ScalingActive=False. Fix: Add CPU requests (e.g. 50m-100m)
+        to the deployment's containers so utilization can be computed,
+        then verify the HPA reports a concrete CPU utilization value and
+        ScalingActive=True.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

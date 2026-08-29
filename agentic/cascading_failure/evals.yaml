@@ -1,8 +1,8 @@
 - conversation_group_id: cascading_failure
   tag:
-    - cascading_failure
     - agentic
-    - medium
+    - core
+    - difficulty_medium
 
   turns:
     - turn_id: turn_1

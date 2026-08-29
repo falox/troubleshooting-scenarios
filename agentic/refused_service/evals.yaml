@@ -1,0 +1,39 @@
+- conversation_group_id: refused_service
+  tag:
+    - agentic
+    - core
+    - difficulty_normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Requests to the service notifier-svc in namespace notification-hub
+          are refused, although the service has endpoints and the backing
+          pod is Ready.
+
+          Investigate the root cause and fix the connectivity issue.
+        targetNamespaces:
+          - notification-hub
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the service notifier-svc forwards to targetPort 8081
+        but the nginx container listens on 8080 (its declared
+        containerPort), so connections through the service are refused
+        even though endpoints exist. Fix: correct the service's
+        targetPort to 8080 and verify connectivity through the service.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

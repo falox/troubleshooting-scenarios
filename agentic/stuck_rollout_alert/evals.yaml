@@ -1,0 +1,46 @@
+- conversation_group_id: stuck_rollout_alert
+  tag:
+    - agentic
+    - core
+    - alert
+    - difficulty_normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Alert: ShippingTrackerRolloutStalled (warning)
+          Namespace: shipping-tracker
+          Description: Deployment shipping-tracker/shipping-tracker rollout is not progressing.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
+        targetNamespaces:
+          - shipping-tracker
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the new ReplicaSet's pod is in ImagePullBackOff
+        because the rolled-out image tag nginx-unprivileged:9.99-broken
+        does not exist, so the rollout hit ProgressDeadlineExceeded while
+        the old ReplicaSet keeps serving (maxUnavailable: 0).
+        Remediation: roll back to the previous working revision (or
+        restore a valid image tag) and verify the rollout completes with
+        the pod Running.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

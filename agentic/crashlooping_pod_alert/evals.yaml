@@ -1,0 +1,45 @@
+- conversation_group_id: crashlooping_pod
+  tag:
+    - agentic
+    - core
+    - alert
+    - difficulty_normal
+
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Alert: WarehouseOpsPodRestarting (warning)
+          Namespace: warehouse-ops
+          Description: Container in pod warehouse-ops/order-fulfillment-daemon has restarted multiple times. Check application logs and resource configuration.
+          Investigate using the skill at /app/skills/cluster-troubleshoot/investigate-alert
+        targetNamespaces:
+          - warehouse-ops
+        tools:
+          skills:
+            - image: quay.io/openshiftanalytics/agentic-skills:latest
+              paths:
+                - /skills/cluster-troubleshoot/investigate-alert
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: The order-fulfillment-daemon pod is crashing because the
+        required environment variable DEPLOY_ENV is undefined or missing in the
+        deployment configuration. The container checks for this variable at
+        startup and exits with an error when it's not set. Fix: Add the
+        DEPLOY_ENV environment variable to the deployment spec.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

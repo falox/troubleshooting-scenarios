@@ -5,6 +5,7 @@ set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 
+oc delete -f "$FIXTURE_DIR/prometheusrule.yaml" --ignore-not-found
 oc delete -f "$FIXTURE_DIR/deployment.yaml" --ignore-not-found --wait=false
 oc delete namespace shipping-tracker --ignore-not-found
 

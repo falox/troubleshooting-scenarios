@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: product-catalog-alerts
+  namespace: product-catalog
+spec:
+  groups:
+    - name: product-catalog.autoscaling
+      rules:
+        - alert: ProductCatalogHpaInactive
+          expr: |
+            kube_horizontalpodautoscaler_status_condition{namespace="product-catalog", horizontalpodautoscaler="catalog-api", condition="ScalingActive", status="false"} == 1
+          for: 15s
+          labels:
+            severity: warning
+          annotations:
+            summary: HPA {{ $labels.horizontalpodautoscaler }} is not scaling
+            description: HPA {{ $labels.namespace }}/{{ $labels.horizontalpodautoscaler }} reports ScalingActive=False and cannot compute target metrics.

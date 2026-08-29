@@ -1,0 +1,40 @@
+- conversation_group_id: oversized_requests
+  tag:
+    - agentic
+    - difficulty_medium
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Capacity costs in namespace report-engine are under review.
+          Compare the resource requests of the report-api deployment
+          against its actual observed usage and propose right-sized
+          requests and limits with an estimate of the capacity that
+          would be freed. Do not change anything.
+        targetNamespaces:
+          - report-engine
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        report-api requests a full CPU and 1Gi of memory per replica
+        (2 replicas, 2 CPUs / 2Gi reserved), while actual observed usage
+        of the idle nginx is on the order of a few millicores and a few
+        tens of Mi per pod. The proposal should recommend drastically
+        lower requests (e.g. tens of millicores CPU, 64-128Mi memory)
+        with proportionate limits, and quantify the reclaimed capacity
+        (~2 CPUs and ~1.9Gi across the deployment).
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

@@ -1,8 +1,7 @@
 - conversation_group_id: orphaned_pvc
   tag:
-    - orphaned_pvc
     - agentic
-    - normal
+    - difficulty_normal
   setup_script: ./setup.sh
   cleanup_script: ./cleanup.sh
 

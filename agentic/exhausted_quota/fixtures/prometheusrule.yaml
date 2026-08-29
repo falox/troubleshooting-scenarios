@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: team-onboarding-alerts
+  namespace: team-onboarding
+spec:
+  groups:
+    - name: team-onboarding.workloads
+      rules:
+        - alert: TeamOnboardingDeploymentUnavailable
+          expr: |
+            kube_deployment_status_replicas_available{namespace="team-onboarding", deployment="onboarding-app"} == 0
+          for: 15s
+          labels:
+            severity: warning
+          annotations:
+            summary: Deployment {{ $labels.deployment }} has no available replicas
+            description: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} has 0 available replicas for more than 15 seconds.

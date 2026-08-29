@@ -1,0 +1,45 @@
+- conversation_group_id: exhausted_quota
+  tag:
+    - agentic
+    - difficulty_normal
+
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          Deployment: onboarding-app
+          Namespace: team-onboarding
+          Status: 0 pods running
+          Description: The new deployment onboarding-app in namespace
+          team-onboarding has zero pods and users cannot reach it. The
+          existing setup-worker workload must keep running. The platform
+          team confirmed the namespace's pod quota is outdated and may be
+          raised to accommodate the new app. Analyze the root cause,
+          remediate, and verify onboarding-app is running.
+        targetNamespaces:
+          - team-onboarding
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the namespace's ResourceQuota team-pod-quota caps
+        pods at 2, fully consumed by setup-worker's 2 replicas — the
+        onboarding-app ReplicaSet fails pod creation with "exceeded
+        quota" events and no pod is ever created. Fix: raise the pod
+        quota (e.g. to 3 or more, as authorized by the platform team)
+        without touching setup-worker, and verify onboarding-app's
+        pod is created and Running.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

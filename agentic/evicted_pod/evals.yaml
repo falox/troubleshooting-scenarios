@@ -1,8 +1,8 @@
 - conversation_group_id: evicted_pod
   tag:
-    - evicted_pod
     - agentic
-    - normal
+    - core
+    - difficulty_normal
 
   turns:
     - turn_id: turn_1

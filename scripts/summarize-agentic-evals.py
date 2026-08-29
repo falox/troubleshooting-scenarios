@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Parse lightspeed-eval summary JSON files and generate a summary table."""
 
-import csv
 import json
 import sys
 from datetime import datetime
@@ -34,17 +33,84 @@ def load_json_data(json_files: list[Path]) -> tuple[list[list[dict]], dict, str]
     return runs, config, timestamp
 
 
-def load_csv_data(json_files: list[Path]) -> list[list[dict]]:
-    """Load CSV data paired with each JSON file (same timestamp prefix)."""
-    runs = []
+def _find_amended_yaml(json_path: Path) -> Path | None:
+    """Find the amended YAML file paired with a JSON summary.
+
+    The framework may write the amended YAML with a timestamp that differs
+    by a few seconds from the JSON summary, so exact name derivation can fail.
+    Fall back to searching the same directory for the closest match.
+    """
+    exact = Path(
+        str(json_path).replace("_summary.json", ".yaml").replace("evaluation_", "evals_amended_")
+    )
+    if exact.exists():
+        return exact
+    candidates = sorted(json_path.parent.glob("evals_amended_*.yaml"))
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        return None
+    json_ts = int(json_path.stem.replace("evaluation_", "").replace("_summary", ""))
+    best, best_diff = None, float("inf")
+    for c in candidates:
+        diff = abs(int(c.stem.replace("evals_amended_", "")) - json_ts)
+        if diff <= 5 and diff < best_diff:
+            best, best_diff = c, diff
+    return best
+
+
+def load_amended_data(json_files: list[Path]) -> list[list[dict]]:
+    """Load query, response, and diagnosis from amended YAML files.
+
+    Returns a list parallel to json_files, each containing per-conversation dicts
+    with keys: conversation_group_id, query, response.
+    When a diagnosis is available, it is appended to the response.
+    """
+    all_runs = []
     for json_path in sorted(json_files):
-        csv_path = Path(str(json_path).replace("_summary.json", "_detailed.csv"))
-        if csv_path.exists():
-            with open(csv_path) as f:
-                runs.append(list(csv.DictReader(f)))
-        else:
-            runs.append([])
-    return runs
+        amended_path = _find_amended_yaml(json_path)
+        entries = []
+        if amended_path and amended_path.exists():
+            with open(amended_path) as f:
+                data = yaml.safe_load(f)
+            if isinstance(data, list):
+                for entry in data:
+                    cid = entry.get("conversation_group_id", "")
+                    turns = entry.get("turns", [])
+                    if not turns:
+                        continue
+                    turn = turns[0]
+                    query = turn.get("query", "")
+                    response = turn.get("response", "")
+
+                    diagnosis = _format_diagnosis(turn)
+                    if diagnosis and "no action required" in response.lower():
+                        response = response.rstrip() + "\n\n" + diagnosis
+
+                    entries.append({
+                        "conversation_group_id": cid,
+                        "query": query,
+                        "response": response,
+                    })
+        all_runs.append(entries)
+    return all_runs
+
+
+def _format_diagnosis(turn: dict) -> str:
+    """Extract and format diagnosis from an amended YAML turn."""
+    results = turn.get("openshift_agentic_run_results", {})
+    for analysis in results.get("analysis", []):
+        diag = analysis.get("diagnosis", {})
+        root_cause = diag.get("rootCause", "")
+        summary = diag.get("summary", "")
+        if root_cause or summary:
+            parts = []
+            if root_cause:
+                parts.append(f"**Root Cause:** {root_cause}")
+            if summary:
+                parts.append(summary)
+            return "\n\n".join(parts)
+    return ""
 
 
 def metric_label(metric_id: str) -> str:
@@ -112,7 +178,7 @@ def md_cell(passed: int, total: int) -> str:
 def generate_details(
     conversations: list[str],
     json_runs: list[list[dict]],
-    csv_runs: list[list[dict]],
+    amended_runs: list[list[dict]],
     descriptions: dict[str, str],
     run_type: str = "agentic",
 ) -> str:
@@ -129,7 +195,6 @@ def generate_details(
             lines.append(desc)
             lines.append("")
 
-        # Tags and query from first run
         tags = None
         query = None
         for json_results in json_runs:
@@ -137,8 +202,8 @@ def generate_details(
                 if r["conversation_group_id"] == cid and not tags:
                     tags = r.get("tag", [])
                     break
-        for csv_rows in csv_runs:
-            for row in csv_rows:
+        for amended_rows in amended_runs:
+            for row in amended_rows:
                 if row["conversation_group_id"] == cid and row.get("query"):
                     query = row["query"]
                     break
@@ -158,17 +223,16 @@ def generate_details(
             lines.append("")
 
         relevant = [
-            (json_results, csv_rows)
-            for json_results, csv_rows in zip(json_runs, csv_runs)
+            (json_results, amended_rows)
+            for json_results, amended_rows in zip(json_runs, amended_runs)
             if any(r["conversation_group_id"] == cid for r in json_results)
         ]
-        for run_idx, (json_results, csv_rows) in enumerate(relevant, 1):
+        for display_idx, (json_results, amended_rows) in enumerate(relevant, 1):
             run_metrics = [r for r in json_results if r["conversation_group_id"] == cid]
 
-            lines.append(f"### {run_label} #{run_idx}")
+            lines.append(f"### {run_label} #{display_idx}")
             lines.append("")
 
-            # Metric results from JSON
             for r in run_metrics:
                 result_icon = "✅" if r["result"] == "PASS" else "❌"
                 score_str = f"{r['score']:.2f}" if r["score"] is not None else "N/A"
@@ -185,9 +249,8 @@ def generate_details(
 
                 lines.append("")
 
-            # Response from CSV (collapsible, after metrics)
             response = None
-            for row in csv_rows:
+            for row in amended_rows:
                 if row["conversation_group_id"] == cid and row.get("response"):
                     response = row["response"]
                     break
@@ -243,7 +306,7 @@ def generate_markdown(
     rows: list[dict],
     total_runs: int,
     json_runs: list[list[dict]],
-    csv_runs: list[list[dict]],
+    amended_runs: list[list[dict]],
     config: dict,
     descriptions: dict[str, str],
     timestamp: str = "",
@@ -267,7 +330,7 @@ def generate_markdown(
     if judge_config:
         lines.append(judge_config)
 
-    details = generate_details(conversations, json_runs, csv_runs, descriptions, run_type)
+    details = generate_details(conversations, json_runs, amended_runs, descriptions, run_type)
     lines.append(details)
 
     return "\n".join(lines)
@@ -375,14 +438,14 @@ def main():
 
     descriptions = load_descriptions(evals_files)
     json_runs, config, timestamp = load_json_data(json_files)
-    csv_runs = load_csv_data(json_files)
+    amended_runs = load_amended_data(json_files)
     conversations, columns, rows = build_summary(json_runs)
     total_runs = len(json_runs)
 
     output = output_path or results_dir / "summary.md"
     output.write_text(
         generate_markdown(
-            conversations, columns, rows, total_runs, json_runs, csv_runs, config,
+            conversations, columns, rows, total_runs, json_runs, amended_runs, config,
             descriptions, timestamp, run_type,
         )
     )

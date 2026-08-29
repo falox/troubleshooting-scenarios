@@ -58,7 +58,7 @@ evals:
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
 	  $(_PROVIDER_FLAGS) \
-	  $(foreach s,$(SCENARIOS),--tag $(s))
+	  --tags $(SCENARIOS)
 
 # Auto-generated per-scenario targets
 
@@ -69,7 +69,7 @@ $(1)-eval:
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
 	  $(_PROVIDER_FLAGS) \
-	  --tag $(1)
+	  --tags $(1)
 endef
 $(foreach s,$(SCENARIOS),$(eval $(call _eval_target,$(s))))
 
@@ -92,7 +92,7 @@ evals-all-providers:
 	    --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	    --results-dir $(RESULTS_DIR)/$$provider --ols-url $(OLS_URL) \
 	    --provider $$provider --model $$model \
-	    $(foreach s,$(SCENARIOS),--tag $(s)); \
+	    --tags $(SCENARIOS); \
 	done
 
 # Help

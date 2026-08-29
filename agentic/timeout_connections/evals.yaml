@@ -1,8 +1,8 @@
 - conversation_group_id: timeout_connections
   tag:
-    - timeout_connections
     - agentic
-    - normal
+    - core
+    - difficulty_normal
 
   
   turns:

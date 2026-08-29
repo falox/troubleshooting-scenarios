@@ -1,8 +1,7 @@
 - conversation_group_id: missing_secret_key
   tag:
-    - missing_secret_key
     - agentic
-    - normal
+    - difficulty_normal
 
 
   turns:

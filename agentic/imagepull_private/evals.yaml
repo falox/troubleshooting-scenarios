@@ -1,0 +1,44 @@
+- conversation_group_id: imagepull_private
+  tag:
+    - agentic
+    - difficulty_normal
+  setup_script: ./setup.sh
+  cleanup_script: ./cleanup.sh
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The deployment media-processor in namespace media-processing
+          cannot start its pod. The image
+          quay.io/noexistingorg/internal-app:1.0 is published in a
+          private registry organization. Analyze why the pod is not
+          starting and explain what the team needs to do to fix it.
+          Do not make any changes.
+        targetNamespaces:
+          - media-processing
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        The pod is in ImagePullBackOff because pulling
+        quay.io/noexistingorg/internal-app:1.0 fails with an
+        authorization error — the image is in a private registry
+        organization and neither the pod nor its service account
+        references an imagePullSecret with registry credentials.
+        The fix is to create a docker-registry pull secret with valid
+        credentials and reference it via imagePullSecrets on the pod
+        spec or linked to the service account.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

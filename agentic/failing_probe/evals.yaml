@@ -1,0 +1,36 @@
+- conversation_group_id: failing_probe
+  tag:
+    - agentic
+    - difficulty_normal
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          A pod for deployment status-app in namespace
+          status-api keeps restarting even though the application
+          inside starts fine. Analyze the root cause and suggest a fix.
+        targetNamespaces:
+          - status-api
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the liveness probe targets port 8081 but nginx
+        listens on 8080, so every probe is refused ("connection refused")
+        and the kubelet kills and restarts the container. Remediation:
+        point the liveness probe at port 8080 and verify the pod runs
+        without further restarts.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

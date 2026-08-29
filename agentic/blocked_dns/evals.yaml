@@ -1,0 +1,44 @@
+- conversation_group_id: blocked_dns
+  tag:
+    - agentic
+    - difficulty_medium
+
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          After a security hardening change, the app indexer-app in
+          namespace search-indexer logs DNS resolution failures for every
+          lookup. The default-deny egress posture is required by the
+          security team and must stay. Analyze the root cause and suggest
+          how to restore name resolution without dropping the deny-by-default
+          posture.
+        targetNamespaces:
+          - search-indexer
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        Root cause: the NetworkPolicy baseline-network-policy blocks ALL
+        egress from indexer-app pods, including DNS queries to the
+        cluster DNS service, so every hostname lookup fails. Remediation:
+        add an egress rule permitting DNS queries to the cluster DNS pods
+        in the openshift-dns namespace on UDP/TCP port 5353 (on
+        OVN-Kubernetes a rule for port 53 alone is NOT sufficient — the
+        CoreDNS pods listen on 5353 and policy applies after service
+        DNAT; port 53 may be allowed in addition) while keeping the
+        default-deny policy.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75

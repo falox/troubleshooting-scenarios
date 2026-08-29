@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shipping-tracker-alerts
+  namespace: shipping-tracker
+spec:
+  groups:
+    - name: shipping-tracker.workloads
+      rules:
+        - alert: ShippingTrackerRolloutStalled
+          expr: |
+            kube_deployment_status_condition{namespace="shipping-tracker", deployment="shipping-tracker", condition="Progressing", status="false"} == 1
+          for: 15s
+          labels:
+            severity: warning
+          annotations:
+            summary: Deployment {{ $labels.deployment }} rollout has stalled
+            description: Deployment {{ $labels.namespace }}/{{ $labels.deployment }} rollout is not progressing.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE --evals FILE --results-dir DIR [--runs N] --tag TAG [--tag TAG ...]"
+  echo "Usage: $0 --system-config FILE --evals FILE --results-dir DIR [--runs N] [--tags TAG ...]"
   exit 1
 }
 
@@ -18,12 +18,12 @@ while [ $# -gt 0 ]; do
     --evals)         EVALS="$2"; shift 2 ;;
     --results-dir)   RESULTS_DIR="$2"; shift 2 ;;
     --runs)          RUNS="$2"; shift 2 ;;
-    --tag)           TAGS+=("$2"); shift 2 ;;
+    --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;
     *) echo "Unknown arg: $1"; usage ;;
   esac
 done
 
-[ -n "$SYSTEM_CONFIG" ] && [ -n "$EVALS" ] && [ -n "$RESULTS_DIR" ] && [ ${#TAGS[@]} -gt 0 ] || usage
+[ -n "$SYSTEM_CONFIG" ] && [ -n "$EVALS" ] && [ -n "$RESULTS_DIR" ] || usage
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/../venv"
@@ -41,14 +41,21 @@ fi
 
 mkdir -p "$RESULTS_DIR"
 
+TAG_FLAGS=()
+if [ ${#TAGS[@]} -gt 0 ]; then
+  TAG_FLAGS=(--tags "${TAGS[@]}")
+fi
+
 for run in $(seq 1 "$RUNS"); do
-  for tag in "${TAGS[@]}"; do
-    echo ""
-    echo "==> Run ${run}/${RUNS}: ${tag}"
-    "${VENV_DIR}/bin/lightspeed-eval" \
-      --system-config "$SYSTEM_CONFIG" \
-      --output-dir "$RESULTS_DIR" \
-      --eval-data "$EVALS" \
-      --tag "$tag"
-  done
+  echo ""
+  if [ ${#TAGS[@]} -gt 0 ]; then
+    echo "==> Run ${run}/${RUNS}: tags=${TAGS[*]}"
+  else
+    echo "==> Run ${run}/${RUNS}: all conversations"
+  fi
+  "${VENV_DIR}/bin/lightspeed-eval" \
+    --system-config "$SYSTEM_CONFIG" \
+    --output-dir "$RESULTS_DIR" \
+    --eval-data "$EVALS" \
+    "${TAG_FLAGS[@]}"
 done
