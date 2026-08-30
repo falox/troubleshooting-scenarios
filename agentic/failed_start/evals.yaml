@@ -1,4 +1,10 @@
 - conversation_group_id: failed_start
+  description: |
+    Container crash-loops after a manifest edit.
+    RCA: a command override (/usr/bin/run-app) points to a binary that
+    does not exist in the nginx-unprivileged image.
+    Expected: remove the command override so the image's default
+    entrypoint runs.
   tag:
     - agentic
     - difficulty_normal

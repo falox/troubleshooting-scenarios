@@ -1,4 +1,10 @@
 - conversation_group_id: empty_endpoints
+  description: |
+    Service serves no traffic despite healthy backing pods.
+    RCA: the service selector (app=proxy-backend) does not match the
+    deployment's pod labels (app=proxy-app), so Endpoints has zero
+    addresses.
+    Expected: align the service selector with the pod labels.
   tag:
     - agentic
     - core

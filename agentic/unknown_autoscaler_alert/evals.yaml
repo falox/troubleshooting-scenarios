@@ -1,4 +1,9 @@
 - conversation_group_id: unknown_autoscaler_alert
+  description: |
+    Alert fires for an inactive HPA (ScalingActive=False).
+    RCA: the deployment containers have no CPU resource requests, so
+    the HPA cannot compute utilization percentage.
+    Expected: add CPU requests (e.g. 50m-100m) to the container spec.
   tag:
     - agentic
     - alert

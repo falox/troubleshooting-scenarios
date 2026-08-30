@@ -1,4 +1,9 @@
 - conversation_group_id: missing_configmap
+  description: |
+    Container fails to start with CreateContainerConfigError.
+    RCA: the deployment's envFrom references ConfigMap app-settings,
+    which does not exist in the namespace.
+    Expected: create the app-settings ConfigMap with LOG_LEVEL=info.
   tag:
     - agentic
     - core

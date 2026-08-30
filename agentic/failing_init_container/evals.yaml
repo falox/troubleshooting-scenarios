@@ -1,4 +1,10 @@
 - conversation_group_id: failing_init_container
+  description: |
+    Deployment never starts its application container.
+    RCA: the init container runs a pre-flight check against a
+    decommissioned database (db-legacy.internal.invalid:5432) and
+    always fails.
+    Expected: remove the obsolete init container from the deployment.
   tag:
     - agentic
     - difficulty_normal

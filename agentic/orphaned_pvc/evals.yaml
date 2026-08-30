@@ -1,4 +1,11 @@
 - conversation_group_id: orphaned_pvc
+  description: |
+    Namespace may be paying for unused storage.
+    RCA: primary-data is mounted by the running storage-app
+    deployment; backup-data and scratch-data are orphaned
+    (unreferenced by any pod or workload template).
+    Expected: identify in-use vs orphaned PVCs and propose a cleanup
+    plan for the orphaned ones.
   tag:
     - agentic
     - difficulty_normal

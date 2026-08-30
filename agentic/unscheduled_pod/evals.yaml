@@ -1,4 +1,10 @@
 - conversation_group_id: unscheduled_pod
+  description: |
+    Pod is stuck in Pending (FailedScheduling).
+    RCA: its nodeSelector requires label disk-type=ssd-high-iops but
+    no node in the cluster has it.
+    Expected: add the label to a suitable node or remove the
+    nodeSelector.
   tag:
     - agentic
     - difficulty_normal

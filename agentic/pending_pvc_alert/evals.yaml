@@ -1,4 +1,10 @@
 - conversation_group_id: pending_pvc
+  description: |
+    Alert fires for a PVC stuck in Pending.
+    RCA: the PVC references StorageClass 'standard-v2' which does not
+    exist in the cluster.
+    Expected: change the PVC's StorageClass to a valid one or create
+    the missing StorageClass.
   tag:
     - agentic
     - core

@@ -30,7 +30,29 @@ Collect every Kubernetes resource name, label value, and shell variable assignme
 
 Verify that every `conversation_group_id` in `evals.yaml` matches the scenario directory name, optionally with a `_alert` suffix (e.g. `blocked_deployment` and `blocked_deployment_alert` are both valid for directory `blocked_deployment`). Flag any other mismatch as a **FAIL**-level issue.
 
-## 3. Naming check
+## 3. Description check
+
+Verify that the `description:` field exists in `evals.yaml`, placed before `tag:`. It must follow this structure:
+
+```
+description: |
+  [One or two sentences describing the observable symptom.]
+  RCA: [root cause analysis, what is actually wrong.]
+  Expected: [what the agent should do or report.]
+```
+
+Flag as **FAIL** if:
+- `description:` is missing entirely
+- `description:` appears after `tag:`
+- The description does not contain both `RCA:` and `Expected:` on separate lines
+- The symptom, RCA, or Expected sections are empty
+
+Flag as **NEEDS WORK** if:
+- The symptom section describes the root cause instead of the observable behavior
+- The RCA section is vague or does not match the `expected_outcome`
+- The Expected section does not match the `expected_outcome`
+
+## 4. Naming check
 
 For each name collected, answer: **does this name tell an LLM what the problem is before it runs a single cluster command?**
 
@@ -45,7 +67,7 @@ Flag names that:
 
 Neutral names are business-domain names that a real team would use: `payments`, `warehouse-ops`, `report-generator`, `media-processing`.
 
-## 4. Comment and disclosure check
+## 5. Comment and disclosure check
 
 Search fixture YAML for `#` comment lines. Flag comments that:
 - Explain the root cause or the fault
@@ -60,7 +82,7 @@ Also check for inline values that disclose the answer without needing a comment:
 - `replicas: 0` directly in the YAML (vs. scaling to zero at runtime in setup.sh)
 - PrometheusRule annotations (`summary`, `description`) that contain troubleshooting instructions (e.g. "Check resource limits", "Inspect application logs", "Verify storage class"). Annotations should state what is happening, not how to fix it.
 
-## 5. Realism check
+## 6. Realism check
 
 For each fault in the scenario, answer: **can an LLM diagnose this by reading `oc get <resource> -o yaml` without needing runtime signals (events, logs, pod status, describe, metrics)?**
 
@@ -70,7 +92,7 @@ Classify:
 - **MODERATE**: the YAML is a strong hint but cluster signals add information. Port mismatches, missing referenced resources, suspicious nodeSelectors. Note whether reading the YAML IS the realistic diagnostic path for this type of issue (it often is for selector mismatches, probe ports, RBAC bindings).
 - **OK**: the fault requires runtime investigation. Log analysis, connection behavior, metrics comparison, runtime state changes.
 
-## 6. Request text check
+## 7. Request text check
 
 Read the `request:` field in `evals.yaml`. Flag if it:
 - States the root cause outright
@@ -79,7 +101,7 @@ Read the `request:` field in `evals.yaml`. Flag if it:
 
 The request should describe **symptoms** (alerts, user reports, observed behavior), not causes.
 
-## 7. Report
+## 8. Report
 
 Output a structured report:
 
@@ -88,6 +110,9 @@ Output a structured report:
 
 ### Consistency
 [conversation_group_id vs directory name: match or mismatch]
+
+### Description
+[structure and content check: present, correct position, has RCA/Expected]
 
 ### Naming
 [list each problematic name -> what it hints at -> suggested fix]

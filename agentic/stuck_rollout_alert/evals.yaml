@@ -1,4 +1,9 @@
 - conversation_group_id: stuck_rollout_alert
+  description: |
+    Alert fires for a stalled rollout.
+    RCA: the new ReplicaSet's pod is in ImagePullBackOff on tag nginx-
+    unprivileged:9.99-broken, which does not exist.
+    Expected: roll back to the previous working revision.
   tag:
     - agentic
     - core

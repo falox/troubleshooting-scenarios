@@ -1,4 +1,11 @@
 - conversation_group_id: double_fault
+  description: |
+    Pod will not stay up.
+    RCA: two independent faults: (1) envFrom references missing
+    ConfigMap app-settings (CreateContainerConfigError) and (2)
+    liveness probe targets port 8081 while nginx listens on 8080.
+    Expected: create the app-settings ConfigMap and correct the
+    liveness probe port to 8080.
   tag:
     - agentic
     - difficulty_medium

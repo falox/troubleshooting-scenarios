@@ -1,4 +1,11 @@
 - conversation_group_id: forbidden_api
+  description: |
+    Application logs HTTP 403 when listing pods via the Kubernetes
+    API.
+    RCA: the ServiceAccount app-inspector-sa has no Role or
+    RoleBinding granting API access.
+    Expected: create a namespaced Role granting get/list on pods and
+    bind it to the ServiceAccount.
   tag:
     - agentic
     - difficulty_normal

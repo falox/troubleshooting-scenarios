@@ -1,4 +1,11 @@
 - conversation_group_id: oversized_requests
+  description: |
+    Capacity costs under review for a deployment.
+    RCA: report-api requests 1 CPU and 1Gi memory per replica (2
+    replicas, 2 CPUs / 2Gi total) while actual usage is a few
+    millicores and tens of Mi.
+    Expected: propose right-sized requests/limits and quantify
+    reclaimed capacity (~2 CPUs, ~1.9Gi).
   tag:
     - agentic
     - difficulty_medium

@@ -1,4 +1,11 @@
 - conversation_group_id: red_herring
+  description: |
+    Application is down and crash-looping.
+    RCA: the required DATABASE_URL env var is unset. The gateway-
+    monitor not-Ready state is intentional (annotated) and must not be
+    modified.
+    Expected: add DATABASE_URL with the approved staging URL; leave
+    gateway-monitor untouched.
   tag:
     - agentic
     - difficulty_medium

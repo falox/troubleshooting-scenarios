@@ -1,4 +1,11 @@
 - conversation_group_id: unbalanced_replicas
+  description: |
+    Two namespaces expected to have the same pod count show different
+    counts.
+    RCA: fleet-alpha has 6 pods, fleet-alpha1 has 9 pods (3 extra
+    workloads).
+    Expected: identify the discrepancy and report which extra
+    workloads exist in fleet-alpha1.
   tag:
     - agentic
     - core

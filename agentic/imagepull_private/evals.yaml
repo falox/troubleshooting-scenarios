@@ -1,4 +1,10 @@
 - conversation_group_id: imagepull_private
+  description: |
+    Pod is in ImagePullBackOff pulling from a private registry.
+    RCA: no imagePullSecret is referenced by the pod or its
+    ServiceAccount, so the registry returns an authorization error.
+    Expected: create a docker-registry Secret with valid credentials
+    and attach it to the pod or ServiceAccount.
   tag:
     - agentic
     - difficulty_normal
