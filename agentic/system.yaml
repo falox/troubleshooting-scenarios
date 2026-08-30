@@ -5,26 +5,42 @@ core:
   max_threads: 3
   fail_on_invalid_data: true
   skip_on_failure: false
-
-llm:
-  provider: openai
-  model: gpt-5.4
-  max_tokens: 1000
   cache_enabled: false
+
+llm_pool:
+  defaults:
+    parameters:
+      max_completion_tokens: 1000
+  models:
+    judge:
+      provider: openai
+      model: gpt-5.4
+
+judge_panel:
+  judges: [judge]
 
 agents:
   enabled: true
   default:
-    agent: eval_agent
+    agent: [gpt-5.4, gemini-2.5-pro, claude-opus-4-6]
+    repeat: 2
+    parallel: false
     agent_config:
       timeout: 600
-  eval_agent:
+      poll_interval: 5
+      cleanup_openshift_agentic_runs: false
+  gpt-5.4:
     type: openshift_agentic_run
     namespace: openshift-lightspeed
-    auto_approve: true
-    cleanup_openshift_agentic_runs: false
-    timeout: 600
-    poll_interval: 5
+    agent_ref: default
+  gemini-2.5-pro:
+    type: openshift_agentic_run
+    namespace: openshift-lightspeed
+    agent_ref: gemini
+  claude-opus-4-6:
+    type: openshift_agentic_run
+    namespace: openshift-lightspeed
+    agent_ref: opus
 
 storage:
   - type: file

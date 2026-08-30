@@ -3,6 +3,7 @@
 agentic/results/logs/
 **/_output/
 **/.caches/
+__pycache__/
 venv/
 
 # Secrets / credentials — never commit API keys
