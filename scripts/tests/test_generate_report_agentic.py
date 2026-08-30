@@ -226,7 +226,7 @@ class TestGenerateReport:
             )
         report = mod.generate_report(tmp_path)
         assert "**Pass rate**" in report
-        assert "3/4 (75%)" in report
+        assert "75% (3/4)" in report
 
     def test_timestamp_in_header(self, tmp_path):
         _write_run(
@@ -331,9 +331,9 @@ class TestGenerateReport:
                 timestamp=f"20260830_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "**✅ 2/2 (100%)**" in report
-        assert "1/2 (50%)" in report
-        assert "**1/2 (50%)**" not in report
+        assert "**✅ 100% (2/2)**" in report
+        assert "50% (1/2)" in report
+        assert "**50% (1/2)**" not in report
 
     def test_tied_best_overall_scores_both_bold(self, tmp_path):
         for agent in ["gpt-5.4", "gemini"]:
@@ -343,7 +343,7 @@ class TestGenerateReport:
                 amended_entries=[{"conversation_id": "s1"}],
             )
         report = mod.generate_report(tmp_path)
-        assert report.count("**✅ 1/1 (100%)**") == 2
+        assert report.count("**✅ 100% (1/1)**") == 2
 
     def test_judge_in_header(self, tmp_path):
         _write_run(
@@ -362,3 +362,44 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         assert "Judge" not in report
+
+
+class TestPrintPerformanceTable:
+    def test_basic_output(self, tmp_path, capsys):
+        for agent, result in [("agentA", "PASS"), ("agentB", "FAIL")]:
+            _write_run(
+                tmp_path / agent / "run_1",
+                results=[_make_result("s1", result=result)],
+                amended_entries=[{"conversation_id": "s1"}],
+            )
+        agent_runs = {
+            a: [mod.load_run_summary(tmp_path / a / "run_1")]
+            for a in ["agentA", "agentB"]
+        }
+        conversations = mod.collect_conversations(agent_runs)
+        mod.print_performance_table(conversations, ["agentA", "agentB"], agent_runs)
+        out = capsys.readouterr().out
+        assert "s1" in out
+        assert "1/1" in out
+        assert "Pass rate" in out
+
+    def test_multi_run_counts(self, tmp_path, capsys):
+        _write_run(
+            tmp_path / "a" / "run_1",
+            results=[_make_result("s1", result="PASS")],
+            amended_entries=[{"conversation_id": "s1"}],
+        )
+        _write_run(
+            tmp_path / "a" / "run_2",
+            results=[_make_result("s1", result="FAIL", score=0.2)],
+            amended_entries=[{"conversation_id": "s1"}],
+            timestamp="20260830_100001",
+        )
+        agent_runs = {"a": [
+            mod.load_run_summary(tmp_path / "a" / "run_1"),
+            mod.load_run_summary(tmp_path / "a" / "run_2"),
+        ]}
+        conversations = mod.collect_conversations(agent_runs)
+        mod.print_performance_table(conversations, ["a"], agent_runs)
+        out = capsys.readouterr().out
+        assert "1/2" in out

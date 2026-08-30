@@ -23,8 +23,8 @@ agents:
   enabled: true
   default:
     agent: [gpt-5.4, gemini-2.5-pro, claude-opus-4-6]
-    repeat: 2
-    parallel: false
+    repeat: 3
+    parallel: true
     agent_config:
       timeout: 600
       poll_interval: 5

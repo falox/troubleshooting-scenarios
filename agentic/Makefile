@@ -51,6 +51,8 @@ TAG ?=
 SETUP_MODE ?= run
 
 COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
 
 ifdef SCENARIO
   _CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
@@ -96,7 +98,7 @@ else
 	$(eval _REPEAT := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); print(c.get('agents',{}).get('default',{}).get('repeat',1))"))
 	$(eval _JUDGE := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); p=c.get('llm_pool',{}).get('models',{}); j=c.get('judge_panel',{}).get('judges',[''])[0]; print(p.get(j,{}).get('model','') if j else c.get('llm',{}).get('model',''))"))
 ifeq ($(SETUP_MODE),run)
-	@echo "==> SETUP_MODE=run: $(_REPEAT) repeat(s), agents: $(_AGENTS)"
+	@echo "==> SETUP_MODE=run: $(_REPEAT) repeat(s), agents: $(subst $(SPACE),$(COMMA) ,$(_AGENTS))"
 	@for scenario in $(SCENARIOS); do \
 	  for agent in $(_AGENTS); do \
 	    for run in $$(seq 1 $(_REPEAT)); do \
@@ -116,7 +118,7 @@ ifeq ($(SETUP_MODE),run)
 	  done; \
 	done
 else
-	@echo "==> SETUP_MODE=scenario: $(_REPEAT) repeat(s), agents: $(_AGENTS)"
+	@echo "==> SETUP_MODE=scenario: $(_REPEAT) repeat(s), agents: $(subst $(SPACE),$(COMMA) ,$(_AGENTS))"
 	@for scenario in $(SCENARIOS); do \
 	  echo ""; \
 	  echo "==> Setup: $$scenario"; \

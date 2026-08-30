@@ -192,7 +192,7 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     total = len(scores)
     valid_scores = [s for _, s in scores if s is not None]
     avg = sum(valid_scores) / len(valid_scores) if valid_scores else None
-    icon = "✅" if passed == total else ("❌" if passed == 0 else "⚠️")
+    icon = "✅" if passed == total else ("❌" if passed == 0 else "")
     avg_str = f" ({avg:.2f})" if avg is not None else ""
     return f"[{icon} {passed}/{total}](#{anchor}){avg_str}"
 
@@ -230,7 +230,7 @@ def overall_score_cell(passed: int, total: int, bold: bool = False) -> str:
         icon = "❌ "
     else:
         icon = ""
-    text = f"{icon}{passed}/{total} ({pct}%)"
+    text = f"{icon}{pct}% ({passed}/{total})"
     if bold:
         text = f"**{text}**"
     return text
@@ -721,6 +721,83 @@ def generate_report(eval_dir: Path, judge: str = "") -> str:
     return "\n".join(lines)
 
 
+GREEN = "\033[0;32m"
+RED = "\033[0;31m"
+RESET = "\033[0m"
+
+
+def _scenario_pass_total(agent_runs: list, conversation_id: str) -> tuple[int, int]:
+    passed = 0
+    total = 0
+    for results in agent_runs:
+        if results is None:
+            continue
+        result = get_result(results, conversation_id, CORRECTNESS_METRIC)
+        if result is not None:
+            total += 1
+            if result == "PASS":
+                passed += 1
+    return passed, total
+
+
+def _colorize(passed: int, total: int) -> str:
+    text = f"{passed}/{total}"
+    if passed == total:
+        return f"{GREEN}{text}{RESET}"
+    if passed == 0:
+        return f"{RED}{text}{RESET}"
+    return text
+
+
+def print_performance_table(
+    conversations: list[str],
+    agent_names: list[str],
+    agent_runs: dict[str, list],
+) -> None:
+    grid: list[list[tuple[int, int]]] = []
+    for cid in conversations:
+        row = [_scenario_pass_total(agent_runs[a], cid) for a in agent_names]
+        grid.append(row)
+
+    totals = [overall_score(agent_runs[a], conversations) for a in agent_names]
+
+    def _footer_plain(p, t):
+        pct = round(100 * p / t) if t else 0
+        return f"{pct}% ({p}/{t})"
+
+    scenario_w = max(len("Scenario"), len("Pass rate"), *(len(c) for c in conversations))
+    col_widths = [
+        max(len(a), max(len(f"{r[0]}/{r[1]}") for r in col_vals), len(_footer_plain(t[0], t[1])))
+        for a, col_vals, t in zip(agent_names, zip(*grid), totals)
+    ]
+
+    sep = "+-" + "-+-".join("-" * w for w in [scenario_w] + col_widths) + "-+"
+    header = "| " + " | ".join(
+        f"{h:<{w}}" for h, w in zip(["Scenario"] + agent_names, [scenario_w] + col_widths)
+    ) + " |"
+
+    print(sep)
+    print(header)
+    print(sep)
+    for cid, row in zip(conversations, grid):
+        cells = [f"{cid:<{scenario_w}}"]
+        for (p, t), w in zip(row, col_widths):
+            plain = f"{p}/{t}"
+            colored = _colorize(p, t)
+            cells.append(f"{colored}{' ' * (w - len(plain))}")
+        print("| " + " | ".join(cells) + " |")
+    print(sep)
+    footer_cells = [f"{'Pass rate':<{scenario_w}}"]
+    for (p, t), w in zip(totals, col_widths):
+        plain = _footer_plain(p, t)
+        pct = round(100 * p / t) if t else 0
+        colored = _colorize(p, t)
+        text = f"{pct}% ({colored})"
+        footer_cells.append(f"{text}{' ' * (w - len(plain))}")
+    print("| " + " | ".join(footer_cells) + " |")
+    print(sep)
+
+
 def main():
     import argparse
 
@@ -751,6 +828,16 @@ def main():
 
     output = Path(args.output) if args.output else eval_dir / "results.md"
     output.write_text(md)
+
+    agent_names = discover_agents(eval_dir)
+    agent_runs = {}
+    for agent in agent_names:
+        agent_runs[agent] = [load_run_summary(rd) for rd in find_run_dirs(eval_dir, agent)]
+    conversations = collect_conversations(agent_runs)
+
+    print()
+    print_performance_table(conversations, agent_names, agent_runs)
+    print()
     print(f"Report written to {output}")
 
 
