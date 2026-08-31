@@ -1,4 +1,11 @@
 - conversation_group_id: pending_pvc
+  description: |
+    Alert fires for a PVC stuck in Pending.
+    RCA: the PVC references StorageClass 'standard-v2' which does not
+    exist in the cluster. The init container also uses runAsUser: 65532,
+    which violates the namespace UID range enforced by restricted-v2 SCC.
+    Expected: change the PVC's StorageClass to a valid one or create
+    the missing StorageClass, and use a UID allowed by the SCC.
   tag:
     - agentic
     - core

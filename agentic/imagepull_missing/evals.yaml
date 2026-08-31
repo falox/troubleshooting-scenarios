@@ -1,4 +1,9 @@
 - conversation_group_id: imagepull_missing
+  description: |
+    Deployment has no running pods after a recent change.
+    RCA: the pod is in ImagePullBackOff because the image tag nginx-
+    unprivileged:1.27-fips does not exist in the registry.
+    Expected: correct the image tag to a valid version (e.g. 1.27).
   tag:
     - agentic
     - difficulty_normal

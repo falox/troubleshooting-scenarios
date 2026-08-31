@@ -1,4 +1,12 @@
 - conversation_group_id: timeout_connections
+  description: |
+    Frontend logs connection timeouts to the backend, which appears
+    healthy.
+    RCA: a NetworkPolicy only allows ingress from pods labelled
+    tier=backend; the frontend has tier=frontend, so traffic is
+    blocked.
+    Expected: update the NetworkPolicy ingress rule to allow
+    tier=frontend.
   tag:
     - agentic
     - core

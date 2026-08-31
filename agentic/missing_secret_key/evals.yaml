@@ -1,4 +1,9 @@
 - conversation_group_id: missing_secret_key
+  description: |
+    Container fails to start with CreateContainerConfigError.
+    RCA: the DB_PASSWORD env var references key 'password' in Secret
+    db-creds, but the Secret only contains the 'username' key.
+    Expected: add the missing 'password' key to the db-creds Secret.
   tag:
     - agentic
     - difficulty_normal

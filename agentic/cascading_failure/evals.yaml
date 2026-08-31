@@ -1,4 +1,11 @@
 - conversation_group_id: cascading_failure
+  description: |
+    Frontend pod is Running but never becomes Ready.
+    RCA: the backend is in ImagePullBackOff on a nonexistent tag
+    (1.27-hardened); the frontend readiness probe correctly reflects
+    the backend outage.
+    Expected: correct the backend image to a valid tag (e.g. 1.27); do
+    not weaken the frontend readiness probe.
   tag:
     - agentic
     - core

@@ -1,4 +1,11 @@
 - conversation_group_id: orphaned_configmaps
+  description: |
+    Namespace has accumulated ConfigMaps over time.
+    RCA: app-config-live is consumed by the running cm-user-app
+    deployment; app-config-v1, feature-flags, and debug-settings are
+    orphaned (unreferenced by any workload).
+    Expected: identify in-use vs orphaned ConfigMaps and propose a
+    cleanup plan for the orphaned ones.
   tag:
     - agentic
     - difficulty_normal

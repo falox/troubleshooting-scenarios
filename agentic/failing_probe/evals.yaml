@@ -1,4 +1,9 @@
 - conversation_group_id: failing_probe
+  description: |
+    Pod keeps restarting despite the application starting fine.
+    RCA: the liveness probe targets port 8081 but nginx listens on
+    8080, so every probe is refused.
+    Expected: change the liveness probe port to 8080.
   tag:
     - agentic
     - difficulty_normal

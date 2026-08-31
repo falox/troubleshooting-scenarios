@@ -1,4 +1,12 @@
 - conversation_group_id: failing_api
+  description: |
+    Alert fires for 100% payment error rate (payments-api returns
+    503).
+    RCA: reporting-service leaks database connections, exhausting the
+    shared PostgreSQL pool; payments-api cannot acquire a connection.
+    Expected: identify reporting-service as the root cause;
+    reconciliation-service CrashLooping is a separate issue, not the
+    cause.
   tag:
     - agentic
     - core

@@ -1,4 +1,11 @@
 - conversation_group_id: excessive_permissions
+  description: |
+    RBAC security audit requested for a namespace.
+    RCA: ServiceAccount webapp-sa is bound to cluster-admin via
+    RoleBinding webapp-admin-binding, but the workload (plain nginx)
+    makes no API calls.
+    Expected: identify the over-privilege and recommend scoping down
+    to least-privilege or using the default ServiceAccount.
   tag:
     - agentic
     - difficulty_medium

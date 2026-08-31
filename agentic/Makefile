@@ -47,10 +47,12 @@ ALL_SCENARIOS := \
 	unready_pod_alert \
 	unscheduled_pod
 SCENARIO ?=
-RUNS ?= 1
 TAG ?=
+SETUP_MODE ?= run
 
 COMMA := ,
+EMPTY :=
+SPACE := $(EMPTY) $(EMPTY)
 
 ifdef SCENARIO
   _CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
@@ -91,28 +93,52 @@ else
 	  fi; \
 	done
 	$(eval DATETIME := $(shell date +%Y%m%d_%H%M%S))
-	$(eval LOGS_DIR := results/logs/$(DATETIME))
-	$(eval SUMMARY := results/results_$(DATETIME).md)
+	$(eval EVAL_DIR := results/logs/$(DATETIME))
+	$(eval _AGENTS := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))"))
+	$(eval _REPEAT := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); print(c.get('agents',{}).get('default',{}).get('repeat',1))"))
+	$(eval _JUDGE := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); p=c.get('llm_pool',{}).get('models',{}); j=c.get('judge_panel',{}).get('judges',[''])[0]; print(p.get(j,{}).get('model','') if j else c.get('llm',{}).get('model',''))"))
+ifeq ($(SETUP_MODE),run)
+	@echo "==> SETUP_MODE=run: $(_REPEAT) repeat(s), agents: $(subst $(SPACE),$(COMMA) ,$(_AGENTS))"
 	@for scenario in $(SCENARIOS); do \
+	  for agent in $(_AGENTS); do \
+	    for run in $$(seq 1 $(_REPEAT)); do \
+	      echo ""; \
+	      echo "==> Setup: $$scenario"; \
+	      if [ -x $$scenario/setup.sh ]; then bash $$scenario/setup.sh; fi; \
+	      bash $(SCRIPTS_DIR)/run-agentic-evals.sh \
+	        --system-config system.yaml \
+	        --evals $$scenario/evals.yaml \
+	        --eval-dir $(EVAL_DIR) \
+	        --agent $$agent \
+	        --run-index $$run \
+	        $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))); \
+	      echo "==> Cleanup: $$scenario"; \
+	      if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh || echo "WARNING: cleanup failed (non-fatal)"; fi; \
+	    done; \
+	  done; \
+	done
+else
+	@echo "==> SETUP_MODE=scenario: $(_REPEAT) repeat(s), agents: $(subst $(SPACE),$(COMMA) ,$(_AGENTS))"
+	@for scenario in $(SCENARIOS); do \
+	  echo ""; \
 	  echo "==> Setup: $$scenario"; \
 	  if [ -x $$scenario/setup.sh ]; then bash $$scenario/setup.sh; fi; \
-	  echo "==> Scenario: $$scenario"; \
 	  bash $(SCRIPTS_DIR)/run-agentic-evals.sh \
 	    --system-config system.yaml \
 	    --evals $$scenario/evals.yaml \
-	    --results-dir $(LOGS_DIR) \
-	    --runs $(RUNS) \
+	    --eval-dir $(EVAL_DIR) \
 	    $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))); \
 	  echo "==> Cleanup: $$scenario"; \
-	  if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh; fi; \
+	  if [ -x $$scenario/cleanup.sh ]; then bash $$scenario/cleanup.sh || echo "WARNING: cleanup failed (non-fatal)"; fi; \
 	done
+endif
 	@echo ""
-	@echo "==> Generating summary..."
-	@../venv/bin/python $(SCRIPTS_DIR)/summarize-agentic-evals.py \
-	  $(LOGS_DIR) \
-	  --output $(SUMMARY) \
-	  $(foreach s,$(SCENARIOS),$s/evals.yaml) \
-	  $$(find $(LOGS_DIR) -name '*_summary.json' | sort)
+	@echo "==> Generating report..."
+	@../venv/bin/python3 $(SCRIPTS_DIR)/generate-report-agentic.py \
+	  $(EVAL_DIR) \
+	  --output results/results_$(DATETIME).md \
+	  $(if $(_JUDGE),--judge $(_JUDGE))
+	@echo "==> Results: results/results_$(DATETIME).md"
 endif
 
 cleanup:
@@ -126,7 +152,7 @@ cleanup:
 	@echo "venv removed."
 
 help:
-	@echo "Usage: make <target> [RUNS=N]"
+	@echo "Usage: make <target> [SETUP_MODE=run|scenario]"
 	@echo ""
 	@echo "Targets:"
 	@echo "  setup    Install venv (lightspeed-agentic-operator is manual for now)"
@@ -135,9 +161,13 @@ help:
 	@echo "  help     Show this help"
 	@echo ""
 	@echo "Options:"
-	@echo "  SCENARIO=...  Comma-separated scenario(s) to run (default: all)"
-	@echo "  RUNS=N        Number of runs per scenario (default: 1)"
-	@echo "  TAG=...       Filter by tag, e.g. TAG=hard, TAG=alerts-adapter (default: none)"
+	@echo "  SCENARIO=...              Comma-separated scenario(s) to run (default: all)"
+	@echo "  TAG=...                   Filter by tag (default: none)"
+	@echo "  SETUP_MODE=run|scenario   Setup/cleanup lifecycle (default: run)"
+	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
+	@echo "    scenario: per scenario - for read-only agents, parallel OK"
+	@echo ""
+	@echo "Agents and repeat count are read from system.yaml."
 	@echo ""
 	@echo "Scenarios:"
 	@echo "$(SCENARIOS)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'

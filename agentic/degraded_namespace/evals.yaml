@@ -1,4 +1,12 @@
 - conversation_group_id: degraded_namespace
+  description: |
+    Multiple teams report intermittent problems in a namespace.
+    RCA: svc-charlie is in CreateContainerConfigError (missing
+    ConfigMap chaos-config) and svc-echo is in ImagePullBackOff
+    (invalid tag 1.27-slim); svc-alpha, svc-bravo, and svc-delta are
+    healthy.
+    Expected: identify exactly the two unhealthy workloads and not
+    misdiagnose the healthy ones.
   tag:
     - agentic
     - difficulty_medium

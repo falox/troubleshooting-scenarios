@@ -1,4 +1,9 @@
 - conversation_group_id: refused_service
+  description: |
+    Service connections are refused despite endpoints and a Ready pod.
+    RCA: the service forwards to targetPort 8081 but the container
+    listens on 8080.
+    Expected: correct the service's targetPort to 8080.
   tag:
     - agentic
     - core

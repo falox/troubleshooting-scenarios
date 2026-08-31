@@ -1,4 +1,10 @@
 - conversation_group_id: unready_pod
+  description: |
+    Alert fires for a pod in not-ready state.
+    RCA: the readiness probe does an HTTP GET on port 9200 but the
+    container is a simple echo/sleep loop with no HTTP server.
+    Expected: remove the readiness probe or replace it with an exec
+    probe appropriate for the container.
   tag:
     - agentic
     - core

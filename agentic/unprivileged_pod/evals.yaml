@@ -1,4 +1,10 @@
 - conversation_group_id: unprivileged_pod
+  description: |
+    Deployment creates no pods (FailedCreate).
+    RCA: the pod template requests privileged mode and runAsUser 0,
+    which OpenShift's restricted SCC rejects.
+    Expected: remove the privileged and runAsUser demands from the
+    container security context.
   tag:
     - agentic
     - difficulty_normal

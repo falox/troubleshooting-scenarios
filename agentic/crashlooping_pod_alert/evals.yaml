@@ -1,4 +1,10 @@
 - conversation_group_id: crashlooping_pod
+  description: |
+    Alert fires for repeated container restarts.
+    RCA: the pod crashes at startup because the required environment
+    variable DEPLOY_ENV is missing from the deployment.
+    Expected: add the DEPLOY_ENV environment variable to the container
+    spec.
   tag:
     - agentic
     - core

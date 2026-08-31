@@ -1,4 +1,9 @@
 - conversation_group_id: stuck_rollout
+  description: |
+    Rollout is stuck, deployment reports ProgressDeadlineExceeded.
+    RCA: the new ReplicaSet's pod is in ImagePullBackOff on tag nginx-
+    unprivileged:9.99-broken, which does not exist.
+    Expected: roll back to the previous working revision.
   tag:
     - agentic
     - core

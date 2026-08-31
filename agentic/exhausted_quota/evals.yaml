@@ -1,4 +1,10 @@
 - conversation_group_id: exhausted_quota
+  description: |
+    Deployment has zero pods, no pod is ever created.
+    RCA: the namespace ResourceQuota caps pods at 2, fully consumed by
+    setup-worker's 2 replicas; the ReplicaSet fails with 'exceeded
+    quota' events.
+    Expected: raise the pod quota to accommodate both workloads.
   tag:
     - agentic
     - difficulty_normal

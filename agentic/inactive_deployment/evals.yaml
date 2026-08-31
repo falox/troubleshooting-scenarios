@@ -1,4 +1,8 @@
 - conversation_group_id: inactive_deployment
+  description: |
+    Application is completely down, no traffic served.
+    RCA: the deployment has replicas set to 0.
+    Expected: scale the deployment back up (e.g. to 1 replica).
   tag:
     - agentic
     - difficulty_normal

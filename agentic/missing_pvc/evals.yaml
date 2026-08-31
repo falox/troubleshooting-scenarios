@@ -1,4 +1,9 @@
 - conversation_group_id: missing_pvc
+  description: |
+    Pod is unschedulable (FailedScheduling).
+    RCA: the volume references PersistentVolumeClaim app-data, which
+    does not exist in the namespace.
+    Expected: create the app-data PVC (1Gi, default StorageClass).
   tag:
     - agentic
     - difficulty_normal

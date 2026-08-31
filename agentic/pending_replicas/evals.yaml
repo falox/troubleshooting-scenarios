@@ -1,4 +1,9 @@
 - conversation_group_id: pending_replicas
+  description: |
+    Several pods are stuck in Pending (FailedScheduling).
+    RCA: the deployment requests 10 replicas with required hostname
+    anti-affinity, but the cluster has fewer schedulable nodes.
+    Expected: reduce replicas to 3 (the stated HA requirement).
   tag:
     - agentic
     - difficulty_normal

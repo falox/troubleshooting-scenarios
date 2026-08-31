@@ -1,4 +1,10 @@
 - conversation_group_id: diagnostic_trap
+  description: |
+    Deployment keeps crashing with a config file not found error.
+    RCA: the ConfigMap is mounted at /etc/config but the app expects
+    /etc/app/config.yaml, a mount-path mismatch. The tight 32Mi memory
+    limit is a decoy (no OOMKill occurs).
+    Expected: correct the volumeMount path to /etc/app.
   tag:
     - agentic
     - core

@@ -1,4 +1,10 @@
 - conversation_group_id: evicted_pod
+  description: |
+    Pods are repeatedly killed and recreated.
+    RCA: the container writes a ~64Mi cache into an emptyDir volume
+    capped at sizeLimit 10Mi, triggering kubelet eviction.
+    Expected: raise the emptyDir sizeLimit (e.g. to 128Mi) so the
+    cache fits.
   tag:
     - agentic
     - core

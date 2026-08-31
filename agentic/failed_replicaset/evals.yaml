@@ -1,4 +1,11 @@
 - conversation_group_id: failed_replicaset
+  description: |
+    Deployment creates no pods.
+    RCA: the pod template references PriorityClass workload-priority,
+    which does not exist on this cluster; the ReplicaSet gets
+    FailedCreate events.
+    Expected: remove the stale priorityClassName from the pod
+    template.
   tag:
     - agentic
     - difficulty_normal
