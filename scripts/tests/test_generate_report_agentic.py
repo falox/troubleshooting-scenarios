@@ -58,15 +58,18 @@ def _make_result(
 def _make_amended_yaml(entries: list[dict]) -> list[dict]:
     result = []
     for e in entries:
+        turn = {
+            "query": e.get("query", "What is wrong?"),
+            "response": e.get("response", "The pod is failing."),
+        }
+        if "api_input_tokens" in e:
+            turn["api_input_tokens"] = e["api_input_tokens"]
+        if "api_output_tokens" in e:
+            turn["api_output_tokens"] = e["api_output_tokens"]
         entry = {
             "conversation_group_id": e["conversation_id"],
             "tag": [e["conversation_id"]],
-            "turns": [
-                {
-                    "query": e.get("query", "What is wrong?"),
-                    "response": e.get("response", "The pod is failing."),
-                }
-            ],
+            "turns": [turn],
         }
         if "description" in e:
             entry["description"] = e["description"]
@@ -362,6 +365,23 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         assert "Judge" not in report
+
+    def test_avg_tokens_divides_by_evaluations_not_scenarios(self, tmp_path):
+        """With 2 runs of 1 scenario at 100 tokens each, avg should be 100, not 200."""
+        for run in [1, 2]:
+            _write_run(
+                tmp_path / "agent" / f"run_{run}",
+                results=[_make_result("s1")],
+                amended_entries=[{
+                    "conversation_id": "s1",
+                    "api_input_tokens": 60,
+                    "api_output_tokens": 40,
+                }],
+                timestamp=f"20260830_10000{run}",
+            )
+        report = mod.generate_report(tmp_path)
+        assert "| Avg tokens | 100 |" in report
+        assert "| **Average** | 100 |" in report
 
 
 class TestPrintPerformanceTable:

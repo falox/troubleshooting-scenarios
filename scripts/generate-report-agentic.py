@@ -8,7 +8,7 @@ agents and runs.
 Usage:
     python3 generate-report-agentic.py EVAL_DIR [--output FILE]
 
-EVAL_DIR is the directory containing eval_report.json
+EVAL_DIR is the eval session directory
 (e.g., eval_output/eval_20260829_210316/).
 """
 
@@ -271,14 +271,6 @@ def format_duration(seconds: float) -> str:
     return f"{minutes}m {secs}s"
 
 
-def load_eval_report(eval_dir: Path) -> dict | None:
-    path = eval_dir / "eval_report.json"
-    if not path.exists():
-        return None
-    with open(path) as f:
-        return json.load(f)
-
-
 def scenario_duration(agent_amended: list, cid: str) -> float | None:
     """Mean analysis duration for a single scenario across runs."""
     durations = []
@@ -309,6 +301,18 @@ def total_tokens(agent_amended: list, conversations: list[str]) -> int:
             if entry["conversation_group_id"] in conversations:
                 total += entry.get("agent_tokens", 0)
     return total
+
+
+def mean_tokens(agent_amended: list, conversations: list[str]) -> int | None:
+    """Mean agent tokens across all runs and conversations."""
+    tokens = []
+    for entries in agent_amended:
+        for entry in entries:
+            if entry["conversation_group_id"] in conversations and entry.get("agent_tokens") is not None:
+                tokens.append(entry["agent_tokens"])
+    if not tokens:
+        return None
+    return round(sum(tokens) / len(tokens))
 
 
 def bold_best(values: dict[str, str | None], best_val, cmp="max") -> dict[str, str]:
@@ -380,9 +384,8 @@ def generate_overview_table(
     lines.append(f"| Avg duration | {' | '.join(cells)} |")
 
     # Avg tokens
-    n = len(conversations) if conversations else 1
-    tok = {a: total_tokens(agent_amended[a], conversations) for a in agent_names}
-    cells = [str(round(tok[a] / n)) for a in agent_names]
+    avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
+    cells = [str(avg_tok[a]) if avg_tok[a] is not None else "N/A" for a in agent_names]
     lines.append(f"| Avg tokens | {' | '.join(cells)} |")
 
     return "\n".join(lines)
@@ -459,37 +462,11 @@ def generate_tokens_table(
         lines.append(f"| [{cid}](#{cid_anchor}) | {' | '.join(cells)} |")
 
     # Mean row
-    counts = {a: len(conversations) for a in agent_names}
-    tok = {a: total_tokens(agent_amended[a], conversations) for a in agent_names}
-    cells = [str(round(tok[a] / counts[a])) if counts[a] > 0 else "N/A" for a in agent_names]
+    avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
+    cells = [str(avg_tok[a]) if avg_tok[a] is not None else "N/A" for a in agent_names]
     lines.append(f"| **Average** | {' | '.join(cells)} |")
 
     return "\n".join(lines)
-
-
-def generate_significance_notes(eval_report: dict | None, agent_names: list[str]) -> str:
-    if not eval_report:
-        return ""
-    deltas = eval_report.get("comparison", {}).get("deltas", [])
-    if not deltas:
-        return ""
-    lines = []
-    for d in deltas:
-        a = d["agent_a"]
-        b = d["agent_b"]
-        if a not in agent_names or b not in agent_names:
-            continue
-        for sig in d.get("significance", []):
-            test = sig["test"]
-            p = sig["p_value"]
-            is_sig = sig.get("significant", False)
-            metric = sig.get("metric", "pass_rate")
-            metric_short = metric.split(":")[-1] if ":" in metric else metric
-            marker = "significant" if is_sig else "not significant"
-            lines.append(f"- {a} vs {b} ({metric_short}): {test} p={p:.3f} ({marker})")
-    if not lines:
-        return ""
-    return "**Statistical significance**\n\n" + "\n".join(lines)
 
 
 def generate_summary_table(

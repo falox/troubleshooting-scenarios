@@ -3,7 +3,7 @@
     Deployment has 0 pods, no pod is ever created.
     RCA: the namespace LimitRange requires at least 256Mi memory per
     container, but the deployment requests 64Mi.
-    Expected: raise the deployment's memory request to at least 256Mi.
+    Expected: raise the deployment's memory request and limit to at least 256Mi.
   tag:
     - agentic
     - difficulty_normal
