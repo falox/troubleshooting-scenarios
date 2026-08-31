@@ -669,7 +669,10 @@ def generate_report(eval_dir: Path, judge: str = "") -> str:
     lines.append("")
 
     # Results per scenario
-    lines.append("## Performance")
+    lines.append("## Correctness")
+    lines.append("")
+    lines.append("Passed repeats / total repeats."
+                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass).")
     lines.append("")
     lines.append(generate_summary_table(conversations, agent_names, agent_runs))
     lines.append("")
@@ -677,11 +680,17 @@ def generate_report(eval_dir: Path, judge: str = "") -> str:
     # Duration per scenario
     lines.append("## Time")
     lines.append("")
+    lines.append("Average duration across all repeats of a scenario per agent.")
+    lines.append("")
     lines.append(generate_duration_table(conversations, agent_names, agent_amended))
     lines.append("")
 
     # Tokens per scenario
     lines.append("## Cost")
+    lines.append("")
+    lines.append("Average token usage across all repeats of a scenario per agent."
+                 " Note: lightspeed-eval does not expose this data yet;"
+                 " values will appear once it does.")
     lines.append("")
     lines.append(generate_tokens_table(conversations, agent_names, agent_amended))
     lines.append("")
@@ -726,7 +735,7 @@ def _colorize(passed: int, total: int) -> str:
     return text
 
 
-def print_performance_table(
+def print_correctness_table(
     conversations: list[str],
     agent_names: list[str],
     agent_runs: dict[str, list],
@@ -813,7 +822,7 @@ def main():
     conversations = collect_conversations(agent_runs)
 
     print()
-    print_performance_table(conversations, agent_names, agent_runs)
+    print_correctness_table(conversations, agent_names, agent_runs)
     print()
     print(f"Report written to {output}")
 

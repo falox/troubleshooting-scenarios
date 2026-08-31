@@ -9,7 +9,9 @@
 | Avg duration | 2m 2s | 51s | **33s** |
 | Avg tokens | 0 | 0 | 0 |
 
-## Performance
+## Correctness
+
+Passed repeats / total repeats. Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass).
 
 | Scenario | claude-opus-4-6 | gemini-2.5-pro | gpt-5.4 |
 |---|---|---|---|
@@ -33,6 +35,8 @@
 
 ## Time
 
+Average duration across all repeats of a scenario per agent.
+
 | Scenario | claude-opus-4-6 | gemini-2.5-pro | gpt-5.4 |
 |---|---|---|---|
 | [cascading_failure](#cascading_failure) | [1m 54s](#claude-opus-4-6--cascading_failure) | [28s](#gemini-2.5-pro--cascading_failure) | **[24s](#gpt-5.4--cascading_failure)** |
@@ -54,6 +58,8 @@
 | **Average** | 2m 2s | 51s | **33s** |
 
 ## Cost
+
+Average token usage across all repeats of a scenario per agent. Note: lightspeed-eval does not expose this data yet; values will appear once it does.
 
 | Scenario | claude-opus-4-6 | gemini-2.5-pro | gpt-5.4 |
 |---|---|---|---|

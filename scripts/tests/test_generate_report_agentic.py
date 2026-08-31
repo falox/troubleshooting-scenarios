@@ -384,7 +384,7 @@ class TestGenerateReport:
         assert "| **Average** | 100 |" in report
 
 
-class TestPrintPerformanceTable:
+class TestPrintCorrectnessTable:
     def test_basic_output(self, tmp_path, capsys):
         for agent, result in [("agentA", "PASS"), ("agentB", "FAIL")]:
             _write_run(
@@ -397,7 +397,7 @@ class TestPrintPerformanceTable:
             for a in ["agentA", "agentB"]
         }
         conversations = mod.collect_conversations(agent_runs)
-        mod.print_performance_table(conversations, ["agentA", "agentB"], agent_runs)
+        mod.print_correctness_table(conversations, ["agentA", "agentB"], agent_runs)
         out = capsys.readouterr().out
         assert "s1" in out
         assert "1/1" in out
@@ -420,6 +420,6 @@ class TestPrintPerformanceTable:
             mod.load_run_summary(tmp_path / "a" / "run_2"),
         ]}
         conversations = mod.collect_conversations(agent_runs)
-        mod.print_performance_table(conversations, ["a"], agent_runs)
+        mod.print_correctness_table(conversations, ["a"], agent_runs)
         out = capsys.readouterr().out
         assert "1/2" in out
