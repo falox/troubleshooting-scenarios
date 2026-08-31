@@ -96,7 +96,6 @@ else
 	$(eval EVAL_DIR := results/logs/$(DATETIME))
 	$(eval _AGENTS := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))"))
 	$(eval _REPEAT := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); print(c.get('agents',{}).get('default',{}).get('repeat',1))"))
-	$(eval _JUDGE := $(shell ../venv/bin/python3 -c "import yaml; c=yaml.safe_load(open('system.yaml')); p=c.get('llm_pool',{}).get('models',{}); j=c.get('judge_panel',{}).get('judges',[''])[0]; print(p.get(j,{}).get('model','') if j else c.get('llm',{}).get('model',''))"))
 ifeq ($(SETUP_MODE),run)
 	@echo "==> SETUP_MODE=run: $(_REPEAT) repeat(s), agents: $(subst $(SPACE),$(COMMA) ,$(_AGENTS))"
 	@for scenario in $(SCENARIOS); do \
@@ -136,8 +135,7 @@ endif
 	@echo "==> Generating report..."
 	@../venv/bin/python3 $(SCRIPTS_DIR)/generate-report-agentic.py \
 	  $(EVAL_DIR) \
-	  --output results/results_$(DATETIME).md \
-	  $(if $(_JUDGE),--judge $(_JUDGE))
+	  --output results/results_$(DATETIME).md
 	@echo "==> Results: results/results_$(DATETIME).md"
 endif
 

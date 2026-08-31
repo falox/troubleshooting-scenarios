@@ -10,6 +10,7 @@ Usage:
 
 EVAL_DIR is the eval session directory
 (e.g., eval_output/eval_20260829_210316/).
+The judge model is extracted from the summary JSON configuration.
 """
 
 import json
@@ -63,6 +64,24 @@ def load_run_summary(run_dir: Path) -> list[dict] | None:
             data = json.load(fh)
         results.extend(data.get("results", []))
     return results
+
+
+def extract_judge_model(eval_dir: Path, agent_names: list[str]) -> str:
+    """Extract the judge model name from the first available summary JSON."""
+    for agent in agent_names:
+        for rd in find_run_dirs(eval_dir, agent):
+            for f in sorted(rd.glob("*_summary.json")):
+                with open(f) as fh:
+                    data = json.load(fh)
+                config = data.get("configuration", {})
+                judges = config.get("judge_panel", {}).get("judges", [])
+                if not judges:
+                    continue
+                models = config.get("llm_pool", {}).get("models", {})
+                model = models.get(judges[0], {}).get("model", "")
+                if model:
+                    return model
+    return ""
 
 
 
@@ -236,6 +255,18 @@ def overall_score_cell(passed: int, total: int, bold: bool = False) -> str:
     return text
 
 
+def scenario_mean_score(agent_runs: list, conversation_id: str) -> float | None:
+    """Mean correctness score for one agent on one scenario across all runs."""
+    scores = []
+    for results in agent_runs:
+        if results is None:
+            continue
+        s = get_score(results, conversation_id, CORRECTNESS_METRIC)
+        if s is not None:
+            scores.append(s)
+    return sum(scores) / len(scores) if scores else None
+
+
 def mean_score(agent_runs: list, conversations: list[str]) -> float | None:
     """Mean correctness score across all runs and conversations."""
     scores = []
@@ -321,7 +352,7 @@ def bold_best(values: dict[str, str | None], best_val, cmp="max") -> dict[str, s
     for a, text in values.items():
         if text is None:
             result[a] = "N/A"
-        elif best_val is not None and text == best_val and len(values) > 1:
+        elif best_val is not None and text == best_val:
             result[a] = f"**{text}**"
         else:
             result[a] = text
@@ -348,7 +379,7 @@ def generate_overview_table(
             cells.append("N/A")
         else:
             text = f"{pcts[a]}%"
-            if pcts[a] == best_pct and len(agent_names) > 1:
+            if pcts[a] == best_pct:
                 text = f"**{text}**"
             cells.append(text)
     lines.append(f"| Pass rate | {' | '.join(cells)} |")
@@ -363,7 +394,7 @@ def generate_overview_table(
             cells.append("N/A")
         else:
             text = f"{s:.2f}"
-            if best_mean is not None and s == best_mean and len(agent_names) > 1:
+            if best_mean is not None and s == best_mean:
                 text = f"**{text}**"
             cells.append(text)
     lines.append(f"| Avg score | {' | '.join(cells)} |")
@@ -378,7 +409,7 @@ def generate_overview_table(
             cells.append("N/A")
         else:
             text = format_duration(d)
-            if best_dur is not None and d == best_dur and len(agent_names) > 1:
+            if best_dur is not None and d == best_dur:
                 text = f"**{text}**"
             cells.append(text)
     lines.append(f"| Avg duration | {' | '.join(cells)} |")
@@ -418,7 +449,7 @@ def generate_duration_table(
             else:
                 anchor = anchor_id(a, cid)
                 text = f"[{format_duration(d)}](#{anchor})"
-                if best is not None and d == best and len(agent_names) > 1:
+                if best is not None and d == best:
                     text = f"**{text}**"
                 cells.append(text)
         cid_anchor = cid.lower().replace(" ", "-")
@@ -434,7 +465,7 @@ def generate_duration_table(
             cells.append("N/A")
         else:
             text = format_duration(d)
-            if best_mean is not None and d == best_mean and len(agent_names) > 1:
+            if best_mean is not None and d == best_mean:
                 text = f"**{text}**"
             cells.append(text)
     lines.append(f"| **Average** | {' | '.join(cells)} |")
@@ -479,8 +510,15 @@ def generate_summary_table(
     lines = [header, separator]
     for cid in conversations:
         anchor = cid.lower().replace(" ", "-")
-        cells = " | ".join(score_cell(agent_runs[a], cid, a) for a in agent_names)
-        lines.append(f"| [{cid}](#{anchor}) | {cells} |")
+        avg_scores = {a: scenario_mean_score(agent_runs[a], cid) for a in agent_names}
+        best = max((s for s in avg_scores.values() if s is not None), default=None)
+        cells = []
+        for a in agent_names:
+            cell = score_cell(agent_runs[a], cid, a)
+            if best is not None and avg_scores[a] is not None and avg_scores[a] == best:
+                cell = f"**{cell}**"
+            cells.append(cell)
+        lines.append(f"| [{cid}](#{anchor}) | {' | '.join(cells)} |")
     scores = {a: overall_score(agent_runs[a], conversations) for a in agent_names}
     best_pct = max(
         (p / t if t > 0 else -1 for p, t in scores.values()),
@@ -609,7 +647,7 @@ def generate_scenario_details(
     return "\n".join(lines)
 
 
-def generate_report(eval_dir: Path, judge: str = "") -> str:
+def generate_report(eval_dir: Path) -> str:
     agent_names = discover_agents(eval_dir)
 
     # Load per-run data for each agent
@@ -644,6 +682,8 @@ def generate_report(eval_dir: Path, judge: str = "") -> str:
                     break
         if timestamp_str:
             break
+
+    judge = extract_judge_model(eval_dir, agent_names)
 
     # Build the report
     lines = ["# Evaluation Summary"]
@@ -689,8 +729,8 @@ def generate_report(eval_dir: Path, judge: str = "") -> str:
     lines.append("## Cost")
     lines.append("")
     lines.append("Average token usage across all repeats of a scenario per agent."
-                 " Note: lightspeed-eval does not expose this data yet;"
-                 " values will appear once it does.")
+                 " ** Note: lightspeed-eval does not expose this data yet;"
+                 " values will appear once it does. **")
     lines.append("")
     lines.append(generate_tokens_table(conversations, agent_names, agent_amended))
     lines.append("")
@@ -798,11 +838,6 @@ def main():
         "--output", "-o",
         help="Output file path (default: EVAL_DIR/results.md)",
     )
-    parser.add_argument(
-        "--judge", "-j",
-        default="",
-        help="Judge model name to display in the report header",
-    )
     args = parser.parse_args()
 
     eval_dir = Path(args.eval_dir)
@@ -810,7 +845,7 @@ def main():
         print(f"Error: {eval_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
-    md = generate_report(eval_dir, judge=args.judge)
+    md = generate_report(eval_dir)
 
     output = Path(args.output) if args.output else eval_dir / "results.md"
     output.write_text(md)

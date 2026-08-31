@@ -349,12 +349,17 @@ class TestGenerateReport:
         assert report.count("**✅ 100% (1/1)**") == 2
 
     def test_judge_in_header(self, tmp_path):
+        config = {
+            "llm_pool": {"models": {"judge": {"model": "gpt-5.4"}}},
+            "judge_panel": {"judges": ["judge"]},
+        }
         _write_run(
             tmp_path / "gpt-5.4" / "run_1",
             results=[_make_result("s1")],
             amended_entries=[{"conversation_id": "s1"}],
+            config=config,
         )
-        report = mod.generate_report(tmp_path, judge="gpt-5.4")
+        report = mod.generate_report(tmp_path)
         assert "Judge: gpt-5.4" in report
 
     def test_no_judge_by_default(self, tmp_path):

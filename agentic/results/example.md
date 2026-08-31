@@ -15,22 +15,22 @@ Passed repeats / total repeats. Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to
 
 | Scenario | claude-opus-4-6 | gemini-2.5-pro | gpt-5.4 |
 |---|---|---|---|
-| [cascading_failure](#cascading_failure) | [✅ 3/3](#claude-opus-4-6--cascading_failure) (0.98) | [ 2/3](#gemini-2.5-pro--cascading_failure) (0.64) | [✅ 3/3](#gpt-5.4--cascading_failure) (0.99) |
-| [crashlooping_pod](#crashlooping_pod) | [✅ 3/3](#claude-opus-4-6--crashlooping_pod) (0.99) | [✅ 3/3](#gemini-2.5-pro--crashlooping_pod) (1.00) | [✅ 3/3](#gpt-5.4--crashlooping_pod) (0.96) |
-| [diagnostic_trap](#diagnostic_trap) | [✅ 3/3](#claude-opus-4-6--diagnostic_trap) (0.98) | [✅ 3/3](#gemini-2.5-pro--diagnostic_trap) (0.99) | [ 2/3](#gpt-5.4--diagnostic_trap) (0.64) |
-| [empty_endpoints](#empty_endpoints) | [✅ 3/3](#claude-opus-4-6--empty_endpoints) (0.98) | [ 2/3](#gemini-2.5-pro--empty_endpoints) (0.65) | [✅ 3/3](#gpt-5.4--empty_endpoints) (0.98) |
-| [evicted_pod](#evicted_pod) | [✅ 3/3](#claude-opus-4-6--evicted_pod) (0.98) | [ 2/3](#gemini-2.5-pro--evicted_pod) (0.65) | [✅ 3/3](#gpt-5.4--evicted_pod) (0.97) |
-| [failed_job](#failed_job) | [❌ 0/3](#claude-opus-4-6--failed_job) (0.03) | [❌ 0/3](#gemini-2.5-pro--failed_job) (0.00) | [❌ 0/3](#gpt-5.4--failed_job) (0.00) |
-| [failing_api](#failing_api) | [ 2/3](#claude-opus-4-6--failing_api) (0.74) | [❌ 0/3](#gemini-2.5-pro--failing_api) (0.07) | [ 2/3](#gpt-5.4--failing_api) (0.70) |
-| [failing_route](#failing_route) | [✅ 3/3](#claude-opus-4-6--failing_route) (1.00) | [✅ 3/3](#gemini-2.5-pro--failing_route) (1.00) | [✅ 3/3](#gpt-5.4--failing_route) (1.00) |
-| [missing_configmap](#missing_configmap) | [ 2/3](#claude-opus-4-6--missing_configmap) (0.63) | [✅ 3/3](#gemini-2.5-pro--missing_configmap) (0.94) | [✅ 3/3](#gpt-5.4--missing_configmap) (0.98) |
-| [pending_pvc](#pending_pvc) | [ 2/3](#claude-opus-4-6--pending_pvc) (0.60) | [ 1/3](#gemini-2.5-pro--pending_pvc) (0.67) | [✅ 3/3](#gpt-5.4--pending_pvc) (0.93) |
-| [refused_service](#refused_service) | [✅ 3/3](#claude-opus-4-6--refused_service) (0.98) | [✅ 3/3](#gemini-2.5-pro--refused_service) (1.00) | [✅ 3/3](#gpt-5.4--refused_service) (1.00) |
-| [stuck_rollout](#stuck_rollout) | [ 2/3](#claude-opus-4-6--stuck_rollout) (0.66) | [✅ 3/3](#gemini-2.5-pro--stuck_rollout) (0.96) | [✅ 3/3](#gpt-5.4--stuck_rollout) (1.00) |
-| [stuck_rollout_alert](#stuck_rollout_alert) | [✅ 3/3](#claude-opus-4-6--stuck_rollout_alert) (0.98) | [ 2/3](#gemini-2.5-pro--stuck_rollout_alert) (0.63) | [✅ 3/3](#gpt-5.4--stuck_rollout_alert) (0.99) |
-| [timeout_connections](#timeout_connections) | [✅ 3/3](#claude-opus-4-6--timeout_connections) (0.98) | [✅ 3/3](#gemini-2.5-pro--timeout_connections) (0.92) | [ 2/3](#gpt-5.4--timeout_connections) (0.65) |
-| [unbalanced_replicas](#unbalanced_replicas) | [ 1/3](#claude-opus-4-6--unbalanced_replicas) (0.50) | [❌ 0/3](#gemini-2.5-pro--unbalanced_replicas) (0.23) | [ 2/3](#gpt-5.4--unbalanced_replicas) (0.75) |
-| [unready_pod](#unready_pod) | [✅ 3/3](#claude-opus-4-6--unready_pod) (0.83) | [✅ 3/3](#gemini-2.5-pro--unready_pod) (0.90) | [✅ 3/3](#gpt-5.4--unready_pod) (0.92) |
+| [cascading_failure](#cascading_failure) | [✅ 3/3](#claude-opus-4-6--cascading_failure) (0.98) | [ 2/3](#gemini-2.5-pro--cascading_failure) (0.64) | **[✅ 3/3](#gpt-5.4--cascading_failure) (0.99)** |
+| [crashlooping_pod](#crashlooping_pod) | [✅ 3/3](#claude-opus-4-6--crashlooping_pod) (0.99) | **[✅ 3/3](#gemini-2.5-pro--crashlooping_pod) (1.00)** | [✅ 3/3](#gpt-5.4--crashlooping_pod) (0.96) |
+| [diagnostic_trap](#diagnostic_trap) | [✅ 3/3](#claude-opus-4-6--diagnostic_trap) (0.98) | **[✅ 3/3](#gemini-2.5-pro--diagnostic_trap) (0.99)** | [ 2/3](#gpt-5.4--diagnostic_trap) (0.64) |
+| [empty_endpoints](#empty_endpoints) | **[✅ 3/3](#claude-opus-4-6--empty_endpoints) (0.98)** | [ 2/3](#gemini-2.5-pro--empty_endpoints) (0.65) | [✅ 3/3](#gpt-5.4--empty_endpoints) (0.98) |
+| [evicted_pod](#evicted_pod) | **[✅ 3/3](#claude-opus-4-6--evicted_pod) (0.98)** | [ 2/3](#gemini-2.5-pro--evicted_pod) (0.65) | [✅ 3/3](#gpt-5.4--evicted_pod) (0.97) |
+| [failed_job](#failed_job) | **[❌ 0/3](#claude-opus-4-6--failed_job) (0.03)** | [❌ 0/3](#gemini-2.5-pro--failed_job) (0.00) | [❌ 0/3](#gpt-5.4--failed_job) (0.00) |
+| [failing_api](#failing_api) | **[ 2/3](#claude-opus-4-6--failing_api) (0.74)** | [❌ 0/3](#gemini-2.5-pro--failing_api) (0.07) | [ 2/3](#gpt-5.4--failing_api) (0.70) |
+| [failing_route](#failing_route) | **[✅ 3/3](#claude-opus-4-6--failing_route) (1.00)** | **[✅ 3/3](#gemini-2.5-pro--failing_route) (1.00)** | **[✅ 3/3](#gpt-5.4--failing_route) (1.00)** |
+| [missing_configmap](#missing_configmap) | [ 2/3](#claude-opus-4-6--missing_configmap) (0.63) | [✅ 3/3](#gemini-2.5-pro--missing_configmap) (0.94) | **[✅ 3/3](#gpt-5.4--missing_configmap) (0.98)** |
+| [pending_pvc](#pending_pvc) | [ 2/3](#claude-opus-4-6--pending_pvc) (0.60) | [ 1/3](#gemini-2.5-pro--pending_pvc) (0.67) | **[✅ 3/3](#gpt-5.4--pending_pvc) (0.93)** |
+| [refused_service](#refused_service) | [✅ 3/3](#claude-opus-4-6--refused_service) (0.98) | **[✅ 3/3](#gemini-2.5-pro--refused_service) (1.00)** | **[✅ 3/3](#gpt-5.4--refused_service) (1.00)** |
+| [stuck_rollout](#stuck_rollout) | [ 2/3](#claude-opus-4-6--stuck_rollout) (0.66) | [✅ 3/3](#gemini-2.5-pro--stuck_rollout) (0.96) | **[✅ 3/3](#gpt-5.4--stuck_rollout) (1.00)** |
+| [stuck_rollout_alert](#stuck_rollout_alert) | [✅ 3/3](#claude-opus-4-6--stuck_rollout_alert) (0.98) | [ 2/3](#gemini-2.5-pro--stuck_rollout_alert) (0.63) | **[✅ 3/3](#gpt-5.4--stuck_rollout_alert) (0.99)** |
+| [timeout_connections](#timeout_connections) | **[✅ 3/3](#claude-opus-4-6--timeout_connections) (0.98)** | [✅ 3/3](#gemini-2.5-pro--timeout_connections) (0.92) | [ 2/3](#gpt-5.4--timeout_connections) (0.65) |
+| [unbalanced_replicas](#unbalanced_replicas) | [ 1/3](#claude-opus-4-6--unbalanced_replicas) (0.50) | [❌ 0/3](#gemini-2.5-pro--unbalanced_replicas) (0.23) | **[ 2/3](#gpt-5.4--unbalanced_replicas) (0.75)** |
+| [unready_pod](#unready_pod) | [✅ 3/3](#claude-opus-4-6--unready_pod) (0.83) | [✅ 3/3](#gemini-2.5-pro--unready_pod) (0.90) | **[✅ 3/3](#gpt-5.4--unready_pod) (0.92)** |
 | **Pass rate** | 81% (39/48) | 69% (33/48) | **85% (41/48)** |
 
 ## Time
@@ -59,7 +59,7 @@ Average duration across all repeats of a scenario per agent.
 
 ## Cost
 
-Average token usage across all repeats of a scenario per agent. Note: lightspeed-eval does not expose this data yet; values will appear once it does.
+Average token usage across all repeats of a scenario per agent. ** Note: lightspeed-eval does not expose this data yet; values will appear once it does. **
 
 | Scenario | claude-opus-4-6 | gemini-2.5-pro | gpt-5.4 |
 |---|---|---|---|

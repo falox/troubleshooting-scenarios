@@ -45,6 +45,7 @@ agents:
 storage:
   - type: file
     output_dir: ./eval_output
+    summary_config_sections: [llm_pool, judge_panel]
     enabled_outputs: [csv, json]
 
 environment:
