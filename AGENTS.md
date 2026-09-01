@@ -79,6 +79,8 @@ Each suite Makefile declares a `SCENARIOS` variable and includes `../scripts/eva
 The root Makefile has maintenance targets only:
 
 ```bash
+make tools          # Install local lint tools in .tools/
+make lint           # Install tools if needed, then run all linters
 make cleanup        # Remove OLS operator + local venv
 ```
 

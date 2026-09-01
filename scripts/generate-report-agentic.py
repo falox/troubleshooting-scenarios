@@ -728,9 +728,10 @@ def generate_report(eval_dir: Path) -> str:
     # Tokens per scenario
     lines.append("## Cost")
     lines.append("")
-    lines.append("Average token usage across all repeats of a scenario per agent."
-                 " ** Note: lightspeed-eval does not expose this data yet;"
-                 " values will appear once it does. **")
+    lines.append("Total token usage for each scenario across all repeats per agent;"
+                 " the Average row shows average usage per evaluation."
+                 " **Note: lightspeed-eval does not expose this data yet;"
+                 " values will appear once it does.**")
     lines.append("")
     lines.append(generate_tokens_table(conversations, agent_names, agent_amended))
     lines.append("")

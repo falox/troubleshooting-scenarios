@@ -59,7 +59,7 @@ Average duration across all repeats of a scenario per agent.
 
 ## Cost
 
-Average token usage across all repeats of a scenario per agent. ** Note: lightspeed-eval does not expose this data yet; values will appear once it does. **
+Total token usage for each scenario across all repeats per agent; the Average row shows average usage per evaluation. **Note: lightspeed-eval does not expose this data yet; values will appear once it does.**
 
 | Scenario | claude-opus-4-6 | gemini-2.5-pro | gpt-5.4 |
 |---|---|---|---|
