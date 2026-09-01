@@ -102,6 +102,8 @@ run_suite() {
     echo "ERROR: make setup failed for ${SUITE}"
     echo "==> Running cleanup..."
     make cleanup || true
+    # Restore OPENAI_API_KEY before returning
+    export OPENAI_API_KEY="$SAVED_OPENAI_KEY"
     return 1
   fi
 
@@ -111,14 +113,15 @@ run_suite() {
   echo "==> Running evaluations..."
   local EVAL_ARGS="OLS_PROVIDER=${PROVIDER}"
   [ -n "$MODEL" ] && EVAL_ARGS+=" OLS_MODEL=${MODEL}"
+
+  # Run evals and capture exit status
+  local EVAL_STATUS=0
   if ! make evals $EVAL_ARGS; then
     echo "ERROR: make evals failed for ${SUITE}"
-    echo "==> Running cleanup..."
-    make cleanup || true
-    return 1
+    EVAL_STATUS=1
   fi
 
-  # Collect artifacts
+  # Collect artifacts (even if evals failed, there may be partial results)
   if [ -n "$ARTIFACT_DIR" ] && [ -d "${SUITE_DIR}/results" ]; then
     echo "==> Copying results to ${ARTIFACT_DIR}/${SUITE}/..."
     mkdir -p "${ARTIFACT_DIR}/${SUITE}"
@@ -150,16 +153,39 @@ run_suite() {
   echo "==> Running cleanup..."
   make cleanup || true
 
+  # Return the evaluation status
+  if [ $EVAL_STATUS -ne 0 ]; then
+    echo "==> OLS evaluation failed for ${SUITE} / ${PROVIDER}"
+    return 1
+  fi
+
   echo "==> OLS evaluation complete for ${SUITE} / ${PROVIDER}"
 }
 
-# Run each suite
+# Run each suite and track results
+FAILED_SUITES=()
+PASSED_SUITES=()
+
 for SUITE in $SUITES; do
-  run_suite "$SUITE" || {
+  if run_suite "$SUITE"; then
+    PASSED_SUITES+=("$SUITE")
+  else
     echo "ERROR: Evaluation failed for SUITE=${SUITE}, PROVIDER=${PROVIDER}"
-    exit 1
-  }
+    FAILED_SUITES+=("$SUITE")
+  fi
 done
 
 echo ""
+echo "=========================================="
+echo "OLS Evaluation Summary for ${PROVIDER}"
+echo "=========================================="
+echo "Passed (${#PASSED_SUITES[@]}): ${PASSED_SUITES[*]:-none}"
+echo "Failed (${#FAILED_SUITES[@]}): ${FAILED_SUITES[*]:-none}"
+echo ""
+
+if [ ${#FAILED_SUITES[@]} -gt 0 ]; then
+  echo "ERROR: ${#FAILED_SUITES[@]} suite(s) failed"
+  exit 1
+fi
+
 echo "==> All OLS evaluations complete for provider: ${PROVIDER}"
