@@ -19,6 +19,8 @@ $(TOOLS_STAMP): $(TOOLS_REQUIREMENTS)
 
 lint: tools lint-shell lint-yaml ## Install tools and run all linters
 
+lint-shell lint-yaml: tools
+
 lint-shell: ## Lint shell scripts with shellcheck
 	@files=$$(git ls-files --cached --others --exclude-standard -- $(LINT_DIRS) | \
 	  awk '/\.sh$$/'); \
