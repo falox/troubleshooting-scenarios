@@ -47,4 +47,4 @@ check_mesh_status_no_kiali-eval:
 	@bash $(SCRIPTS_DIR)/run-evals.sh \
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
-	  --tag check_mesh_status_no_kiali
+	  --tags check_mesh_status_no_kiali

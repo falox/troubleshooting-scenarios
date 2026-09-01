@@ -7,6 +7,7 @@
 #   GOOGLE_APPLICATION_CREDENTIALS  - Path to GCP service account JSON (Vertex AI)
 #   VERTEX_PROJECT_ID               - GCP project ID (falls back to credentials JSON)
 #   VERTEX_REGION                   - GCP region (default: us-east1)
+#   AGENT_NAME                      - Agent to use: openai (OpenAI), gemini (Google), opus (Anthropic)
 #   SUITES                          - Space-separated scenario list (default: all)
 #   ARTIFACT_DIR                    - CI artifact directory (default: /tmp/artifacts)
 
@@ -28,6 +29,7 @@ function install_operator() {
 }
 
 function setup_openai() {
+    echo "==> Setting up OpenAI provider..."
     : "${OPENAI_API_KEY:?OPENAI_API_KEY must be set}"
 
     oc create secret generic llm-creds-openai -n "$NAMESPACE" \
@@ -64,6 +66,7 @@ EOF
 }
 
 function setup_vertex() {
+    echo "==> Setting up Vertex AI providers..."
     : "${GOOGLE_APPLICATION_CREDENTIALS:?GOOGLE_APPLICATION_CREDENTIALS must be set}"
 
     if [[ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
@@ -142,8 +145,30 @@ EOF
 }
 
 function run_evals() {
-    echo "==> Running agentic evaluations..."
+    echo "==> Running agentic evaluations for agent: ${AGENT_NAME}"
     cd "$AGENTIC_DIR"
+
+    # Override system.yaml to use only the specified agent
+    local AGENT_MODEL
+    case "$AGENT_NAME" in
+        openai) AGENT_MODEL="gpt-5.4" ;;
+        gemini) AGENT_MODEL="gemini-2.5-pro" ;;
+        opus) AGENT_MODEL="claude-opus-4-6" ;;
+    esac
+
+    # Backup original system.yaml
+    cp system.yaml system.yaml.backup
+
+    # Update system.yaml to use only the specified agent
+    python3 -c "
+import yaml
+with open('system.yaml', 'r') as f:
+    config = yaml.safe_load(f)
+config['agents']['default']['agent'] = ['${AGENT_MODEL}']
+with open('system.yaml', 'w') as f:
+    yaml.safe_dump(config, f, default_flow_style=False)
+"
+
     make setup
 
     if [[ -n "${SUITES:-}" ]]; then
@@ -151,29 +176,59 @@ function run_evals() {
     else
         make evals
     fi
+
+    # Restore original system.yaml
+    mv system.yaml.backup system.yaml
 }
 
 function collect_results() {
     echo "==> Collecting results to ${ARTIFACT_DIR}..."
-    mkdir -p "$ARTIFACT_DIR/agentic-results"
-    cp -r "$AGENTIC_DIR/results/"* "$ARTIFACT_DIR/agentic-results/" 2>/dev/null || true
+    mkdir -p "$ARTIFACT_DIR/agentic-${AGENT_NAME}"
+    cp -r "$AGENTIC_DIR/results/"* "$ARTIFACT_DIR/agentic-${AGENT_NAME}/" 2>/dev/null || true
 }
 
 function cleanup() {
     echo "==> Cleaning up..."
     cd "$AGENTIC_DIR"
+    # Restore system.yaml if backup exists (ensures clean workspace on all exit paths)
+    if [[ -f system.yaml.backup ]]; then
+        mv system.yaml.backup system.yaml
+    fi
     make cleanup || true
 }
 
 trap cleanup EXIT
 
+# Default to 'openai' if not specified
+AGENT_NAME="${AGENT_NAME:-openai}"
+
+echo "==> Running agentic evaluations for agent: ${AGENT_NAME}"
+
 install_operator
 
 echo "==> Configuring LLM providers..."
-setup_openai
-setup_vertex
+case "$AGENT_NAME" in
+    openai)
+        # OpenAI agent - always needs OpenAI for both agent and judge
+        setup_openai
+        ;;
+    gemini)
+        # Google Gemini agent - needs Vertex for agent, OpenAI for judge
+        setup_openai  # For judge LLM
+        setup_vertex
+        ;;
+    opus)
+        # Anthropic Opus agent - needs Vertex for agent, OpenAI for judge
+        setup_openai  # For judge LLM
+        setup_vertex
+        ;;
+    *)
+        echo "ERROR: Unknown AGENT_NAME=${AGENT_NAME}. Valid values: openai, gemini, opus"
+        exit 1
+        ;;
+esac
 
 run_evals
 collect_results
 
-echo "==> Agentic evaluation complete."
+echo "==> Agentic evaluation complete for agent: ${AGENT_NAME}"

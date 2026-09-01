@@ -222,8 +222,13 @@ validate-bookinfo-kiali-health: ## Wait until Bookinfo workload is Healthy accor
 	fi; \
 	kiali_token="$$( $$client whoami -t 2>/dev/null || true )"; \
 	if [ -z "$$kiali_token" ]; then \
-	  echo "Cannot obtain token from $$client whoami -t (required for Kiali API auth)."; \
-	  exit 1; \
+	  echo "==> No OAuth token found, creating service account token..."; \
+	  $$client adm policy add-cluster-role-to-user cluster-reader -z default -n "$$cpns" >/dev/null 2>&1 || true; \
+	  kiali_token="$$( $$client create token default -n "$$cpns" --duration=1h 2>/dev/null || true )"; \
+	  if [ -z "$$kiali_token" ]; then \
+	    echo "Cannot obtain token from $$client whoami -t or service account (required for Kiali API auth)."; \
+	    exit 1; \
+	  fi; \
 	fi; \
 	api_url="https://$$kiali_host/api/clusters/workloads?health=true&istioResources=true&namespaces=$$ns&clusterName=$$cluster_name"; \
 	echo "==> Kiali route: https://$$kiali_host"; \

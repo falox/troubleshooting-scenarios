@@ -14,26 +14,26 @@ include ../scripts/eval.mk
 .PHONY: evals
 evals:
 	@if bash build/require-kvm.sh --check 2>/dev/null; then \
-	  tags="$(foreach s,$(SCENARIOS),--tag $(s))"; \
+	  tags="$(SCENARIOS)"; \
 	else \
 	  echo "WARNING: No KVM devices on worker nodes. Skipping: $(KVM_SCENARIOS)"; \
-	  tags="$(foreach s,$(filter-out $(KVM_SCENARIOS),$(SCENARIOS)),--tag $(s))"; \
+	  tags="$(filter-out $(KVM_SCENARIOS),$(SCENARIOS))"; \
 	fi; \
 	if [ -z "$$tags" ]; then echo "No scenarios to evaluate."; exit 0; fi; \
 	bash $(SCRIPTS_DIR)/run-evals.sh \
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
 	  $(_PROVIDER_FLAGS) \
-	  $$tags
+	  --tags $$tags
 
 # KVM-aware evals-all-providers: skip KVM scenarios when no devices are available
 .PHONY: evals-all-providers
 evals-all-providers:
 	@if bash build/require-kvm.sh --check 2>/dev/null; then \
-	  tags="$(foreach s,$(SCENARIOS),--tag $(s))"; \
+	  tags="$(SCENARIOS)"; \
 	else \
 	  echo "WARNING: No KVM devices on worker nodes. Skipping: $(KVM_SCENARIOS)"; \
-	  tags="$(foreach s,$(filter-out $(KVM_SCENARIOS),$(SCENARIOS)),--tag $(s))"; \
+	  tags="$(filter-out $(KVM_SCENARIOS),$(SCENARIOS))"; \
 	fi; \
 	if [ -z "$$tags" ]; then echo "No scenarios to evaluate."; exit 0; fi; \
 	providers=$$(oc get olsconfig cluster -o jsonpath='{range .spec.llm.providers[*]}{.name},{.models[0].name}{"\n"}{end}'); \
@@ -49,7 +49,7 @@ evals-all-providers:
 	    --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	    --results-dir $(RESULTS_DIR)/$$provider --ols-url $(OLS_URL) \
 	    --provider $$provider --model $$model \
-	    $$tags; \
+	    --tags $$tags; \
 	done
 
 # Install CNV operator (idempotent — skips if already present)
