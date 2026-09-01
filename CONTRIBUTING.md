@@ -113,7 +113,18 @@ cleanup:
 | `<tag>-eval` | Run a single scenario |
 | `help` | List available targets |
 
-## 5. Test
+## 5. Lint
+
+Run all linters from the repository root:
+
+```bash
+make lint
+```
+
+This installs the pinned lint tools into `.tools/` when needed. To install them
+without running lint, use `make tools`.
+
+## 6. Test
 
 ```bash
 export OPENAI_API_KEY=<your-key>
@@ -122,7 +133,7 @@ make evals
 make cleanup
 ```
 
-## 6. Shared scripts reference
+## 7. Shared scripts reference
 
 All shared scripts live in `scripts/` at the repo root. Teams should not need to modify them.
 
