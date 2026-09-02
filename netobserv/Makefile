@@ -17,10 +17,12 @@ include ../scripts/eval.mk
 # Suite infrastructure (NetObserv operator)
 include build/netobserv.mk
 
-# Setup: shared infra + NetObserv operator + FlowCollector
+# Setup: NetObserv operator first (MCP netobserv toolset requires operator to be installed)
+# then shared infra (MCP with netobserv toolset) + FlowCollector
 .PHONY: setup
-setup: _setup-shared
-	$(MAKE) setup-netobserv-openshift
+setup: netobserv-install-operator
+	$(MAKE) _setup-shared
+	$(MAKE) netobserv-install-flowcollector
 
 # Cleanup: NetObserv operator + shared infra
 .PHONY: cleanup
