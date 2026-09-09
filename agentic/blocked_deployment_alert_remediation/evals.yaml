@@ -7,9 +7,6 @@
     the LimitRange, then verify its pod is running.
   tag:
     - remediation
-    - agentic
-    - alert
-    - difficulty_normal
 
   turns:
     - turn_id: turn_1
