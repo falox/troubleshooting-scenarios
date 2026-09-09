@@ -58,7 +58,6 @@ spec:
           mountPath: /cache
         securityContext:
           runAsNonRoot: true
-          runAsUser: 65532
           allowPrivilegeEscalation: false
           seccompProfile:
             type: RuntimeDefault
