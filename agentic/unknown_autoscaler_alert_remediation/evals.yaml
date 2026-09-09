@@ -6,9 +6,6 @@
     Expected: add a CPU request to the container specification and verify the HPA becomes active.
   tag:
     - remediation
-    - agentic
-    - alert
-    - difficulty_normal
 
   turns:
     - turn_id: turn_1

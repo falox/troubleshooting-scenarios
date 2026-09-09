@@ -7,10 +7,6 @@
     the pod recovers.
   tag:
     - remediation
-    - agentic
-    - core
-    - alert
-    - difficulty_normal
 
   turns:
     - turn_id: turn_1
