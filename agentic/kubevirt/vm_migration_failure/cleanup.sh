@@ -6,5 +6,5 @@ NAMESPACE=${NAMESPACE:-kubevirt-scenarios}
 
 echo "==> Cleaning up vm_migration_failure scenario..."
 ${KUBECTL} delete vm critical-app-vm -n "${NAMESPACE}" --ignore-not-found
-${KUBECTL} delete vmim -n "${NAMESPACE}" --all --ignore-not-found 2>/dev/null || true
+${KUBECTL} delete vmim critical-app-vm-migration -n "${NAMESPACE}" --ignore-not-found 2>/dev/null || true
 echo "==> Cleanup complete."

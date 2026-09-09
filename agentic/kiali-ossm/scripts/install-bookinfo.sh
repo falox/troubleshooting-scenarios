@@ -12,7 +12,7 @@ ISTIO_CR_NAME="${BOOKINFO_ISTIO_CR_NAME:-default}"
 ISTIO_REVISION="${BOOKINFO_ISTIO_REVISION:-$ISTIO_CR_NAME}"
 ISTIO_VERSION="${BOOKINFO_ISTIO_VERSION:-1.28.0}"
 OUTPUT_DIR="${BOOKINFO_OUTPUT_DIR:-$SCRIPT_DIR/../../_output}"
-KIALI_BOOKINFO_REF="${KIALI_BOOKINFO_REF:-master}"
+KIALI_BOOKINFO_REF="${KIALI_BOOKINFO_REF:-8bbdc1098701cbb2653e1c5abbcd5637fd302f64}"
 MESH_LABELS="${BOOKINFO_MESH_LABELS:-istio-discovery=enabled}"
 SCRIPT_EXTRA="${BOOKINFO_SCRIPT_EXTRA:--tg}"
 TRAFFIC_ROUTE="${BOOKINFO_TRAFFIC_ROUTE:-http://productpage.$NAMESPACE.svc.cluster.local:9080/productpage}"
@@ -106,6 +106,19 @@ if [ -z "$kiali_host" ]; then
   exit 1
 fi
 
+CA_CERT_FILE="/tmp/kiali-ca.crt"
+route_ca=$($KUBECTL -n "$CP_NAMESPACE" get route kiali -o jsonpath='{.spec.tls.caCertificate}' 2>/dev/null || true)
+if [ -n "$route_ca" ]; then
+  echo "$route_ca" > "$CA_CERT_FILE"
+else
+  if $KUBECTL get configmap -n openshift-config-managed default-ingress-cert >/dev/null 2>&1; then
+    $KUBECTL get configmap -n openshift-config-managed default-ingress-cert -o jsonpath='{.data.ca-bundle\.crt}' > "$CA_CERT_FILE"
+  else
+    echo "ERROR: required CA is unavailable for Kiali route" >&2
+    exit 1
+  fi
+fi
+
 kiali_token=$($KUBECTL whoami -t 2>/dev/null || true)
 if [ -z "$kiali_token" ]; then
   $KUBECTL adm policy add-cluster-role-to-user cluster-reader -z default -n "$CP_NAMESPACE" >/dev/null 2>&1 || true
@@ -118,7 +131,7 @@ fi
 
 api_url="https://${kiali_host}/api/clusters/workloads?health=true&istioResources=true&namespaces=${NAMESPACE}&clusterName=Kubernetes"
 while true; do
-  response=$(curl -ksS --max-time 20 -H "Authorization: Bearer $kiali_token" "$api_url" 2>/dev/null || true)
+  response=$(curl -sS --cacert "$CA_CERT_FILE" --max-time 20 -H "Authorization: Bearer $kiali_token" "$api_url" 2>/dev/null || true)
   status=""
   if command -v jq >/dev/null 2>&1; then
     status=$(printf '%s' "$response" | jq -r --arg ns "$NAMESPACE" --arg wl "productpage-v1" \

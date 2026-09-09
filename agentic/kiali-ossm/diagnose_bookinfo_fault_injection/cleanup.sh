@@ -11,11 +11,7 @@ echo "Removing fault injection manifests…"
 $KUBECTL delete -f "$FIXTURE_DIR/manifests.yaml" --ignore-not-found
 
 echo "Removing any AuthorizationPolicies created by the agent during the test…"
-$KUBECTL delete authorizationpolicy allow-reviews-to-ratings -n "$NAMESPACE" --ignore-not-found || true
-$KUBECTL delete authorizationpolicy ratings-viewer -n "$NAMESPACE" --ignore-not-found || true
-$KUBECTL get authorizationpolicy -n "$NAMESPACE" --no-headers 2>/dev/null |
-  grep -i ratings | awk '{print $1}' |
-  xargs -r "$KUBECTL" delete authorizationpolicy -n "$NAMESPACE" --ignore-not-found || true
+$KUBECTL delete authorizationpolicy -l gevals.kiali.io/test=gevals-testing -n "$NAMESPACE" --ignore-not-found || true
 
 echo "Waiting ${WAIT_SECONDS}s for Istio metrics to stabilise after fault removal…"
 sleep "$WAIT_SECONDS"

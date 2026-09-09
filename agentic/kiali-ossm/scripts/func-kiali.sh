@@ -144,10 +144,12 @@ ossm_kiali_workload_container_images() {
 ossm_kiali_image_tag() {
   local image="${1}"
   local no_digest="${image%%@*}"
-  if [ "${no_digest}" = "${image}" ] && [ "${image#*:}" = "${image}" ]; then
+  # A tag exists only if a colon appears after the last '/'
+  local last_segment="${no_digest##*/}"
+  if [ "${last_segment#*:}" = "${last_segment}" ]; then
     return 1
   fi
-  local tag="${no_digest##*:}"
+  local tag="${last_segment##*:}"
   if [ -z "${tag}" ]; then
     return 1
   fi

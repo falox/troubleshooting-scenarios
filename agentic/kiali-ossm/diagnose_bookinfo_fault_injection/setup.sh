@@ -15,11 +15,7 @@ $KUBECTL delete virtualservice ratings -n "$NAMESPACE" --ignore-not-found
 $KUBECTL delete destinationrule ratings -n "$NAMESPACE" --ignore-not-found
 $KUBECTL delete peerauthentication ratings-permissive-mtls -n "$NAMESPACE" --ignore-not-found
 # Remove AuthorizationPolicies targeting ratings that a previous agent may have created
-$KUBECTL delete authorizationpolicy allow-reviews-to-ratings -n "$NAMESPACE" --ignore-not-found || true
-$KUBECTL delete authorizationpolicy ratings-viewer -n "$NAMESPACE" --ignore-not-found || true
-$KUBECTL get authorizationpolicy -n "$NAMESPACE" --no-headers 2>/dev/null |
-  grep -i ratings | awk '{print $1}' |
-  xargs -r "$KUBECTL" delete authorizationpolicy -n "$NAMESPACE" --ignore-not-found || true
+$KUBECTL delete authorizationpolicy -l gevals.kiali.io/test=gevals-testing -n "$NAMESPACE" --ignore-not-found || true
 sleep 5 # allow Istio to propagate the deletions
 
 # ── Apply the fault injection manifests ───────────────────────────────────────
@@ -28,9 +24,10 @@ $KUBECTL apply -f "$FIXTURE_DIR/manifests.yaml"
 
 # Verify the VirtualService was accepted
 ATTEMPT=0
+VS=0
 until [ "$ATTEMPT" -ge 10 ]; do
   ATTEMPT=$((ATTEMPT + 1))
-  VS=$($KUBECTL get virtualservice ratings -n "$NAMESPACE" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  VS=$($KUBECTL get virtualservice ratings -n "$NAMESPACE" --no-headers 2>/dev/null | wc -l | tr -d ' ' || true)
   if [ "$VS" -ge 1 ]; then
     echo "VirtualService ratings is active in namespace $NAMESPACE"
     break

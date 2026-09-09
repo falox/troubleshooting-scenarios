@@ -6,7 +6,7 @@ MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
 MCP_OLS_NAME="${MCP_OLS_NAME:-openshift-mcp}"
 
-MCP_URL="http://${MCP_DEPLOYMENT}.${MCP_NS}:8080/mcp"
+MCP_URL="${MCP_URL:-https://${MCP_DEPLOYMENT}.${MCP_NS}:8443/mcp}"
 
 echo "==> Registering MCP server in OLSConfig (name=${MCP_OLS_NAME}, url=${MCP_URL})..."
 

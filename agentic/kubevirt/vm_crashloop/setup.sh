@@ -16,21 +16,29 @@ ${KUBECTL} create namespace "${NAMESPACE}" --dry-run=client -o yaml | ${KUBECTL}
 ${KUBECTL} apply -f "${FIXTURE_DIR}/vm.yaml" -n "${NAMESPACE}"
 
 echo "==> Waiting for crashloop to become visible (up to 180s)..."
+detected=false
 for _ in $(seq 1 18); do
   vmi_phase=$(${KUBECTL} get vmi web-server-vm -n "${NAMESPACE}" \
     -o jsonpath='{.status.phase}' 2>/dev/null || true)
   if [[ "${vmi_phase}" == "Succeeded" || "${vmi_phase}" == "Failed" ]]; then
     # Wait for at least 2 restart cycles so the crashloop pattern is clearly visible
     sleep 40
+    detected=true
     break
   fi
   vm_status=$(${KUBECTL} get vm web-server-vm -n "${NAMESPACE}" \
     -o jsonpath='{.status.printableStatus}' 2>/dev/null || true)
   if [[ "${vm_status}" == "CrashLoopBackOff" || "${vm_status}" == "Stopped" ]]; then
+    detected=true
     break
   fi
   sleep 10
 done
+
+if [[ "${detected}" == "false" ]]; then
+  echo "ERROR: Timed out waiting for crashloop or terminal state."
+  exit 1
+fi
 
 echo "==> VM status:"
 ${KUBECTL} get vm web-server-vm -n "${NAMESPACE}" -o wide 2>/dev/null || echo "    VM not found"

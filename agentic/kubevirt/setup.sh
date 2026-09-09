@@ -10,6 +10,15 @@ MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
 MCP_OLS_NAME="${MCP_OLS_NAME:-openshift-mcp}"
 OLS_NS="${OLS_NS:-openshift-lightspeed}"
 
+echo "==> Checking if OpenShift Virtualization is already installed..."
+CNV_NS="${CNV_NS:-openshift-cnv}"
+KUBECTL="${KUBECTL:-oc}"
+if ${KUBECTL} get hyperconverged kubevirt-hyperconverged -n "${CNV_NS}" >/dev/null 2>&1; then
+  echo "CNV is already installed. Skipping cleanup later."
+else
+  touch "$SCRIPT_DIR/.cnv-installed-by-scenario"
+fi
+
 echo "==> Installing OpenShift Virtualization..."
 bash "$SCRIPT_DIR/scripts/install-cnv.sh"
 bash "$SCRIPT_DIR/scripts/check-cnv.sh"

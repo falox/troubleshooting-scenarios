@@ -58,7 +58,7 @@ spec:
         command: ["${MCP_COMMAND}"]
         args: ["--config", "${config_file}"]
         ports:
-        - containerPort: 8080
+        - containerPort: 8443
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -70,10 +70,16 @@ spec:
         volumeMounts:
         - name: mcp-config
           mountPath: ${MCP_CONFIG_MOUNT}
+        - name: mcp-tls
+          mountPath: /etc/tls
+          readOnly: true
       volumes:
       - name: mcp-config
         configMap:
           name: mcp-config
+      - name: mcp-tls
+        secret:
+          secretName: mcp-tls
 EOF
 
 echo "==> Creating Service ${MCP_DEPLOYMENT}..."
@@ -83,16 +89,18 @@ kind: Service
 metadata:
   name: ${MCP_DEPLOYMENT}
   namespace: ${MCP_NS}
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: mcp-tls
 spec:
   selector:
     app: ${MCP_DEPLOYMENT}
   ports:
-  - port: 8080
-    targetPort: 8080
+  - port: 8443
+    targetPort: 8443
 EOF
 
 oc rollout status deployment/${MCP_DEPLOYMENT} -n ${MCP_NS} --timeout=120s
 
 echo ""
 echo "==> MCP server ready in ${MCP_NS}"
-echo "==> In-cluster: http://${MCP_DEPLOYMENT}.${MCP_NS}.svc.cluster.local:8080/mcp"
+echo "==> In-cluster: https://${MCP_DEPLOYMENT}.${MCP_NS}.svc.cluster.local:8443/mcp"

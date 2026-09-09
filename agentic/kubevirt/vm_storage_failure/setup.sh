@@ -11,8 +11,21 @@ echo "    VM uses non-existent StorageClass 'premium-nvme-storage' and will be s
 ${KUBECTL} create namespace "${NAMESPACE}" --dry-run=client -o yaml | ${KUBECTL} apply -f -
 ${KUBECTL} apply -f "${FIXTURE_DIR}/vm.yaml" -n "${NAMESPACE}"
 
-echo "==> Waiting 15s for DataVolume to be created..."
-sleep 15
+echo "==> Waiting for DataVolume to report missing StorageClass..."
+detected=false
+for _ in $(seq 1 30); do
+  dv_events=$(${KUBECTL} get events -n "${NAMESPACE}" 2>/dev/null || true)
+  if echo "$dv_events" | grep -qi "premium-nvme-storage.*not found"; then
+    detected=true
+    break
+  fi
+  sleep 5
+done
+
+if [[ "${detected}" == "false" ]]; then
+  echo "ERROR: Timed out waiting for missing-StorageClass provisioning failure."
+  exit 1
+fi
 
 echo "==> VM status:"
 ${KUBECTL} get vm production-db-vm -n "${NAMESPACE}" -o wide 2>/dev/null || echo "    VM not found"

@@ -406,7 +406,10 @@ fi
 if [ "${_CMD}" == "install-operators" ]; then
 
   if [ "${ENABLE_KIALI}" == "true" ]; then
-    install_kiali_operator "${CATALOG_SOURCE}"
+    if ! install_kiali_operator "${CATALOG_SOURCE}"; then
+      errormsg "Failed to install Kiali operator"
+      exit 1
+    fi
   fi
   install_servicemesh_operators "${CATALOG_SOURCE}"
 

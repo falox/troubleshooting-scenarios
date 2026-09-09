@@ -6,14 +6,15 @@ FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 NAMESPACE="bookinfo"
 WAIT_SECONDS=${WAIT_SECONDS:-180} # override with: make all WAIT_SECONDS=60
 
-# Apply the fault injection — DestinationRule + VirtualService with 100% 503 abort
+# Apply the routing manifests — DestinationRule + VirtualService with Reviews 50/50/0 routing weights
 ${KUBECTL} apply -f "$FIXTURE_DIR/manifests.yaml"
 
 # Verify the VirtualService was accepted by Istio
 ATTEMPT=0
+VS=0
 until [ "$ATTEMPT" -ge 10 ]; do
   ATTEMPT=$((ATTEMPT + 1))
-  VS=$(${KUBECTL} get virtualservice reviews -n "$NAMESPACE" --no-headers 2>/dev/null | wc -l | tr -d ' ')
+  VS=$(${KUBECTL} get virtualservice reviews -n "$NAMESPACE" --no-headers 2>/dev/null | wc -l | tr -d ' ' || true)
   if [ "$VS" -ge 1 ]; then
     echo "VirtualService reviews is active in namespace $NAMESPACE"
     break
@@ -27,7 +28,7 @@ if [ "$VS" -lt 1 ]; then
   exit 1
 fi
 
-# Wait for traffic stats to accumulate so Kiali reflects the fault injection
+# Wait for traffic stats to accumulate so Kiali reflects the routing weights
 echo "Waiting ${WAIT_SECONDS}s for Istio metrics to propagate to Kiali…"
 sleep "$WAIT_SECONDS"
 echo "Setup complete — routing to 50/50 in v1/v2 is active and traffic stats are ready."

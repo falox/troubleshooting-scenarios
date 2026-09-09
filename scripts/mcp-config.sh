@@ -21,7 +21,7 @@ ts="${ts}]"
 
 echo "==> Building mcp-config in ${MCP_NS} (toolsets: ${ts})..."
 
-config="$(printf 'toolsets = %s\nlog_level = 0\nport = "8080"\nread_only = true\n' "$ts")"
+config="$(printf 'toolsets = %s\nlog_level = 0\nport = "8443"\ntls_cert = "/etc/tls/tls.crt"\ntls_key = "/etc/tls/tls.key"\nread_only = true\n' "$ts")"
 
 if [ -n "$MCP_KIALI_URL" ]; then
   config="${config}
