@@ -105,6 +105,7 @@ make eval SCENARIO=stuck_rollout,exhausted_quota   # Run multiple scenarios
 make eval TAG=alert                                # Run only alert scenarios
 make eval TAG=core,alert                           # Run scenarios with tag core OR alert
 make eval RUNS=3           # Run each scenario 3 times
-make cleanup               # Remove scenario resources and venv
+make cleanup               # Remove the local venv
+make cleanup-ols-classic   # Remove OLS classic and the local venv
 make help                  # Show all targets and options
 ```
