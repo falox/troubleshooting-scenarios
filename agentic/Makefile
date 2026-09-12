@@ -22,6 +22,8 @@ ALL_SCENARIOS := \
 	failed_replicaset \
 	failed_start \
 	failing_api_alert \
+	failing_api_alert_cross_namespace \
+	failing_api_alert_cross_namespace_remediation \
 	failing_api_alert_remediation \
 	failing_init_container \
 	failing_probe \
@@ -58,6 +60,7 @@ OLS_CLASSIC_SCENARIOS := \
 	crashlooping_pod_alert \
 	failed_job \
 	failing_api_alert \
+	failing_api_alert_cross_namespace \
 	pending_pvc_alert \
 	timeout_connections \
 	unbalanced_replicas \
