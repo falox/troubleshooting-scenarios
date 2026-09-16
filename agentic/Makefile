@@ -33,6 +33,7 @@ ALL_SCENARIOS := \
 	missing_configmap \
 	missing_pvc \
 	missing_secret_key \
+	nothing_wrong \
 	orphaned_configmaps \
 	orphaned_pvc \
 	oversized_requests \
