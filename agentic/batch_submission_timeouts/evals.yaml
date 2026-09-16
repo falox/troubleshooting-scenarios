@@ -1,0 +1,48 @@
+---
+- conversation_group_id: batch_submission_timeouts
+  description: |
+    The batch-processor reports intermittent submission errors in the data-pipeline namespace.
+    RCA: Requests to the intake service time out during a repeated narrow UTC interval, while normal submissions succeed outside it.
+    Expected: identify the repeated interval and timeout behavior from the application evidence without asserting an unverified maintenance explanation.
+  tag:
+    - agentic
+    - core
+    - difficulty_medium
+
+  turns:
+    - turn_id: turn_1
+      openshift_agentic_run_spec:
+        request: |
+          The batch-processor in the data-pipeline namespace is reporting
+          errors in its pod logs. Investigate the failures and explain what
+          you find.
+        targetNamespaces:
+          - data-pipeline
+        analysis:
+          agent: default
+
+      expected_openshift_agentic_run_status:
+        phase: Completed
+        conditions:
+          - type: Analyzed
+            status: "True"
+
+      expected_outcome: >-
+        The batch-processor logs show that submissions to
+        pipeline-intake.corp.net:443 time out during a narrow interval around
+        03:00 UTC on at least three separate dates. Normal submissions complete
+        successfully before and after those periods and throughout the rest of
+        the observed history. The evidence supports a repeated,
+        time-dependent availability problem at the intake service rather than a
+        general batch-processor failure. Maintenance may be a possible
+        explanation, but is not established by these logs alone. Recommend
+        checking the intake service's availability and schedule, and using
+        retry/backoff or an operational schedule change only after confirming
+        the upstream cause.
+
+      turn_metrics:
+        - "custom:openshift_agentic_run_status"
+        - "custom:openshift_agentic_run_evaluation_correctness"
+      turn_metrics_metadata:
+        "custom:openshift_agentic_run_evaluation_correctness":
+          threshold: 0.75
