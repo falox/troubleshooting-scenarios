@@ -7,26 +7,39 @@ echo ""
 SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$SCRIPT_DIR"
 
+sedi() {
+  if sed --version >/dev/null 2>&1; then
+    sed -i "$@"
+  else
+    sed -i '' "$@"
+  fi
+}
+
 MANIFESTS=$(mktemp -d)
 trap 'rm -rf $MANIFESTS' EXIT
 cp -r manifests/* "$MANIFESTS/"
 
 if [ "${SINGLE_USER:-}" = "1" ]; then
   # Both services use a single "dbuser" account
-  sed -i 's/PGUSER: reporting/PGUSER: dbuser/' "$MANIFESTS/shared-services/01-secrets.yaml"
-  sed -i 's/PGPASSWORD: reporting123/PGPASSWORD: dbuser123/' "$MANIFESTS/shared-services/01-secrets.yaml"
-  sed -i 's/PGUSER: payments/PGUSER: dbuser/' "$MANIFESTS/payments/01-secrets.yaml"
-  sed -i 's/PGPASSWORD: payments123/PGPASSWORD: dbuser123/' "$MANIFESTS/payments/01-secrets.yaml"
+  sedi 's/PGUSER: reporting/PGUSER: dbuser/' "$MANIFESTS/shared-services/01-secrets.yaml"
+  sedi 's/PGPASSWORD: reporting123/PGPASSWORD: dbuser123/' "$MANIFESTS/shared-services/01-secrets.yaml"
+  sedi 's/PGUSER: payments/PGUSER: dbuser/' "$MANIFESTS/payments/01-secrets.yaml"
+  sedi 's/PGPASSWORD: payments123/PGPASSWORD: dbuser123/' "$MANIFESTS/payments/01-secrets.yaml"
 
   # Replace two CREATE USER/GRANT blocks with a single dbuser
-  sed -i "/CREATE USER reporting/,/GRANT.*TO reporting;/c\\    CREATE USER dbuser WITH PASSWORD 'dbuser123';\n    GRANT SELECT ON ALL TABLES IN SCHEMA public TO dbuser;" \
+  sedi "s/CREATE USER reporting WITH PASSWORD 'reporting123';/CREATE USER dbuser WITH PASSWORD 'dbuser123';/" \
     "$MANIFESTS/shared-services/02-postgres.yaml"
-  sed -i "/CREATE USER payments/,/GRANT.*TO payments;/d" \
+  sedi "s/GRANT SELECT ON ALL TABLES IN SCHEMA public TO reporting;/GRANT SELECT ON ALL TABLES IN SCHEMA public TO dbuser;/" \
+    "$MANIFESTS/shared-services/02-postgres.yaml"
+  sedi "/CREATE USER payments/d" \
+    "$MANIFESTS/shared-services/02-postgres.yaml"
+  sedi "/GRANT.*TO payments;/d" \
     "$MANIFESTS/shared-services/02-postgres.yaml"
 
   # Upgrade database connection alert to critical (easy mode keeps it as warning)
-  sed -i '/PostgresqlTooManyConnections/,/severity:/{s/severity: warning/severity: critical/}' \
-    "$MANIFESTS/shared-services/05-prometheusrules.yaml"
+  sedi '/PostgresqlTooManyConnections/,/severity:/{
+s/severity: warning/severity: critical/
+}' "$MANIFESTS/shared-services/05-prometheusrules.yaml"
 
   # Add warning-level payment alert (easy mode only has critical)
   cat > "$MANIFESTS/payments/03-monitoring-warning.yaml" <<'ALERT'
@@ -55,21 +68,23 @@ ALERT
   echo "=== Single-user mode: all services will use 'dbuser' ==="
 else
   rm -f "$MANIFESTS/shared-services/04-reconciliation-service.yaml"
-  sed -i '/alert: PostgresqlConnectionsHigh/,/alert: PostgresqlTooManyConnections/{/alert: PostgresqlTooManyConnections/!d}' \
-    "$MANIFESTS/shared-services/05-prometheusrules.yaml"
+  sedi '/alert: PostgresqlConnectionsHigh/,/alert: PostgresqlTooManyConnections/{
+/alert: PostgresqlTooManyConnections/!d
+}' "$MANIFESTS/shared-services/05-prometheusrules.yaml"
   echo "=== Easy mode: reduced alerts, no red herring ==="
 fi
 
 if [ "${SINGLE_NAMESPACE:-}" = "1" ]; then
   rm -f "$MANIFESTS/shared-services/00-namespace.yaml"
 
-  sed -i 's/namespace: shared-services/namespace: payments/g' "$MANIFESTS/shared-services/"*.yaml
+  sedi 's/namespace: shared-services/namespace: payments/g' "$MANIFESTS/shared-services/"*.yaml
 
-  sed -i 's/namespace="shared-services"/namespace="payments"/g' "$MANIFESTS/shared-services/05-prometheusrules.yaml"
+  sedi 's/namespace="shared-services"/namespace="payments"/g' "$MANIFESTS/shared-services/05-prometheusrules.yaml"
 
-  sed -i "/^  labels:$/a\\    openshift.io/user-monitoring: 'true'" "$MANIFESTS/payments/00-namespace.yaml"
+  sedi 's/^  labels:$/  labels:\
+    openshift.io\/user-monitoring: '"'"'true'"'"'/' "$MANIFESTS/payments/00-namespace.yaml"
 
-  sed -i 's/postgres\.shared-services\.svc\.cluster\.local/postgres/' "$MANIFESTS/payments/02-payments-api.yaml"
+  sedi 's/postgres\.shared-services\.svc\.cluster\.local/postgres/' "$MANIFESTS/payments/02-payments-api.yaml"
 
   echo "=== Single-namespace mode: all services deploy to 'payments' ==="
 fi
