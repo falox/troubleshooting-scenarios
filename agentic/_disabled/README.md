@@ -17,7 +17,6 @@ These scenarios are candidates for revision and re-enablement in the future.
 | Scenario | Reason |
 |----------|--------|
 | `missing_alerts` | The agent lacks RBAC permissions to read PrometheusRule resources, so it cannot inspect the existing rules and proposes generic alert categories instead of concrete expressions (0/4 correctness). |
-| `nothing_wrong` | The fixture deploys only a Deployment without a Service or Route. The agent correctly verifies the pod is healthy, but the missing Service is too strong a signal: the agent concludes the lack of network exposure is the root cause and proposes creating Service/Route resources, violating the "no mutation" requirement (0/4 correctness, all 0.10). Needs a Service added to the fixture so the app is genuinely complete and the agent has no plausible gap to latch onto. |
 | `silent_alerts` | The agent lacks RBAC permissions to read PrometheusRule resources, so it cannot see the misspelled metric names and speculates about unrelated causes (0/4 correctness). |
 | `noncompliant_workloads` | Tests workload hygiene review (probes, limits, pinned tags), not troubleshooting. Not specific to the troubleshooting evaluation. |
 | `unsafe_rollout` | Tests pre-flight manifest review (dropped probes, unpinned image, removed securityContext), not troubleshooting. Not specific to the troubleshooting evaluation. |

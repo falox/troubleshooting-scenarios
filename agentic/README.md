@@ -61,6 +61,7 @@ Scenarios with an isolated problem and direct symptom-cause correlation.
 | `missing_configmap` | Pod in CreateContainerConfigError | Deployment envFrom references ConfigMap `app-settings` that was never created | `Analysis` | `feature-service` | |
 | `missing_pvc` | Deployment pod never scheduled | Deployment mounts PVC `app-data` that was never created; FailedScheduling | `Analysis` | `document-store` | |
 | `missing_secret_key` | Pod in CreateContainerConfigError | Secret `db-creds` exists but lacks the `password` key referenced by the container | `Analysis` | `credential-store` | |
+| `nothing_wrong` | User reports errors from `ticket-app` | Deployment, pod, and Service are healthy; no application fault is present | `Analysis` | `ticket-service` | |
 | `orphaned_configmaps` | (analysis-only audit) | ConfigMaps exist but are not referenced by any workload in the namespace | `Analysis` | `deploy-artifacts` | |
 | `orphaned_pvc` | PVCs attached to no workload | Two of three PVCs are not mounted by any pod or deployment | `Analysis` | `artifact-storage` | |
 | `exhausted_quota` | Deployment has zero pods | ResourceQuota caps pods at 2, fully consumed by existing blocker deployment | `Analysis` | `team-onboarding` | `TeamOnboardingDeploymentUnavailable` |
