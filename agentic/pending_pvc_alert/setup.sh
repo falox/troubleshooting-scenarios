@@ -13,7 +13,7 @@ oc apply -f "$FIXTURE_DIR/manifest.yaml"
 oc apply -f "$FIXTURE_DIR/prometheusrule.yaml"
 
 # Wait for ProvisioningFailed event on the PVC
-echo "Waiting for ProvisioningFailed event on $PVC…"
+echo "Waiting for ProvisioningFailed event on ${PVC}..."
 FOUND=false
 ATTEMPT=0
 until [ "$ATTEMPT" -ge 60 ]; do
