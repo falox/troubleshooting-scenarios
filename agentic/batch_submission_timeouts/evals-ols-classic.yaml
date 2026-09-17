@@ -1,0 +1,24 @@
+---
+- conversation_group_id: batch_submission_timeouts
+  description: |
+    The batch-processor reports intermittent submission errors in the data-pipeline namespace.
+    RCA: Requests to the intake service time out during a repeated narrow UTC interval, while normal submissions succeed outside it.
+    Expected: identify the repeated interval and timeout behavior from the application evidence without asserting an unverified maintenance explanation.
+  tag:
+    - classic
+    - core
+    - difficulty_medium
+
+  turns:
+    - turn_id: investigate_batch_failures
+      query: >-
+        Some batch runs in data-pipeline failed. Can you investigate?
+      expected_response: >-
+        The batch-processor logs show submission timeouts to
+        pipeline-intake.corp.net:443 during a narrow interval around 03:00 UTC
+        on multiple dates, while normal submissions succeed outside those
+        periods. This is a repeated, time-dependent availability problem at the
+        intake service. A maintenance window is only a possible explanation
+        unless another source confirms it.
+      turn_metrics:
+        - custom:answer_correctness

@@ -4,6 +4,7 @@ ALL_SCENARIOS := \
 	blocked_deployment \
 	blocked_deployment_alert \
 	blocked_deployment_alert_remediation \
+	batch_submission_timeouts \
 	blocked_dns \
 	cascading_failure \
 	crashlooping_pod_alert \
@@ -59,6 +60,7 @@ ALL_SCENARIOS := \
 	unready_pod_alert_remediation \
 	unscheduled_pod
 OLS_CLASSIC_SCENARIOS := \
+	batch_submission_timeouts \
 	crashlooping_pod_alert \
 	failed_job \
 	failing_api_alert \
