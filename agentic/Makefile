@@ -4,6 +4,7 @@ ALL_SCENARIOS := \
 	blocked_deployment \
 	blocked_deployment_alert \
 	blocked_deployment_alert_remediation \
+	batch_submission_timeouts \
 	blocked_dns \
 	cascading_failure \
 	crashlooping_pod_alert \
@@ -22,6 +23,8 @@ ALL_SCENARIOS := \
 	failed_replicaset \
 	failed_start \
 	failing_api_alert \
+	failing_api_alert_cross_namespace \
+	failing_api_alert_cross_namespace_remediation \
 	failing_api_alert_remediation \
 	failing_init_container \
 	failing_probe \
@@ -42,7 +45,9 @@ ALL_SCENARIOS := \
 	pending_pvc_alert_remediation \
 	pending_replicas \
 	red_herring \
+	refused_connections \
 	refused_service \
+	restarting_pod_alert \
 	stuck_rollout \
 	stuck_rollout_alert \
 	stuck_rollout_alert_remediation \
@@ -56,10 +61,14 @@ ALL_SCENARIOS := \
 	unready_pod_alert_remediation \
 	unscheduled_pod
 OLS_CLASSIC_SCENARIOS := \
+	batch_submission_timeouts \
 	crashlooping_pod_alert \
 	failed_job \
 	failing_api_alert \
+	failing_api_alert_cross_namespace \
 	pending_pvc_alert \
+	refused_connections \
+	restarting_pod_alert \
 	timeout_connections \
 	unbalanced_replicas \
 	unready_pod_alert
@@ -99,7 +108,7 @@ else
   _OLS_CLASSIC := $(_OLS_CLASSIC_CANDIDATES)
 endif
 
-.PHONY: setup setup-ols-classic eval eval-ols-classic cleanup help
+.PHONY: setup setup-ols-classic eval eval-ols-classic cleanup cleanup-ols-classic help
 
 setup:
 	$(SCRIPTS_DIR)/setup-venv.sh
@@ -257,24 +266,25 @@ else
 endif
 
 cleanup:
-	@for scenario in $(SCENARIOS); do \
-	  if [ -x $$scenario/cleanup.sh ]; then \
-	    echo "==> Cleanup: $$scenario"; \
-	    bash $$scenario/cleanup.sh; \
-	  fi; \
-	done
-	rm -rf ../venv
+	@rm -rf ../venv
 	@echo "venv removed."
+	@echo ""
+	@echo "NOTE: Remove lightspeed-agentic-operator manually for now."
+	@echo "This will be automated in the future."
+
+cleanup-ols-classic: cleanup
+	@bash $(SCRIPTS_DIR)/cleanup-ols.sh
 
 help:
 	@echo "Usage: make <target> [SETUP_MODE=run|scenario]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  setup              Install venv (lightspeed-agentic-operator is manual for now)"
-	@echo "  setup-ols-classic  Install OLS classic"
+	@echo "  setup              Install venv (OLS agentic is manual for now)"
+	@echo "  setup-ols-classic  Install venv and OLS classic"
 	@echo "  eval               Run agentic scenarios ($(words $(SCENARIOS)) matched)"
 	@echo "  eval-ols-classic   Run OLS classic scenarios ($(words $(_OLS_CLASSIC)) matched)"
-	@echo "  cleanup            Run scenario cleanup scripts and remove venv"
+	@echo "  cleanup            Remove venv (OLS agentic is manual for now)"
+	@echo "  cleanup-ols-classic Remove venv and OLS classic"
 	@echo "  help               Show this help"
 	@echo ""
 	@echo "Options (shared):"
