@@ -7,7 +7,6 @@
     retention or restoring a known-good release, not a limit increase alone.
   tag:
     - classic
-    - core
     - alert
     - difficulty_normal
 

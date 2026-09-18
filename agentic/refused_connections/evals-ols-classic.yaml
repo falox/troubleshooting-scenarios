@@ -5,7 +5,6 @@
     Expected: Correlate the active configuration with the runtime connection failures, identify the environment mismatch, recommend restoring the production endpoints, and verify successful traffic.
   tag:
     - classic
-    - core
     - difficulty_medium
 
   turns:
