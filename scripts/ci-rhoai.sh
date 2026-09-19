@@ -18,7 +18,7 @@ DIR="${BASH_SOURCE%/*}"
 if [[ ! -d "$DIR" ]]; then DIR="$PWD"; fi
 
 # ── RHOAI provisioning (conditional) ──────────────────────────────────
-RHOAI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/tests/rhoai"
+RHOAI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/rhoai"
 
 if [[ "${RHOAI_PROVISION:-false}" == "true" ]]; then
   echo "===== RHOAI provisioning enabled ====="

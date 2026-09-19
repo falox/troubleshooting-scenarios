@@ -7,7 +7,7 @@ self-hosted Llama-3.1-8B-Instruct model instead of external hosted APIs.
 ## When to use
 
 Set `RHOAI_PROVISION=true` in the CI job environment (or export it locally)
-before running `tests/scripts/test-troubleshooting-scenarios-rhoai.sh`. When
+before running `scripts/ci-rhoai.sh`. When
 the flag is unset or `false`, the script skips RHOAI provisioning.
 
 ## Required environment variables
@@ -75,7 +75,7 @@ for image pulls.
 ## Directory layout
 
 ```
-tests/rhoai/
+scripts/rhoai/
 ├── manifests/
 │   ├── gpu/            # NFD instance, NVIDIA ClusterPolicy
 │   ├── namespaces/     # NFD and NVIDIA operator namespaces
@@ -97,7 +97,7 @@ job configuration should:
 1. Request a GPU-enabled cluster (variant: gpu, region: us-east-2)
 2. Set `RHOAI_PROVISION=true`
 3. Provide credentials for `HUGGING_FACE_HUB_TOKEN` and `VLLM_API_KEY`
-4. Run `tests/scripts/test-troubleshooting-scenarios-rhoai.sh`
+4. Run `scripts/ci-rhoai.sh`
 
 Example CI configuration snippet:
 
@@ -120,7 +120,7 @@ tests:
         export RHOAI_PROVISION=true
         export HUGGING_FACE_HUB_TOKEN=$(cat /var/run/huggingface/token)
         export VLLM_API_KEY=$(cat /var/run/vllm/key)
-        tests/scripts/test-troubleshooting-scenarios-rhoai.sh
+        scripts/ci-rhoai.sh
       credentials:
       - mount_path: /var/run/huggingface
         name: huggingface-token
@@ -143,7 +143,7 @@ export VLLM_API_KEY="your-api-key"
 export RHOAI_PROVISION=true
 
 # Run the test script
-./tests/scripts/test-troubleshooting-scenarios-rhoai.sh
+./scripts/ci-rhoai.sh
 ```
 
 ## What happens after provisioning
