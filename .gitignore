@@ -1,6 +1,5 @@
 **/results/
-!agentic/results/
-agentic/results/logs/
+!evals/reports/
 **/_output/
 **/.caches/
 __pycache__/

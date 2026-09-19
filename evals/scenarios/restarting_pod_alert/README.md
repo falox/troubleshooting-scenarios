@@ -36,7 +36,7 @@ Do not invoke setup merely to check paths: it builds images and changes the clus
 
 ## Lifecycle
 
-From `agentic/`, the analysis-only entrypoints are:
+From `evals/scenarios/`, the analysis-only entrypoints are:
 
 ```bash
 make eval-ols-agentic SCENARIO=restarting_pod_alert SETUP_MODE=run

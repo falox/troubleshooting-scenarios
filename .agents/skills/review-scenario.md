@@ -13,11 +13,11 @@ Three leakage vectors, checked in order:
 2. **Disclosure** - YAML comments or inline values that hand over the answer
 3. **Realism** - faults an LLM can diagnose from the manifest alone
 
-The argument is a scenario directory name under `agentic/` (e.g. `bad_command`).
+The argument is a scenario directory name under `evals/scenarios/` (e.g. `bad_command`).
 
 ## 1. Inventory
 
-Read every file in `agentic/$SCENARIO/`:
+Read every file in `evals/scenarios/$SCENARIO/`:
 - `fixtures/*.yaml` (all files)
 - `fixtures/*.py` (all files)
 - `setup.sh`

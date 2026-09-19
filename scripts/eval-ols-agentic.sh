@@ -32,7 +32,7 @@ PYTHON="${VENV_DIR}/bin/python3"
 for scenario in "${SCENARIOS[@]}"; do
   if [ ! -d "$scenario" ]; then
     echo "Error: scenario '$scenario' not found. Available scenarios:"
-    for d in */; do
+    for d in scenarios/*/; do
       if [ -f "${d}evals-ols-agentic.yaml" ]; then echo "  ${d%/}"; fi
     done
     exit 1
@@ -40,7 +40,7 @@ for scenario in "${SCENARIOS[@]}"; do
 done
 
 DATETIME="$(date +%Y%m%d_%H%M%S)"
-EVAL_DIR="results/logs/${DATETIME}"
+EVAL_DIR="results/${DATETIME}"
 
 if [ ${#AGENTS[@]} -eq 0 ]; then
   read -ra AGENTS <<< "$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))")"
@@ -111,5 +111,5 @@ echo ""
 echo "==> Generating report..."
 "$PYTHON" "$SCRIPT_DIR/generate-report-agentic.py" \
   "$EVAL_DIR" \
-  --output "results/results_${DATETIME}.md"
-echo "==> Results: results/results_${DATETIME}.md"
+  --output "results/report_${DATETIME}.md"
+echo "==> Report: results/report_${DATETIME}.md"

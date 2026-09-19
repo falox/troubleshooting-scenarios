@@ -14,7 +14,10 @@ The `labs/` directory contains standalone fault-injection demos that do not use 
 ```
 scripts/          Shared shell scripts and eval.mk (MCP, OLS, venv, port-forward)
 _template/        Copyable skeleton for new eval suites
-agentic/          Agentic Lightspeed behavioral eval scenarios
+evals/            Agentic Lightspeed behavioral eval scenarios
+  scenarios/      Scenario definitions (fixtures, evals, setup/cleanup)
+  reports/        Curated reports (tracked, manually promoted from results/)
+  results/        Generated output (gitignored): eval logs and reports
 kiali-ossm/       Kiali/OSSM service-mesh evaluation scenarios
 netobserv/        NetObserv network observability evaluation scenarios
 labs/             Standalone troubleshooting demos (deploy/break/fix lifecycle)
@@ -22,7 +25,7 @@ labs/             Standalone troubleshooting demos (deploy/break/fix lifecycle)
 
 ### Agentic scenarios
 
-When adding, removing, or renaming scenarios under `agentic/`, keep `agentic/README.md` (scenario table) and `agentic/Makefile` (SCENARIO variable) in sync.
+When adding, removing, or renaming scenarios under `evals/scenarios/`, keep `evals/scenarios/README.md` (scenario table) and `evals/Makefile` (SCENARIO variable) in sync.
 
 After adding or modifying an agentic scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups. The skill is in `.agents/skills/review-scenario.md` (symlinked from `.claude/skills/`).
 

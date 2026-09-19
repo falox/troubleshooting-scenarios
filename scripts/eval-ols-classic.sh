@@ -35,7 +35,7 @@ done
 bash "$SCRIPT_DIR/preflight.sh" --require-ols
 
 DATETIME="$(date +%Y%m%d_%H%M%S)"
-EVAL_DIR="results/logs/${DATETIME}"
+EVAL_DIR="results/${DATETIME}"
 
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
@@ -120,9 +120,9 @@ if [ -n "$(find "$EVAL_DIR" -name '*_summary.json' -print -quit 2>/dev/null)" ];
   report_status=0
   "$PYTHON" "$SCRIPT_DIR/generate-report-classic.py" \
     "$EVAL_DIR" \
-    --output "results/results_${DATETIME}.md" || report_status=$?
+    --output "results/report_${DATETIME}.md" || report_status=$?
   if [ "$report_status" -eq 0 ]; then
-    echo "==> Results: results/results_${DATETIME}.md"
+    echo "==> Report: results/report_${DATETIME}.md"
   elif [ "$overall_status" -eq 0 ]; then
     overall_status=$report_status
   fi

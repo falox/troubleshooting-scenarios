@@ -14,7 +14,7 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-AGENTIC_DIR="${REPO_DIR}/agentic"
+AGENTIC_DIR="${REPO_DIR}/evals"
 ARTIFACT_DIR="${ARTIFACT_DIR:-/tmp/artifacts}"
 NAMESPACE="openshift-lightspeed"
 

@@ -1,4 +1,5 @@
 SCRIPTS_DIR := $(realpath ../scripts)
+SCENARIOS_DIR := scenarios
 
 _ALL_OLS_AGENTIC := \
 	blocked_deployment \
@@ -90,7 +91,7 @@ endif
 ifdef TAG
   OLS_AGENTIC_SCENARIOS := $(shell for d in $(_OLS_AGENTIC_CANDIDATES); do \
     for t in $(subst $(COMMA), ,$(TAG)); do \
-      grep -q '^    - '"$$t"'$$' $$d/evals-ols-agentic.yaml 2>/dev/null && echo $$d && break; \
+      grep -q '^    - '"$$t"'$$' $(SCENARIOS_DIR)/$$d/evals-ols-agentic.yaml 2>/dev/null && echo $$d && break; \
     done; \
   done)
 else
@@ -101,7 +102,7 @@ _OLS_CLASSIC_CANDIDATES := $(filter $(_OLS_AGENTIC_CANDIDATES),$(_ALL_OLS_CLASSI
 ifdef TAG
   OLS_CLASSIC_SCENARIOS := $(shell for d in $(_OLS_CLASSIC_CANDIDATES); do \
     for t in $(subst $(COMMA), ,$(TAG)); do \
-      grep -q '^    - '"$$t"'$$' $$d/evals-ols-classic.yaml 2>/dev/null && echo $$d && break; \
+      grep -q '^    - '"$$t"'$$' $(SCENARIOS_DIR)/$$d/evals-ols-classic.yaml 2>/dev/null && echo $$d && break; \
     done; \
   done)
 else
@@ -131,7 +132,7 @@ else
 	  --setup-mode $(SETUP_MODE) \
 	  $(if $(AGENT),--agents $(subst $(COMMA), ,$(AGENT))) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
-	  --scenarios $(OLS_AGENTIC_SCENARIOS)
+	  --scenarios $(addprefix $(SCENARIOS_DIR)/,$(OLS_AGENTIC_SCENARIOS))
 endif
 
 eval-ols-classic:
@@ -141,7 +142,7 @@ else
 	@bash $(SCRIPTS_DIR)/eval-ols-classic.sh \
 	  --system-config system-ols-classic.yaml \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
-	  --scenarios $(OLS_CLASSIC_SCENARIOS)
+	  --scenarios $(addprefix $(SCENARIOS_DIR)/,$(OLS_CLASSIC_SCENARIOS))
 endif
 
 cleanup-ols-agentic:
