@@ -111,7 +111,7 @@ endif
 .PHONY: setup setup-ols-classic eval eval-ols-classic cleanup cleanup-ols-classic help
 
 setup:
-	$(SCRIPTS_DIR)/setup-venv.sh
+	@$(SCRIPTS_DIR)/setup-venv.sh
 	@../venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py system.yaml
 	@echo ""
 	@echo "NOTE: Install lightspeed-agentic-operator manually by following:"

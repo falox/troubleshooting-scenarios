@@ -90,7 +90,11 @@ fi
 
 export API_KEY="$auth_token"
 
-echo "==> Scenarios: ${SCENARIOS[*]}"
+echo "scenarios:  ${#SCENARIOS[@]}"
+for scenario in "${SCENARIOS[@]}"; do
+  echo "  $scenario"
+done
+
 overall_status=0
 
 for scenario in "${SCENARIOS[@]}"; do

@@ -3,8 +3,9 @@ set -euo pipefail
 
 VENV_DIR="${VENV_DIR:-$(cd "$(dirname "$0")/.." && pwd)/venv}"
 
+echo "Setting up venv..."
+
 if [ -f "${VENV_DIR}/bin/lightspeed-eval" ]; then
-  echo "venv already exists at ${VENV_DIR}"
   exit 0
 fi
 
@@ -23,7 +24,6 @@ if [ -z "$PYTHON" ]; then
   exit 1
 fi
 
-echo "Creating venv with ${PYTHON} at ${VENV_DIR}..."
 "$PYTHON" -m venv "$VENV_DIR"
 "${VENV_DIR}/bin/pip" install --quiet git+https://github.com/lightspeed-core/lightspeed-evaluation.git
-printf '\033[0;32mDone.\033[0m venv ready at %s\n' "$VENV_DIR"
+echo "venv ready."

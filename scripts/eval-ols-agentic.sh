@@ -48,13 +48,32 @@ fi
 
 REPEAT="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(c.get('agents',{}).get('default',{}).get('repeat',1))")"
 
+agent_description() {
+  "$PYTHON" -c "
+import yaml
+c = yaml.safe_load(open('$SYSTEM_CONFIG'))
+a = c.get('agents', {}).get('$1', {})
+print(a.get('description', '') or '$1')
+"
+}
+
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
   TAG_FLAGS=(--tags "${TAGS[@]}")
 fi
 
+echo "setup_mode: $SETUP_MODE"
+echo "repeats:    $REPEAT"
+echo "agents:     ${#AGENTS[@]}"
+for agent in "${AGENTS[@]}"; do
+  echo "  $(agent_description "$agent")"
+done
+echo "scenarios:  ${#SCENARIOS[@]}"
+for scenario in "${SCENARIOS[@]}"; do
+  echo "  $scenario"
+done
+
 if [ "$SETUP_MODE" = "run" ]; then
-  echo "==> SETUP_MODE=run: ${REPEAT} repeat(s), agents: $(IFS=, ; echo "${AGENTS[*]}")"
   for scenario in "${SCENARIOS[@]}"; do
     for agent in "${AGENTS[@]}"; do
       for run in $(seq 1 "$REPEAT"); do
@@ -74,7 +93,6 @@ if [ "$SETUP_MODE" = "run" ]; then
     done
   done
 else
-  echo "==> SETUP_MODE=scenario: ${REPEAT} repeat(s), agents: $(IFS=, ; echo "${AGENTS[*]}")"
   for scenario in "${SCENARIOS[@]}"; do
     echo ""
     echo "==> Setup: $scenario"

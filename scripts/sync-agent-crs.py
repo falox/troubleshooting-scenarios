@@ -70,6 +70,7 @@ def apply_cr(cr: dict) -> None:
         input=cr_yaml,
         text=True,
         check=True,
+        stdout=subprocess.DEVNULL,
     )
 
 
@@ -87,11 +88,14 @@ def main():
         print("No agents to sync.")
         return
 
+    if not args.dry_run:
+        print(f"Syncing {len(agents)} Agent CR(s) to cluster...")
+
     for agent in agents:
         cr = generate_cr(agent)
-        name = agent["name"]
-        print(f"Agent CR: {name} (provider={agent['provider']}, model={agent['model']})")
         if args.dry_run:
+            name = agent["name"]
+            print(f"Agent CR: {name} (provider={agent['provider']}, model={agent['model']})")
             print(yaml.dump(cr, default_flow_style=False))
         else:
             apply_cr(cr)
