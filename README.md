@@ -12,7 +12,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) to add a new eval suite.
 | [netobserv/](netobserv/) | Network observability using the NetObserv MCP toolset |
 | [kubevirt/](kubevirt/) | OpenShift Virtualization troubleshooting using the KubeVirt MCP toolset |
 | [agentic/](agentic/) |  Troubleshooting scenarios and benchmarks for [lightspeed-agentic-operator](https://github.com/openshift/lightspeed-agentic-operator) (see [agentic/README.md](agentic/README.md)) |
-| [generic/](generic/) | Standalone fault-injection scenarios, e.g. for Incident Detection demos and Korrel8r testing |
+| [labs/](labs/) | Standalone fault-injection scenarios, e.g. for Incident Detection demos and Korrel8r testing |
 
 ## Requirements
 

@@ -7,7 +7,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 This repository contains evaluation suites for AI-assisted troubleshooting on OpenShift. Each eval suite owns a top-level directory with scenarios that deploy faults on a live cluster, send queries to OpenShift Lightspeed (OLS), and score responses with a judge LLM using the [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework.
 
-The `generic/` directory contains standalone fault-injection demos that do not use the eval framework.
+The `labs/` directory contains standalone fault-injection demos that do not use the eval framework.
 
 ## Repository Structure
 
@@ -17,7 +17,7 @@ _template/        Copyable skeleton for new eval suites
 agentic/          Agentic Lightspeed behavioral eval scenarios
 kiali-ossm/       Kiali/OSSM service-mesh evaluation scenarios
 netobserv/        NetObserv network observability evaluation scenarios
-generic/          Standalone troubleshooting demos (deploy/break/fix lifecycle)
+labs/             Standalone troubleshooting demos (deploy/break/fix lifecycle)
 ```
 
 ### Agentic scenarios
@@ -84,7 +84,7 @@ make lint           # Install tools if needed, then run all linters
 make cleanup        # Remove OLS operator + local venv
 ```
 
-## Architecture: generic/01-payments-api-failure (Database Connection Exhaustion)
+## Architecture: labs/payments-api-failure (Database Connection Exhaustion)
 
 Services share a PostgreSQL database with `max_connections=20`. The fault: `reporting-service` v1.0.2 accumulates database connections without closing them, exhausting the shared pool and causing payments-api to return 503s.
 
@@ -97,14 +97,14 @@ The deploy script always works on a temp copy of manifests, applying sed transfo
 
 ### Key Paths
 
-- `generic/01-payments-api-failure/README.md` -- scenario overview and components
-- `generic/01-payments-api-failure/manifests/payments/` -- Kubernetes manifests for the payments namespace
-- `generic/01-payments-api-failure/manifests/shared-services/` -- Kubernetes manifests for the shared-services namespace
-- `generic/01-payments-api-failure/scripts/` -- shell scripts that implement each Make target
-- `generic/01-payments-api-failure/reporting-service/v1.0.1/` -- healthy version
-- `generic/01-payments-api-failure/reporting-service/v1.0.2/` -- buggy version (connection leak + division by zero)
+- `labs/payments-api-failure/README.md` -- scenario overview and components
+- `labs/payments-api-failure/manifests/payments/` -- Kubernetes manifests for the payments namespace
+- `labs/payments-api-failure/manifests/shared-services/` -- Kubernetes manifests for the shared-services namespace
+- `labs/payments-api-failure/scripts/` -- shell scripts that implement each Make target
+- `labs/payments-api-failure/reporting-service/v1.0.1/` -- healthy version
+- `labs/payments-api-failure/reporting-service/v1.0.2/` -- buggy version (connection leak + division by zero)
 
-## Architecture: generic/02-alert-storm (Cascading Alert Storm)
+## Architecture: labs/alert-storm (Cascading Alert Storm)
 
 Single `payments` namespace with five microservices:
 
@@ -117,13 +117,13 @@ Monitoring is wired via Prometheus ServiceMonitors and PrometheusRules with aler
 
 ### Key Paths
 
-- `generic/02-alert-storm/README.md` -- scenario overview and components
-- `generic/02-alert-storm/manifests/` -- Kubernetes manifests (namespace, deployments, ServiceMonitors, PrometheusRules)
-- `generic/02-alert-storm/manifests/configmaps/` -- healthy and broken ConfigMap variants
-- `generic/02-alert-storm/scripts/` -- shell scripts that implement each Make target
-- `generic/02-alert-storm/images/` -- Dockerfiles and Python source for all five services
+- `labs/alert-storm/README.md` -- scenario overview and components
+- `labs/alert-storm/manifests/` -- Kubernetes manifests (namespace, deployments, ServiceMonitors, PrometheusRules)
+- `labs/alert-storm/manifests/configmaps/` -- healthy and broken ConfigMap variants
+- `labs/alert-storm/scripts/` -- shell scripts that implement each Make target
+- `labs/alert-storm/images/` -- Dockerfiles and Python source for all five services
 
-## Architecture: generic/03-image-pull-failure (Image Pull Failure with PDB Alert)
+## Architecture: labs/image-pull-failure (Image Pull Failure with PDB Alert)
 
 Single `inventory` namespace with one application:
 
@@ -135,9 +135,9 @@ No custom images or PrometheusRules are needed — this scenario relies on a sta
 
 ### Key Paths
 
-- `generic/03-image-pull-failure/README.md` -- scenario overview and components
-- `generic/03-image-pull-failure/manifests/` -- Kubernetes manifests (namespace, deployment, service, ServiceMonitor, PDB)
-- `generic/03-image-pull-failure/scripts/` -- shell scripts that implement each Make target
+- `labs/image-pull-failure/README.md` -- scenario overview and components
+- `labs/image-pull-failure/manifests/` -- Kubernetes manifests (namespace, deployment, service, ServiceMonitor, PDB)
+- `labs/image-pull-failure/scripts/` -- shell scripts that implement each Make target
 
 ## Agent Skills
 
@@ -153,6 +153,6 @@ Agent-agnostic skills live in `.agents/skills/`. Tool-specific symlinks point th
 
 - **Eval framework**: [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation), Python 3.11–3.13
 - **System under test**: [OpenShift Lightspeed](https://github.com/openshift/lightspeed-service) with MCP server
-- **Applications** (generic scenarios): Python 3.12, FastAPI, raw psycopg2
+- **Applications** (labs scenarios): Python 3.12, FastAPI, raw psycopg2
 - **Infrastructure**: OpenShift 4.x, Prometheus user workload monitoring
 - **Deployment**: Raw Kubernetes YAML manifests via `oc apply`, no Helm/Kustomize
