@@ -147,8 +147,8 @@ function run_evals() {
     echo "==> Running agentic evaluations for agent: ${AGENT}"
     cd "$AGENTIC_DIR"
 
-    # Run setup (system.yaml used as-is)
-    make setup
+    # Run setup (system-ols-agentic.yaml used as-is)
+    make setup-ols-agentic
 
     # Run evals with AGENT variable
     local MAKE_ARGS="AGENT=${AGENT}"
@@ -158,7 +158,7 @@ function run_evals() {
         MAKE_ARGS+=" SCENARIO=${SCENARIO_LIST}"
     fi
 
-    make eval $MAKE_ARGS
+    make eval-ols-agentic $MAKE_ARGS
 }
 
 function collect_results() {
@@ -170,7 +170,7 @@ function collect_results() {
 function cleanup() {
     echo "==> Cleaning up..."
     cd "$AGENTIC_DIR"
-    make cleanup || true
+    make cleanup-ols-agentic || true
 }
 
 trap cleanup EXIT

@@ -33,7 +33,7 @@ for scenario in "${SCENARIOS[@]}"; do
   if [ ! -d "$scenario" ]; then
     echo "Error: scenario '$scenario' not found. Available scenarios:"
     for d in */; do
-      if [ -f "${d}evals.yaml" ]; then echo "  ${d%/}"; fi
+      if [ -f "${d}evals-ols-agentic.yaml" ]; then echo "  ${d%/}"; fi
     done
     exit 1
   fi
@@ -82,7 +82,7 @@ if [ "$SETUP_MODE" = "run" ]; then
         if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh"; fi
         bash "$SCRIPT_DIR/run-agentic-evals.sh" \
           --system-config "$SYSTEM_CONFIG" \
-          --evals "$scenario/evals.yaml" \
+          --evals "$scenario/evals-ols-agentic.yaml" \
           --eval-dir "$EVAL_DIR" \
           --agent "$agent" \
           --run-index "$run" \
@@ -99,7 +99,7 @@ else
     if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh"; fi
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
       --system-config "$SYSTEM_CONFIG" \
-      --evals "$scenario/evals.yaml" \
+      --evals "$scenario/evals-ols-agentic.yaml" \
       --eval-dir "$EVAL_DIR" \
       "${TAG_FLAGS[@]}"
     echo "==> Cleanup: $scenario"

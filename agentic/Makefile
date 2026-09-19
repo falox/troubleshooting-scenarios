@@ -1,6 +1,6 @@
 SCRIPTS_DIR := $(realpath ../scripts)
 
-ALL_SCENARIOS := \
+_ALL_OLS_AGENTIC := \
 	blocked_deployment \
 	blocked_deployment_alert \
 	blocked_deployment_alert_remediation \
@@ -60,7 +60,7 @@ ALL_SCENARIOS := \
 	unready_pod_alert \
 	unready_pod_alert_remediation \
 	unscheduled_pod
-OLS_CLASSIC_SCENARIOS := \
+_ALL_OLS_CLASSIC := \
 	batch_submission_timeouts \
 	crashlooping_pod_alert \
 	failed_job \
@@ -82,107 +82,103 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 
 ifdef SCENARIO
-  _CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
+  _OLS_AGENTIC_CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
 else
-  _CANDIDATES := $(ALL_SCENARIOS)
+  _OLS_AGENTIC_CANDIDATES := $(_ALL_OLS_AGENTIC)
 endif
 
 ifdef TAG
-  SCENARIOS := $(shell for d in $(_CANDIDATES); do \
+  OLS_AGENTIC_SCENARIOS := $(shell for d in $(_OLS_AGENTIC_CANDIDATES); do \
     for t in $(subst $(COMMA), ,$(TAG)); do \
-      grep -q '^    - '"$$t"'$$' $$d/evals.yaml 2>/dev/null && echo $$d && break; \
+      grep -q '^    - '"$$t"'$$' $$d/evals-ols-agentic.yaml 2>/dev/null && echo $$d && break; \
     done; \
   done)
 else
-  SCENARIOS := $(_CANDIDATES)
+  OLS_AGENTIC_SCENARIOS := $(_OLS_AGENTIC_CANDIDATES)
 endif
 
-_OLS_CLASSIC_CANDIDATES := $(filter $(_CANDIDATES),$(OLS_CLASSIC_SCENARIOS))
+_OLS_CLASSIC_CANDIDATES := $(filter $(_OLS_AGENTIC_CANDIDATES),$(_ALL_OLS_CLASSIC))
 ifdef TAG
-  _OLS_CLASSIC := $(shell for d in $(_OLS_CLASSIC_CANDIDATES); do \
+  OLS_CLASSIC_SCENARIOS := $(shell for d in $(_OLS_CLASSIC_CANDIDATES); do \
     for t in $(subst $(COMMA), ,$(TAG)); do \
       grep -q '^    - '"$$t"'$$' $$d/evals-ols-classic.yaml 2>/dev/null && echo $$d && break; \
     done; \
   done)
 else
-  _OLS_CLASSIC := $(_OLS_CLASSIC_CANDIDATES)
+  OLS_CLASSIC_SCENARIOS := $(_OLS_CLASSIC_CANDIDATES)
 endif
 
-.PHONY: setup setup-ols-classic eval eval-ols-classic cleanup cleanup-ols-classic help
+.PHONY: setup-ols-agentic setup-ols-classic eval-ols-agentic eval-ols-classic cleanup-ols-agentic cleanup-ols-classic help
 
-setup:
+setup-ols-agentic:
 	@$(SCRIPTS_DIR)/setup-venv.sh
-	@../venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py system.yaml
+	@../venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py system-ols-agentic.yaml
 	@echo ""
 	@echo "NOTE: Install lightspeed-agentic-operator manually by following:"
 	@echo "  https://github.com/openshift/lightspeed-agentic-operator/tree/main/hack/quickstart"
 	@echo "This will be automated in the future."
 
-setup-ols-classic: setup
+setup-ols-classic: setup-ols-agentic
 	@bash $(SCRIPTS_DIR)/preflight.sh
 	@bash $(SCRIPTS_DIR)/setup-ols.sh
 
-eval:
-ifeq ($(SCENARIOS),)
+eval-ols-agentic:
+ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
 	@bash $(SCRIPTS_DIR)/eval-ols-agentic.sh \
-	  --system-config system.yaml \
+	  --system-config system-ols-agentic.yaml \
 	  --setup-mode $(SETUP_MODE) \
 	  $(if $(AGENT),--agents $(subst $(COMMA), ,$(AGENT))) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
-	  --scenarios $(SCENARIOS)
+	  --scenarios $(OLS_AGENTIC_SCENARIOS)
 endif
 
 eval-ols-classic:
-ifeq ($(_OLS_CLASSIC),)
+ifeq ($(OLS_CLASSIC_SCENARIOS),)
 	@echo "No OLS classic scenarios match the given filters."
 else
 	@bash $(SCRIPTS_DIR)/eval-ols-classic.sh \
 	  --system-config system-ols-classic.yaml \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
-	  --scenarios $(_OLS_CLASSIC)
+	  --scenarios $(OLS_CLASSIC_SCENARIOS)
 endif
 
-cleanup:
+cleanup-ols-agentic:
 	@rm -rf ../venv
 	@echo "venv removed."
 	@echo ""
 	@echo "NOTE: Remove lightspeed-agentic-operator manually for now."
 	@echo "This will be automated in the future."
 
-cleanup-ols-classic: cleanup
+cleanup-ols-classic: cleanup-ols-agentic
 	@bash $(SCRIPTS_DIR)/cleanup-ols.sh
 
 help:
 	@echo "Usage: make <target> [SETUP_MODE=run|scenario]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  setup              Install venv (OLS agentic is manual for now)"
-	@echo "  setup-ols-classic  Install venv and OLS classic"
-	@echo "  eval               Run agentic scenarios ($(words $(SCENARIOS)) matched)"
-	@echo "  eval-ols-classic   Run OLS classic scenarios ($(words $(_OLS_CLASSIC)) matched)"
-	@echo "  cleanup            Remove venv (OLS agentic is manual for now)"
-	@echo "  cleanup-ols-classic Remove venv and OLS classic"
-	@echo "  help               Show this help"
+	@echo "  setup-ols-agentic    Install venv (OLS agentic operator is manual for now)"
+	@echo "  setup-ols-classic    Install venv and OLS classic"
+	@echo "  eval-ols-agentic     Run OLS agentic scenarios"
+	@echo "  eval-ols-classic     Run OLS classic scenarios"
+	@echo "  cleanup-ols-agentic  Remove venv (OLS agentic operator is manual for now)"
+	@echo "  cleanup-ols-classic  Remove venv and OLS classic"
+	@echo "  help                 Show this help"
 	@echo ""
-	@echo "Options (shared):"
-	@echo "  SCENARIO=...              Comma-separated scenario(s) to run (default: all)"
-	@echo "  TAG=...                   Filter by tag (default: none)"
-	@echo ""
-	@echo "Options (eval):"
-	@echo "  AGENT=...                 Comma-separated agent model(s) to run (default: all from system.yaml)"
+	@echo "Options:"
+	@echo "  SCENARIO=...              Comma-separated scenarios to run (default: all)"
+	@echo "  TAG=...                   Filter scenarios by tag (default: none)"
 	@echo "  SETUP_MODE=run|scenario   Setup/cleanup lifecycle (default: run)"
 	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
 	@echo "    scenario: per scenario - for read-only agents, parallel OK"
-	@echo "  Agents and repeat count are read from system.yaml.(agents can be overridden with AGENT=)."
-	@echo "  Example: make eval AGENT=gpt-5.4,gemini-2.5-pro SCENARIO=blocked_deployment"
 	@echo ""
-	@echo "Options (eval-ols-classic):"
-	@echo "  Agents and repeat count are read from system-ols-classic.yaml."
+	@echo "Examples:"
+	@echo "  make eval-ols-agentic TAG=core SETUP_MODE=scenario"
+	@echo "  make eval-ols-classic SCENARIO=blocked_deployment"
 	@echo ""
-	@echo "Agentic scenarios:"
-	@echo "$(SCENARIOS)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'
+	@echo "OLS agentic scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"
+	@echo "$(OLS_AGENTIC_SCENARIOS)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'
 	@echo ""
-	@echo "OLS classic scenarios:"
-	@echo "$(_OLS_CLASSIC)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'
+	@echo "OLS classic scenarios ($(words $(OLS_CLASSIC_SCENARIOS))):"
+	@echo "$(OLS_CLASSIC_SCENARIOS)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'

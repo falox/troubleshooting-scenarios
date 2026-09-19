@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sync Agent CRs on OpenShift from system.yaml agent configuration."""
+"""Sync Agent CRs on OpenShift from a system configuration YAML."""
 
 import argparse
 import subprocess
@@ -9,7 +9,7 @@ import yaml
 
 
 def extract_agents(system_yaml_path: str) -> list[dict]:
-    """Extract active agents from system.yaml.
+    """Extract active agents from a system configuration YAML.
 
     Returns a list of dicts with keys: name, provider, model, namespace.
     """
@@ -75,8 +75,8 @@ def apply_cr(cr: dict) -> None:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Sync Agent CRs from system.yaml")
-    parser.add_argument("system_yaml", help="Path to system.yaml")
+    parser = argparse.ArgumentParser(description="Sync Agent CRs from system configuration")
+    parser.add_argument("system_yaml", help="Path to system configuration YAML")
     parser.add_argument(
         "--dry-run", action="store_true",
         help="Print CRs without applying",

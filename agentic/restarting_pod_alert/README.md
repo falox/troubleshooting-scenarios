@@ -39,7 +39,7 @@ Do not invoke setup merely to check paths: it builds images and changes the clus
 From `agentic/`, the analysis-only entrypoints are:
 
 ```bash
-make eval SCENARIO=restarting_pod_alert SETUP_MODE=run
+make eval-ols-agentic SCENARIO=restarting_pod_alert SETUP_MODE=run
 make eval-ols-classic SCENARIO=restarting_pod_alert
 ```
 

@@ -87,7 +87,7 @@ Scenarios with an isolated problem and direct symptom-cause correlation.
 ### Conventions
 
 Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-manager) have:
-- Tag `alert` in their `evals.yaml`
+- Tag `alert` in their `evals-ols-agentic.yaml`
 - Directory name with `_alert` suffix; remediation variants use `_alert_remediation`
 - Request in the template format defined by lightspeed-agentic-alerts-manager
 
@@ -102,14 +102,14 @@ Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-manager) ha
 All commands run from this directory.
 
 ```bash
-make setup                 # Install Python venv
-make eval                  # Run all scenarios
-make eval SCENARIO=stuck_rollout                   # Run one scenario
-make eval SCENARIO=stuck_rollout,exhausted_quota   # Run multiple scenarios
-make eval TAG=alert                                # Run only alert scenarios
-make eval TAG=core,alert                           # Run scenarios with tag core OR alert
-make eval RUNS=3           # Run each scenario 3 times
-make cleanup               # Remove the local venv
+make setup-ols-agentic     # Install Python venv
+make eval-ols-agentic      # Run all scenarios
+make eval-ols-agentic SCENARIO=stuck_rollout                   # Run one scenario
+make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota   # Run multiple scenarios
+make eval-ols-agentic TAG=alert                                # Run only alert scenarios
+make eval-ols-agentic TAG=core,alert                           # Run scenarios with tag core OR alert
+make eval-ols-agentic RUNS=3           # Run each scenario 3 times
+make cleanup-ols-agentic   # Remove the local venv
 make cleanup-ols-classic   # Remove OLS classic and the local venv
 make help                  # Show all targets and options
 ```
