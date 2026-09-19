@@ -5,77 +5,35 @@ This file provides guidance to AI coding agents when working with code in this r
 
 ## Project Purpose
 
-This repository contains evaluation suites for AI-assisted troubleshooting on OpenShift. Each eval suite owns a top-level directory with scenarios that deploy faults on a live cluster, send queries to OpenShift Lightspeed (OLS), and score responses with a judge LLM using the [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework.
-
-The `labs/` directory contains standalone fault-injection demos that do not use the eval framework.
+Reproducible fault scenarios for OpenShift clusters. Each scenario deploys a specific fault on a live cluster with setup and cleanup scripts. Scenarios are used for automated evaluations of OpenShift troubleshooting tools (Lightspeed, Incident Detection) and for manual troubleshooting practice.
 
 ## Repository Structure
 
 ```
-scripts/          Shared shell scripts and eval.mk (MCP, OLS, venv, port-forward)
-_template/        Copyable skeleton for new eval suites
-evals/            Agentic Lightspeed behavioral eval scenarios
+evals/            Fault scenarios for automated evals
   scenarios/      Scenario definitions (fixtures, evals, setup/cleanup)
+  Makefile        Orchestrates eval runs for OLS Agentic and OLS Classic
+  system-*.yaml   Evaluation framework configs (models, repeats, scoring)
   reports/        Curated reports (tracked, manually promoted from results/)
   results/        Generated output (gitignored): eval logs and reports
-kiali-ossm/       Kiali/OSSM service-mesh evaluation scenarios
-netobserv/        NetObserv network observability evaluation scenarios
-labs/             Standalone troubleshooting demos (deploy/break/fix lifecycle)
+labs/             Multi-service scenarios for demos and manual troubleshooting
+scripts/          Shared shell scripts (venv, OLS, eval runners)
 ```
 
-### Agentic scenarios
+### Scenario structure
 
-When adding, removing, or renaming scenarios under `evals/scenarios/`, keep `evals/scenarios/README.md` (scenario table) and `evals/Makefile` (SCENARIO variable) in sync.
+Each scenario under `evals/scenarios/` is a self-contained directory:
 
-After adding or modifying an agentic scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups. The skill is in `.agents/skills/review-scenario.md` (symlinked from `.claude/skills/`).
+- `setup.sh` deploys fixtures to the cluster (creates namespaces, resources, faults)
+- `cleanup.sh` removes everything the scenario created
+- `fixtures/` contains the Kubernetes manifests applied by `setup.sh`
+- `evals-*.yaml` contains eval definitions, one per tool under test (e.g. `evals-ols-agentic.yaml`, `evals-ols-classic.yaml`)
 
-## Working with Eval Suites
+### Adding or modifying scenarios
 
-All commands run from within a suite directory (e.g., `cd kiali-ossm/`).
+When adding, removing, or renaming scenarios under `evals/scenarios/`, keep `evals/README.md` (scenario table) and `evals/Makefile` (scenario variables) in sync.
 
-### Prerequisites
-
-- `oc login` to an OpenShift 4.x cluster
-- `OPENAI_API_KEY` exported
-
-### Lifecycle Commands
-
-```bash
-make setup     # Install venv + OLS operator + MCP server + suite dependencies
-make evals     # Run all scenarios (auto port-forward to OLS)
-make cleanup   # Remove suite dependencies + MCP server (OLS stays)
-```
-
-Run a single scenario:
-
-```bash
-make check_mesh_status-eval
-```
-
-### How It Works
-
-Each suite Makefile declares a `SCENARIOS` variable and includes `../scripts/eval.mk`, which auto-generates `<scenario>-eval` targets. The shared `run-evals.sh` script handles system.yaml URL replacement, port-forward lifecycle, and `lightspeed-eval` invocation.
-
-### Key Files per Team
-
-- `Makefile` — declares SCENARIOS, MCP config, setup/cleanup targets
-- `system.yaml` — evaluation framework config (judge model, metrics, output)
-- `evals.yaml` — conversation definitions (queries + expected responses, with tags matching SCENARIOS)
-- `build/` — suite-specific setup scripts and cluster resources
-- `<scenario>/setup.sh` — runs before the conversation (deploy fixtures)
-- `<scenario>/cleanup.sh` — runs after (remove fixtures)
-- `<scenario>/fixtures/` — Kubernetes manifests
-
-### Shared Scripts (scripts/)
-
-| Script | Purpose |
-|--------|---------|
-| `eval.mk` | Makefile include: target generation, _setup-shared, _cleanup-shared |
-| `setup-venv.sh` | Create venv with lightspeed-eval (idempotent) |
-| `setup-ols.sh` | Install OLS operator + OLSConfig (idempotent) |
-| `setup-mcp.sh` | Deploy MCP server with configurable toolsets |
-| `connect-ols-mcp.sh` | Register MCP in OLSConfig + restart + wait |
-| `run-evals.sh` | Port-forward + lightspeed-eval + cleanup |
+After adding or modifying a scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups.
 
 ### Root Makefile
 
@@ -134,7 +92,7 @@ Single `inventory` namespace with one application:
 
 The fault: A typo is introduced in the container image reference (`ubi9/ubi9` instead of `ubi9/ubi`), causing all pods to enter `ImagePullBackOff`. With zero healthy pods, the PDB is violated and the platform-level `PodDisruptionBudgetLimit` alert fires.
 
-No custom images or PrometheusRules are needed — this scenario relies on a standard Red Hat image and the built-in OpenShift PDB alert.
+No custom images or PrometheusRules are needed; this scenario relies on a standard Red Hat image and the built-in OpenShift PDB alert.
 
 ### Key Paths
 
@@ -150,12 +108,12 @@ Agent-agnostic skills live in `.agents/skills/`. Tool-specific symlinks point th
 
 | Skill | Purpose |
 |-------|---------|
-| `review-scenario` | Audit an agentic scenario for naming leaks, revealing comments, unrealistic faults |
+| `review-scenario` | Audit a scenario for naming leaks, revealing comments, unrealistic faults |
 
 ## Tech Stack
 
-- **Eval framework**: [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation), Python 3.11–3.13
-- **System under test**: [OpenShift Lightspeed](https://github.com/openshift/lightspeed-service) with MCP server
+- **Eval framework**: [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation), Python 3.11+
+- **System under test**: [OpenShift Lightspeed](https://github.com/openshift/lightspeed-service) (Agentic and Classic)
 - **Applications** (labs scenarios): Python 3.12, FastAPI, raw psycopg2
-- **Infrastructure**: OpenShift 4.x, Prometheus user workload monitoring
+- **Infrastructure**: OpenShift 4.x/5.x, Prometheus user workload monitoring
 - **Deployment**: Raw Kubernetes YAML manifests via `oc apply`, no Helm/Kustomize

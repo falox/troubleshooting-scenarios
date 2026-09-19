@@ -22,17 +22,17 @@ Read every file in `evals/scenarios/$SCENARIO/`:
 - `fixtures/*.py` (all files)
 - `setup.sh`
 - `cleanup.sh`
-- `evals.yaml`
+- `evals-ols-agentic.yaml`
 
 Collect every Kubernetes resource name, label value, and shell variable assignment (`NS=`, `APP=`, `DEPLOY=`).
 
 ## 2. Consistency check
 
-Verify that every `conversation_group_id` in `evals.yaml` matches the scenario directory name, optionally with a `_alert` suffix (e.g. `blocked_deployment` and `blocked_deployment_alert` are both valid for directory `blocked_deployment`). Flag any other mismatch as a **FAIL**-level issue.
+Verify that every `conversation_group_id` in `evals-ols-agentic.yaml` matches the scenario directory name, optionally with a `_alert` suffix (e.g. `blocked_deployment` and `blocked_deployment_alert` are both valid for directory `blocked_deployment`). Flag any other mismatch as a **FAIL**-level issue.
 
 ## 3. Description check
 
-Verify that the `description:` field exists in `evals.yaml`, placed before `tag:`. It must follow this structure:
+Verify that the `description:` field exists in `evals-ols-agentic.yaml`, placed before `tag:`. It must follow this structure:
 
 ```
 description: |
@@ -94,7 +94,7 @@ Classify:
 
 ## 7. Request text check
 
-Read the `request:` field in `evals.yaml`. Flag if it:
+Read the `request:` field in `evals-ols-agentic.yaml`. Flag if it:
 - States the root cause outright
 - Names the exact broken resource when the scenario has multiple candidates
 - Uses terminology that narrows the search space to one possibility

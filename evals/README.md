@@ -1,6 +1,30 @@
-# Agentic Evals
+# Evals
 
-Behavioral evals for automated troubleshooting with [OpenShift Agentic Lightspeed](https://github.com/openshift/lightspeed-agentic-operator). Each scenario deploys a fault on a live cluster, submits a configurable number of `AgenticRun`s and scores the configured workflow phases.
+Fault scenarios for automated troubleshooting evaluation on OpenShift. Each scenario deploys a fault on a live cluster, submits queries to the tool under test, and scores the responses with a judge LLM using the [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework.
+
+Scenarios are generic: they deploy real Kubernetes resources and create real faults. They are not tied to any specific AI tool and can be run manually on any cluster.
+
+## Running a scenario manually
+
+```bash
+oc login ...
+cd evals/scenarios/blocked_deployment
+
+./setup.sh          # deploy the fault
+# ... investigate, troubleshoot, demo ...
+./cleanup.sh        # tear down
+```
+
+## Running automated evals
+
+See the [root README](../README.md) for OLS Agentic and OLS Classic setup, Make commands, and requirements.
+
+## Conventions
+
+Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-adapter) have:
+- Tag `alert` in their `evals-ols-agentic.yaml`
+- Directory name with `_alert` suffix; remediation variants use `_alert_remediation`
+- Request in the template format defined by lightspeed-agentic-alerts-adapter
 
 ## Scenarios
 
@@ -83,33 +107,3 @@ Scenarios with an isolated problem and direct symptom-cause correlation.
 | `unready_pod_alert_remediation` | (remediation variant of above) | HTTP readiness probe targets port 9200 but container has no HTTP server | `Analysis`<br>`Execution`<br>`Verification` | `discovery-hub` | `DiscoveryHubPodNotReady` |
 | `unscheduled_pod` | Pod stuck in Pending, not scheduled to any node | nodeSelector requires `disk-type=ssd-high-iops` but no nodes have this label | `Analysis` | `user-imports` | |
 | `failing_probe` | Pod in CrashLoopBackOff (probe failure) | Liveness probe targets port 8081 but container listens on 8080; connection refused | `Analysis` | `status-api` | |
-
-### Conventions
-
-Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-manager) have:
-- Tag `alert` in their `evals-ols-agentic.yaml`
-- Directory name with `_alert` suffix; remediation variants use `_alert_remediation`
-- Request in the template format defined by lightspeed-agentic-alerts-manager
-
-## Prerequisites
-
-- `oc login` to an OpenShift 5.x cluster
-- `OPENAI_API_KEY` exported
-- [lightspeed-agentic-operator](https://github.com/openshift/lightspeed-agentic-operator) installed
-
-## Usage
-
-All commands run from this directory.
-
-```bash
-make setup-ols-agentic     # Install Python venv
-make eval-ols-agentic      # Run all scenarios
-make eval-ols-agentic SCENARIO=stuck_rollout                   # Run one scenario
-make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota   # Run multiple scenarios
-make eval-ols-agentic TAG=alert                                # Run only alert scenarios
-make eval-ols-agentic TAG=core,alert                           # Run scenarios with tag core OR alert
-make eval-ols-agentic RUNS=3           # Run each scenario 3 times
-make cleanup-ols-agentic   # Remove the local venv
-make cleanup-ols-classic   # Remove OLS classic and the local venv
-make help                  # Show all targets and options
-```

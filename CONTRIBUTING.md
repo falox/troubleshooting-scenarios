@@ -1,119 +1,60 @@
-# Adding a New Eval Suite
+# Adding a Scenario
 
-Each eval suite owns a top-level directory containing evaluation scenarios for a domain. This guide explains how to create one.
+Scenarios live under `evals/scenarios/`. Each scenario is a self-contained directory that deploys a fault on a live OpenShift cluster.
 
 ## Naming conventions
 
-Directory names must use underscores (`_`), not hyphens (`-`). This keeps directory names consistent with scenario tags and avoids character translation at runtime.
+Directory names use underscores (`_`), not hyphens. Names should describe the observable symptom in `adjective_noun` form (e.g., `pending_pvc`, `crashlooping_pod`, `failing_api`). Name what an operator would see, not the underlying root cause.
 
-Scenario names should describe the observable symptom in `adjective_noun` form (e.g., `pending_pvc`, `crashlooping_pod`, `failing_api`). Name what an operator would see, not the underlying root cause.
+Alert-triggered scenarios use an `_alert` suffix; remediation variants use `_alert_remediation`.
 
-## 1. Copy the template
-
-```bash
-cp -r _template my_suite
-cd my_suite
-```
-
-## 2. Directory structure
+## Scenario directory structure
 
 ```
-my_suite/
-├── Makefile                    # Declares scenarios, MCP config, setup/cleanup
-├── system.yaml                 # Evaluation framework config (judge model, metrics)
-├── evals.yaml                  # Conversation definitions (queries + expected responses)
-├── README.md                   # Team documentation
-├── build/                      # Optional: suite-specific setup scripts, operator CRs
-├── my_scenario/
-│   ├── setup.sh                # Runs before the conversation starts
-│   ├── cleanup.sh              # Runs after the conversation ends
-│   └── fixtures/
-│       └── manifest.yaml       # Kubernetes manifests deployed by setup.sh
-├── another_scenario/
-│   └── ...
-└── results/                    # Eval output (gitignored)
+my_scenario/
+  setup.sh                     Deploys fixtures to the cluster
+  cleanup.sh                   Removes everything the scenario created
+  fixtures/
+    manifest.yaml              Kubernetes manifests (Deployments, Services, etc.)
+    prometheusrule.yaml        PrometheusRules for alert-based scenarios
+  evals-ols-agentic.yaml       Eval definitions for OLS Agentic
+  evals-ols-classic.yaml       Eval definitions for OLS Classic (optional)
 ```
 
-## 3. Define scenarios
+### setup.sh
 
-### evals.yaml
+Creates the namespace and deploys all resources. Must be idempotent and executable (`chmod +x`). Typically applies fixtures with `oc apply -f fixtures/` and waits for the fault to manifest (e.g., pod enters CrashLoopBackOff, alert fires).
 
-Each scenario is a conversation with one or more turns. The `tag` field must match the name in the `SCENARIOS` variable in your Makefile.
+### cleanup.sh
 
-```yaml
-- conversation_group_id: my_scenario
-  tag: my_scenario
-  description: "What this scenario tests"
+Deletes the namespace and any cluster-scoped resources the scenario created. Must be executable and tolerate resources that don't exist (use `--ignore-not-found`).
 
-  turns:
-    - turn_id: investigate
-      query: >
-        The question sent to OLS.
-      expected_response: >
-        What a correct answer looks like. The judge LLM scores
-        the actual OLS response against this.
-      turn_metrics:
-        - custom:answer_correctness
+### fixtures/
 
-  setup_script: ./my_scenario/setup.sh
-  cleanup_script: ./my_scenario/cleanup.sh
-```
+Kubernetes manifests that reproduce the fault. Use business-domain names (e.g., `warehouse-ops`, `payments`, `report-generator`), not names that encode the diagnosis or test intent.
 
-### Scenario setup/cleanup scripts
+### evals-ols-agentic.yaml
 
-- `setup.sh` runs before the conversation — deploy workloads, inject faults, wait for signals
-- `cleanup.sh` runs after — delete namespaces, remove fixtures
-- Both must be executable (`chmod +x`)
-- Use `oc apply -f fixtures/manifest.yaml` for Kubernetes resources
+Eval definitions for OLS Agentic. Each entry defines:
 
-### system.yaml
+- `conversation_group_id`: must match the scenario directory name
+- `description`: symptom, `RCA:` (root cause), `Expected:` (what the agent should do)
+- `tag`: list of tags (e.g., `agentic`, `alert`, `difficulty_normal`)
+- `turns`: the AgenticRun spec, expected status, and scoring metrics
 
-Configures the evaluation framework. Key fields:
+### evals-ols-classic.yaml
 
-- `llm.model` — judge LLM that scores responses (e.g., `gpt-4o-mini`)
-- `api.model` — model OLS uses to answer queries (must exist in OLSConfig)
-- `api.api_base` — placeholder, replaced at runtime with `OLS_URL`
-- `metrics_metadata` — which metrics to evaluate per turn/conversation
+Eval definitions for OLS Classic. Same structure but with `query`/`expected_response` instead of AgenticRun specs. Only add this file if the scenario is meaningful as a text Q&A.
 
-## 4. Configure the Makefile
+## Registering the scenario
 
-```makefile
-SCENARIOS = my_scenario another_scenario
-MCP_TOOLSETS = core,config,my_toolset
+After creating the scenario directory:
 
-include ../scripts/eval.mk
+1. Add the scenario name to the appropriate variable (`_ALL_OLS_AGENTIC` and/or `_ALL_OLS_CLASSIC`) in `evals/Makefile`
+2. Add a row to the scenario table in `evals/README.md`
+3. Run the `review-scenario` skill (`.agents/skills/review-scenario.md`, symlinked from `.claude/skills/`) to check for naming leaks, revealing comments, and unrealistic fault setups. In Claude Code: `/review-scenario my_scenario`
 
-.PHONY: setup
-setup: _setup-shared
-	# Team-specific cluster setup (operator install, CR apply, etc.)
-
-.PHONY: cleanup
-cleanup:
-	# Team-specific cleanup
-	$(MAKE) _cleanup-shared
-```
-
-### Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SCENARIOS` | (required) | Space-separated scenario tags |
-| `MCP_TOOLSETS` | `core,config` | MCP server toolsets |
-| `MCP_IMAGE` | openshift-mcp-server | MCP container image |
-| `MCP_KIALI_URL` | (empty) | Set for ossm toolset |
-| `OLS_URL` | `https://localhost:8443` | Override to use cluster Route |
-
-### Targets provided by eval.mk
-
-| Target | Description |
-|--------|-------------|
-| `_setup-shared` | venv + preflight + OLS install + MCP deploy + OLS connect |
-| `_cleanup-shared` | OLS disconnect + MCP cleanup |
-| `evals` | Run all scenarios |
-| `<tag>-eval` | Run a single scenario |
-| `help` | List available targets |
-
-## 5. Lint
+## Lint
 
 Run all linters from the repository root:
 
@@ -121,31 +62,4 @@ Run all linters from the repository root:
 make lint
 ```
 
-This installs the pinned lint tools into `.tools/` when needed. To install them
-without running lint, use `make tools`.
-
-## 6. Test
-
-```bash
-export OPENAI_API_KEY=<your-key>
-make setup
-make evals
-make cleanup
-```
-
-## 7. Shared scripts reference
-
-All shared scripts live in `scripts/` at the repo root. Teams should not need to modify them.
-
-| Script | Purpose |
-|--------|---------|
-| `setup-venv.sh` | Create venv with lightspeed-eval (idempotent) |
-| `setup-ols.sh` | Install OLS operator + OLSConfig (idempotent) |
-| `cleanup-ols.sh` | Remove OLS operator |
-| `setup-mcp.sh` | Deploy MCP server |
-| `cleanup-mcp.sh` | Remove MCP server |
-| `connect-ols-mcp.sh` | Register MCP in OLSConfig + restart |
-| `disconnect-ols-mcp.sh` | Remove MCP from OLSConfig + restart |
-| `preflight.sh` | Check cluster + OLS readiness |
-| `run-evals.sh` | Port-forward + lightspeed-eval + cleanup |
-| `mcp-config.sh` | Build MCP config.toml ConfigMap |
+This installs the pinned lint tools into `.tools/` when needed. To install them without running lint, use `make tools`.
