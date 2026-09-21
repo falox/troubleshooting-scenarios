@@ -22,6 +22,26 @@ from pathlib import Path
 
 import yaml
 
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
+from report_common import (  # noqa: E402
+    anchor_id,
+    collect_conversations,
+    discover_agents,
+    extract_judge_model,
+    find_run_dirs,
+    format_duration,
+    format_report_metadata,
+    format_timestamp,
+    format_token_pair,
+    mean_tokens,
+    overall_score_cell,
+    scenario_tokens,
+    winner_cell,
+)
+
 METRIC_LABELS = {
     "custom:openshift_agentic_run_status": "Completed",
     "custom:openshift_agentic_run_evaluation_correctness": "Correctness",
@@ -34,35 +54,10 @@ PHASE_CONDITIONS = (
     ("Execution", "Executed"),
     ("Verification", "Verified"),
 )
-MEDAL = "🥇"
-
-
-def winner_cell(text: str, is_winner: bool) -> str:
-    """Format a winning cell with bold text and a medal marker."""
-    return f"**{text}** {MEDAL}" if is_winner else text
 
 
 def metric_label(metric_id: str) -> str:
     return METRIC_LABELS.get(metric_id, metric_id.split(":")[-1])
-
-
-
-def discover_agents(eval_dir: Path) -> list[str]:
-    """Discover agent names from subdirectories containing run_* dirs."""
-    agents = []
-    for child in sorted(eval_dir.iterdir()):
-        if child.is_dir() and any(child.glob("run_*")):
-            agents.append(child.name)
-    return agents
-
-
-def find_run_dirs(eval_dir: Path, agent_name: str) -> list[Path]:
-    """Find run_N directories for an agent, sorted by index."""
-    agent_dir = eval_dir / agent_name
-    if not agent_dir.is_dir():
-        return []
-    dirs = sorted(agent_dir.glob("run_*"), key=lambda p: int(p.name.split("_")[1]))
-    return dirs
 
 
 def load_run_summary(run_dir: Path) -> list[dict] | None:
@@ -90,26 +85,6 @@ def load_run_summary(run_dir: Path) -> list[dict] | None:
                     result["reason"] = reasons[key]
         results.extend(file_results)
     return results
-
-
-def extract_judge_model(eval_dir: Path, agent_names: list[str]) -> str:
-    """Extract the judge model name from the first available summary JSON."""
-    for agent in agent_names:
-        for rd in find_run_dirs(eval_dir, agent):
-            for f in sorted(rd.glob("*_summary.json")):
-                with open(f) as fh:
-                    data = json.load(fh)
-                config = data.get("configuration", {})
-                judges = config.get("judge_panel", {}).get("judges", [])
-                if not judges:
-                    continue
-                models = config.get("llm_pool", {}).get("models", {})
-                model = models.get(judges[0], {}).get("model", "")
-                if model:
-                    return model
-    return ""
-
-
 
 
 def append_outcome(response: str, details: list[str]) -> str:
@@ -192,12 +167,14 @@ def load_amended_entries(run_dir: Path) -> list[dict]:
                     e = datetime.fromisoformat(completed.replace("Z", "+00:00"))
                     duration = (e - s).total_seconds()
 
-            agent_tok = (turn.get("api_input_tokens") or 0) + (turn.get("api_output_tokens") or 0)
-
             # Normalize agentic_run_status to dict (handle non-dict truthy values like lists)
             run_status = turn.get("openshift_agentic_run_status")
             if not isinstance(run_status, dict):
                 run_status = {}
+
+            token_usage = run_status.get("tokenUsage") or {}
+            agent_input_tok = token_usage.get("inputTokens")
+            agent_output_tok = token_usage.get("outputTokens")
 
             # Normalize conditions to list of dicts (prevents phase_status iteration errors)
             if "conditions" in run_status:
@@ -222,25 +199,10 @@ def load_amended_entries(run_dir: Path) -> list[dict]:
                 "tags": tags,
                 "agentic_run_status": run_status,
                 "analysis_duration": duration,
-                "agent_tokens": agent_tok,
+                "agent_input_tokens": agent_input_tok,
+                "agent_output_tokens": agent_output_tok,
             })
     return entries
-
-
-def collect_conversations(agent_runs: dict[str, list]) -> list[str]:
-    """Collect ordered unique conversation IDs across all agents/runs."""
-    seen = set()
-    conversations = []
-    for runs in agent_runs.values():
-        for results in runs:
-            if results is None:
-                continue
-            for r in results:
-                cid = r["conversation_group_id"]
-                if cid not in seen:
-                    seen.add(cid)
-                    conversations.append(cid)
-    return conversations
 
 
 def get_score(results: list[dict], conversation_id: str, metric_id: str) -> float | None:
@@ -298,10 +260,6 @@ def get_performance_result(
     return None, None
 
 
-def anchor_id(agent: str, conversation_id: str) -> str:
-    return f"{agent}--{conversation_id}"
-
-
 def strip_request_section(response: str) -> str:
     match = re.search(r'^## Analysis\b', response, re.MULTILINE)
     if match:
@@ -349,13 +307,6 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     return f"[{label}](#{anchor}){avg_str}"
 
 
-def format_timestamp(timestamp: str) -> str:
-    if not timestamp:
-        return ""
-    dt = datetime.fromisoformat(timestamp)
-    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
-
-
 def overall_score(agent_runs: list, conversations: list[str]) -> tuple[int, int]:
     """Return (passed, total) across all runs and conversations."""
     passed = 0
@@ -370,14 +321,6 @@ def overall_score(agent_runs: list, conversations: list[str]) -> tuple[int, int]
                 if result == "PASS":
                     passed += 1
     return passed, total
-
-
-def overall_score_cell(passed: int, total: int, bold: bool = False) -> str:
-    if total == 0:
-        return "N/A"
-    pct = round(100 * passed / total)
-    text = f"{pct}% ({passed}/{total})"
-    return winner_cell(text, bold)
 
 
 def scenario_mean_score(agent_runs: list, conversation_id: str) -> float | None:
@@ -419,28 +362,6 @@ def mean_duration(agent_amended: list, conversations: list[str]) -> float | None
     return sum(durations) / len(durations)
 
 
-def format_tokens(n: int) -> str:
-    return f"{n:,}"
-
-
-def format_tokens_compact(n: int) -> str:
-    if n >= 1_000_000:
-        v = n / 1_000_000
-        return f"{v:.1f}M".replace(".0M", "M")
-    if n >= 1_000:
-        v = n / 1_000
-        return f"{v:.0f}K"
-    return str(n)
-
-
-def format_duration(seconds: float) -> str:
-    if seconds < 60:
-        return f"{seconds:.0f}s"
-    minutes = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f"{minutes}m {secs}s"
-
-
 def scenario_duration(agent_amended: list, cid: str) -> float | None:
     """Mean analysis duration for a single scenario across runs."""
     durations = []
@@ -451,38 +372,6 @@ def scenario_duration(agent_amended: list, cid: str) -> float | None:
     if not durations:
         return None
     return sum(durations) / len(durations)
-
-
-def scenario_tokens(agent_amended: list, cid: str) -> int:
-    """Total agent tokens for a single scenario across runs."""
-    total = 0
-    for entries in agent_amended:
-        for entry in entries:
-            if entry["conversation_group_id"] == cid:
-                total += entry.get("agent_tokens", 0)
-    return total
-
-
-def total_tokens(agent_amended: list, conversations: list[str]) -> int:
-    """Total agent tokens across all scenarios and runs."""
-    total = 0
-    for entries in agent_amended:
-        for entry in entries:
-            if entry["conversation_group_id"] in conversations:
-                total += entry.get("agent_tokens", 0)
-    return total
-
-
-def mean_tokens(agent_amended: list, conversations: list[str]) -> int | None:
-    """Mean agent tokens across all runs and conversations."""
-    tokens = []
-    for entries in agent_amended:
-        for entry in entries:
-            if entry["conversation_group_id"] in conversations and entry.get("agent_tokens") is not None:
-                tokens.append(entry["agent_tokens"])
-    if not tokens:
-        return None
-    return round(sum(tokens) / len(tokens))
 
 
 def bold_best(values: dict[str, str | None], best_val, cmp="max") -> dict[str, str]:
@@ -555,7 +444,7 @@ def generate_overview_table(
 
     # Avg tokens
     avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
-    cells = [format_tokens_compact(avg_tok[a]) if avg_tok[a] is not None else "N/A" for a in agent_names]
+    cells = [format_token_pair(*avg_tok[a]) for a in agent_names]
     lines.append(f"| Avg tokens | {' | '.join(cells)} |")
 
     return "\n".join(lines)
@@ -743,9 +632,9 @@ def generate_duration_table(
 
 
 def tokens_cell(agent_amended: list, cid: str, agent: str) -> str:
-    t = scenario_tokens(agent_amended, cid)
+    inp, out = scenario_tokens(agent_amended, cid)
     anchor = anchor_id(agent, cid)
-    return f"[{format_tokens_compact(t)}](#{anchor})"
+    return f"[{format_token_pair(inp, out)}](#{anchor})"
 
 
 def generate_tokens_table(
@@ -763,7 +652,7 @@ def generate_tokens_table(
 
     # Mean row
     avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
-    cells = [format_tokens_compact(avg_tok[a]) if avg_tok[a] is not None else "N/A" for a in agent_names]
+    cells = [format_token_pair(*avg_tok[a]) for a in agent_names]
     lines.append(f"| **Average** | {' | '.join(cells)} |")
 
     return "\n".join(lines)
@@ -915,11 +804,20 @@ def generate_scenario_details(
                         lines.append(f"**{label}**: {icon} {status}")
                     lines.append("")
 
-                # Analysis duration
+                # Analysis duration and tokens
                 for entry in amended_entries:
                     if entry["conversation_group_id"] == cid and entry.get("analysis_duration") is not None:
                         lines.append(f"**Duration**: {format_duration(entry['analysis_duration'])}")
                         lines.append("")
+                        break
+
+                for entry in amended_entries:
+                    if entry["conversation_group_id"] == cid:
+                        inp = entry.get("agent_input_tokens")
+                        out = entry.get("agent_output_tokens")
+                        if inp is not None or out is not None:
+                            lines.append(f"**Tokens**: in {inp or 0:,} out {out or 0:,}")
+                            lines.append("")
                         break
 
                 # Response
@@ -987,18 +885,14 @@ def generate_report(eval_dir: Path) -> str:
     # Build the report
     lines = ["# Evaluation Summary"]
     lines.append("")
-    stats = (
-        f"{len(conversations)} scenario{'s' if len(conversations) != 1 else ''}, "
-        f"{len(agent_names)} agent{'s' if len(agent_names) != 1 else ''}, "
-        f"{repeat} repeat{'s' if repeat > 1 else ''}"
-    )
-    parts = []
-    if timestamp_str:
-        parts.append(timestamp_str)
-    parts.append(stats)
-    if judge:
-        parts.append(f"Judge: {judge}")
-    lines.append(" | ".join(parts))
+    lines.append(format_report_metadata(
+        "OLS Agentic",
+        timestamp_str,
+        len(conversations),
+        len(agent_names),
+        repeat,
+        judge,
+    ))
     lines.append("")
 
     # Overview table
@@ -1040,10 +934,7 @@ def generate_report(eval_dir: Path) -> str:
     # Tokens per scenario
     lines.append("## Cost")
     lines.append("")
-    lines.append("Total token usage for each scenario across all repeats per agent;"
-                 " the Average row shows average usage per evaluation."
-                 " **Note: lightspeed-eval does not expose this data yet;"
-                 " values will appear once it does.**")
+    lines.append("Average input/output token usage per evaluation.")
     lines.append("")
     lines.append(generate_tokens_table(conversations, agent_names, agent_amended))
     lines.append("")

@@ -880,6 +880,7 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         assert "Judge: gpt-5.4" in report
+        assert "2026-08-30 10:00:00 UTC | **OLS Agentic** | 1 scenario, 1 agent, 1 repeat | Judge: gpt-5.4" in report
 
     def test_no_judge_by_default(self, tmp_path):
         _write_run(
@@ -890,35 +891,94 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         assert "Judge" not in report
 
-    def test_avg_tokens_divides_by_evaluations_not_scenarios(self, tmp_path):
-        """With 2 runs of 1 scenario at 100 tokens each, avg should be 100, not 200."""
+    def test_tokens_from_agentic_run_status(self, tmp_path):
+        """Token usage is extracted from openshift_agentic_run_status.tokenUsage."""
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{
+                "conversation_id": "s1",
+                "agentic_run_status": {
+                    "tokenUsage": {"inputTokens": 76459, "outputTokens": 4914},
+                    "conditions": [],
+                },
+            }],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "76K/5K" in report
+
+    def test_tokens_show_input_output_split(self, tmp_path):
+        """Token display shows input/output separated by /."""
         for run in [1, 2]:
             _write_run(
                 tmp_path / "agent" / f"run_{run}",
                 results=[_make_result("s1")],
                 amended_entries=[{
                     "conversation_id": "s1",
-                    "api_input_tokens": 60,
-                    "api_output_tokens": 40,
+                    "agentic_run_status": {
+                        "tokenUsage": {"inputTokens": 100000, "outputTokens": 5000},
+                        "conditions": [],
+                    },
                 }],
                 timestamp=f"20260830_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 100 |" in report
-        assert "| **Average** | 100 |" in report
+        assert "| Avg tokens | 100K/5K |" in report
+        assert "| **Average** | 100K/5K |" in report
 
-    def test_tokens_compact_formatting(self, tmp_path):
+    def test_tokens_million_formatting(self, tmp_path):
         _write_run(
             tmp_path / "agent" / "run_1",
             results=[_make_result("s1")],
             amended_entries=[{
                 "conversation_id": "s1",
-                "api_input_tokens": 50000,
-                "api_output_tokens": 1000,
+                "agentic_run_status": {
+                    "tokenUsage": {"inputTokens": 1500000, "outputTokens": 50000},
+                    "conditions": [],
+                },
             }],
         )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 51K |" in report
+        assert "1.5M/50K" in report
+
+    def test_tokens_missing_token_usage_shows_dash(self, tmp_path):
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{
+                "conversation_id": "s1",
+                "agentic_run_status": {"conditions": []},
+            }],
+        )
+        report = mod.generate_report(tmp_path)
+        cost_section = report.split("## Cost")[1].split("# Scenarios")[0]
+        assert "—" in cost_section
+
+    def test_tokens_in_scenario_detail(self, tmp_path):
+        """Token usage appears in the per-run detail section after Duration."""
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{
+                "conversation_id": "s1",
+                "agentic_run_status": {
+                    "tokenUsage": {"inputTokens": 76459, "outputTokens": 4914},
+                    "conditions": [],
+                },
+            }],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "**Tokens**: in 76,459 out 4,914" in report
+
+    def test_tokens_no_lightspeed_eval_note(self, tmp_path):
+        """The old note about lightspeed-eval not exposing data should be gone."""
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{"conversation_id": "s1"}],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "lightspeed-eval does not expose" not in report
 
 
 class TestPrintCorrectnessTable:
