@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../scripts" && pwd)"
+SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../../scripts" && pwd)"
 NS="data-processing"
 DELETE_TIMEOUT="${DELETE_TIMEOUT:-180}"
 REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-60}"

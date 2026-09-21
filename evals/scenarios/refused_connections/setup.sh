@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-"$(cd "$(dirname "$0")/../../scripts" && pwd)/check-prerequisites.sh"
+"$(cd "$(dirname "$0")/../../../scripts" && pwd)/check-prerequisites.sh"
 
 command -v podman >/dev/null 2>&1 || {
   echo "ERROR: podman is required to build the gateway image" >&2

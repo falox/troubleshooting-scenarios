@@ -132,7 +132,8 @@ else
 	  --setup-mode $(SETUP_MODE) \
 	  $(if $(AGENT),--agents $(subst $(COMMA), ,$(AGENT))) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
-	  --scenarios $(addprefix $(SCENARIOS_DIR)/,$(OLS_AGENTIC_SCENARIOS))
+	  --scenarios $(addprefix $(SCENARIOS_DIR)/,$(OLS_AGENTIC_SCENARIOS)) \
+	  || { status=$$?; if [ "$$status" -ne 64 ]; then exit "$$status"; fi; }
 endif
 
 eval-ols-classic:

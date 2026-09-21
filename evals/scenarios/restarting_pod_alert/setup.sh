@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../scripts" && pwd)"
+SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../../scripts" && pwd)"
 FIXTURE_DIR="$SCENARIO_DIR/fixtures"
 IMAGE_DIR="$SCENARIO_DIR/image"
 VERIFY="$SCENARIO_DIR/verify_fixture.py"

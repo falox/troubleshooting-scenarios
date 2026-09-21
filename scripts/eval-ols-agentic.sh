@@ -31,11 +31,32 @@ PYTHON="${VENV_DIR}/bin/python3"
 
 for scenario in "${SCENARIOS[@]}"; do
   if [ ! -d "$scenario" ]; then
-    echo "Error: scenario '$scenario' not found. Available scenarios:"
+    scenario_name="${scenario##*/}"
+    echo "Error: scenario '$scenario_name' not found. Available scenarios:"
+    echo ""
+    available_scenarios=()
     for d in scenarios/*/; do
-      if [ -f "${d}evals-ols-agentic.yaml" ]; then echo "  ${d%/}"; fi
+      scenario_name="${d%/}"
+      if [ -f "${d}evals-ols-agentic.yaml" ]; then
+        available_scenarios+=("${scenario_name##*/}")
+      fi
     done
-    exit 1
+
+    if command -v column >/dev/null 2>&1; then
+      terminal_width="${COLUMNS:-}"
+      if ! [[ "$terminal_width" =~ ^[1-9][0-9]*$ ]]; then
+        terminal_width="$(tput cols 2>/dev/null || true)"
+      fi
+      if [[ "$terminal_width" =~ ^[1-9][0-9]*$ ]]; then
+        printf '%s\n' "${available_scenarios[@]}" |
+          column -x -c "$terminal_width" | expand | sed 's/^/  /'
+      else
+        printf '  %s\n' "${available_scenarios[@]}"
+      fi
+    else
+      printf '  %s\n' "${available_scenarios[@]}"
+    fi
+    exit 64
   fi
 done
 
