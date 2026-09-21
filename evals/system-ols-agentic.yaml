@@ -26,10 +26,11 @@ agents:
     agent:
       - openai-gpt-5-6-luna
       - openai-gpt-5-6-terra
-      - google-gemini-3-7-flash
+      - google-gemini-3.5-flash-lite
+      - google-gemini-3-8-flash
       - anthropic-opus-4-6
       - anthropic-sonnet-5
-    repeat: 1
+    repeat: 3
     parallel: false
     agent_config:
       timeout: 600
@@ -49,11 +50,16 @@ agents:
     agent_ref: openai-gpt-5-6-terra
 
   # GOOGLE
-  google-gemini-3-7-flash:
-    description: "vertex-google|gemini-3.7-flash"
+  google-gemini-3.5-flash-lite:
+    description: "vertex-google|gemini-3.5-flash-lite"
     type: openshift_agentic_run
     namespace: openshift-lightspeed
-    agent_ref: google-gemini-3-7-flash
+    agent_ref: google-gemini-3-5-flash-lite
+  google-gemini-3-8-flash:
+    description: "vertex-google|gemini-3.8-flash"
+    type: openshift_agentic_run
+    namespace: openshift-lightspeed
+    agent_ref: google-gemini-3-8-flash
 
   # ANTHROPIC
   anthropic-opus-4-6:

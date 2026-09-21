@@ -52,6 +52,12 @@ def workspace(tmp_path):
 def test_scenario_cleanup(
     workspace, mode, setup_status, eval_status, cleanup_status, expected_status, events
 ):
+    (workspace / "evals/system-ols-agentic.yaml").write_text(yaml.safe_dump({
+        "agents": {
+            "default": {"repeat": 1},
+            "openai-gpt-5-6-luna": {"description": "test|model"},
+        }
+    }))
     scenario = workspace / "evals/scenarios/sample"
     for name, status in (("setup", setup_status), ("cleanup", cleanup_status)):
         executable(

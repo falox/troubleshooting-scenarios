@@ -27,7 +27,7 @@ PYTHON="${VENV_DIR}/bin/python3"
 
 for scenario in "${SCENARIOS[@]}"; do
   if [ ! -f "$scenario/evals-ols-classic.yaml" ]; then
-    echo "Error: $scenario/evals-ols-classic.yaml not found"
+    echo "ERROR: $scenario/evals-ols-classic.yaml not found" >&2
     exit 1
   fi
 done
@@ -68,7 +68,7 @@ if ! curl -ksf --connect-timeout 2 "https://localhost:8443/docs" >/dev/null 2>&1
     sleep 2
   done
   if [ "$ols_ok" != "true" ]; then
-    echo "Error: OLS not reachable at https://localhost:8443 after port-forward attempt"
+    echo "ERROR: OLS not reachable at https://localhost:8443 after port-forward attempt" >&2
     exit 1
   fi
 fi

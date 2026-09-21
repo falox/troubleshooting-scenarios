@@ -13,6 +13,7 @@ EVAL_DIR is the eval session directory
 The judge model is extracted from the summary JSON configuration.
 """
 
+import csv
 import json
 import re
 import sys
@@ -33,6 +34,12 @@ PHASE_CONDITIONS = (
     ("Execution", "Executed"),
     ("Verification", "Verified"),
 )
+MEDAL = "🥇"
+
+
+def winner_cell(text: str, is_winner: bool) -> str:
+    """Format a winning cell with bold text and a medal marker."""
+    return f"**{text}** {MEDAL}" if is_winner else text
 
 
 def metric_label(metric_id: str) -> str:
@@ -67,7 +74,21 @@ def load_run_summary(run_dir: Path) -> list[dict] | None:
     for f in files:
         with open(f) as fh:
             data = json.load(fh)
-        results.extend(data.get("results", []))
+        file_results = data.get("results", [])
+        detailed = f.with_name(f.name.replace("_summary.json", "_detailed.csv"))
+        if detailed.exists():
+            with detailed.open(newline="") as fh:
+                reasons = {
+                    (row.get("conversation_group_id"), row.get("turn_id"),
+                     row.get("metric_identifier")): row.get("reason", "")
+                    for row in csv.DictReader(fh)
+                }
+            for result in file_results:
+                key = (result.get("conversation_group_id"), result.get("turn_id"),
+                       result.get("metric_identifier"))
+                if not result.get("reason") and reasons.get(key):
+                    result["reason"] = reasons[key]
+        results.extend(file_results)
     return results
 
 
@@ -89,6 +110,41 @@ def extract_judge_model(eval_dir: Path, agent_names: list[str]) -> str:
     return ""
 
 
+
+
+def append_outcome(response: str, details: list[str]) -> str:
+    """Add saved details to Outcome without repeating existing messages."""
+    missing = []
+    for detail in details:
+        if detail and detail not in response and detail not in missing:
+            missing.append(detail)
+    if not missing:
+        return response
+    addition = "\n\n".join(missing)
+    outcome = re.search(r"^## Outcome\s*$", response, re.MULTILINE)
+    if outcome:
+        next_section = re.search(r"^## ", response[outcome.end():], re.MULTILINE)
+        end = outcome.end() + next_section.start() if next_section else len(response)
+        return response[:end].rstrip() + "\n\n" + addition + "\n\n" + response[end:]
+    return (response.rstrip() + "\n\n## Outcome\n\n" + addition).lstrip()
+
+
+def _format_diagnosis(run_results: dict) -> list[str]:
+    """Read saved diagnosis details for a no-action response."""
+    analysis_results = run_results.get("analysis")
+    if not isinstance(analysis_results, list):
+        return []
+    for analysis in analysis_results:
+        if not isinstance(analysis, dict):
+            continue
+        diagnosis = analysis.get("diagnosis")
+        if not isinstance(diagnosis, dict):
+            continue
+        details = [diagnosis.get(key) for key in ("rootCause", "summary")]
+        details = [detail for detail in details if isinstance(detail, str) and detail]
+        if details:
+            return details
+    return []
 
 
 def load_amended_entries(run_dir: Path) -> list[dict]:
@@ -154,11 +210,15 @@ def load_amended_entries(run_dir: Path) -> list[dict]:
                         c for c in conditions_raw if isinstance(c, dict)
                     ]
 
+            response = turn.get("response") or ""
+            if run_results and "no action required" in response.lower():
+                response = append_outcome(response, _format_diagnosis(run_results))
+
             entries.append({
                 "conversation_group_id": cid,
                 "description": entry.get("description", ""),
                 "query": turn.get("query", ""),
-                "response": turn.get("response", ""),
+                "response": response,
                 "tags": tags,
                 "agentic_run_status": run_status,
                 "analysis_duration": duration,
@@ -207,6 +267,18 @@ def get_judge_reason(results: list[dict], conversation_id: str, metric_id: str) 
     return ""
 
 
+def has_technical_failure(results: list[dict], conversation_id: str) -> bool:
+    """Check for an evaluation error or a failed completion check."""
+    return any(
+        metric["conversation_group_id"] == conversation_id
+        and (
+            metric["result"] == "ERROR"
+            or (metric["metric_identifier"] == STATUS_METRIC and metric["result"] == "FAIL")
+        )
+        for metric in results
+    )
+
+
 def get_performance_result(
     results: list[dict], conversation_id: str
 ) -> tuple[str | None, float | None]:
@@ -214,11 +286,15 @@ def get_performance_result(
 
     Correctness is preferred when configured. Status-only evaluations do not
     emit a correctness result, so use their deterministic status result.
+    Technical failures count as zero in reported scores.
     """
     for metric_id in (CORRECTNESS_METRIC, STATUS_METRIC):
         result = get_result(results, conversation_id, metric_id)
         if result is not None:
-            return result, get_score(results, conversation_id, metric_id)
+            score = get_score(results, conversation_id, metric_id)
+            if has_technical_failure(results, conversation_id):
+                score = 0.0
+            return result, score
     return None, None
 
 
@@ -241,9 +317,12 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     Links to the first run section for that agent+scenario.
     """
     scores = []
+    technical_failure = False
     for results in agent_runs:
         if results is None:
             continue
+        if has_technical_failure(results, conversation_id):
+            technical_failure = True
         result, score = get_performance_result(results, conversation_id)
         if result is not None:
             scores.append((result, score))
@@ -252,20 +331,22 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
         return "N/A"
 
     anchor = anchor_id(agent, conversation_id)
+    passed = sum(1 for r, _ in scores if r == "PASS")
+    total = len(scores)
+    icon = "❌" if technical_failure else (
+        "🟢" if passed == total else ("🔴" if passed == 0 else "")
+    )
 
     if len(scores) == 1:
         result, score = scores[0]
-        icon = "✅" if result == "PASS" else "❌"
         score_str = f"{score:.2f}" if score is not None else "N/A"
         return f"[{icon} {score_str}](#{anchor})"
 
-    passed = sum(1 for r, _ in scores if r == "PASS")
-    total = len(scores)
     valid_scores = [s for _, s in scores if s is not None]
     avg = sum(valid_scores) / len(valid_scores) if valid_scores else None
-    icon = "✅" if passed == total else ("❌" if passed == 0 else "")
     avg_str = f" ({avg:.2f})" if avg is not None else ""
-    return f"[{icon} {passed}/{total}](#{anchor}){avg_str}"
+    label = f"{icon} {passed}/{total}".strip()
+    return f"[{label}](#{anchor}){avg_str}"
 
 
 def format_timestamp(timestamp: str) -> str:
@@ -296,25 +377,23 @@ def overall_score_cell(passed: int, total: int, bold: bool = False) -> str:
         return "N/A"
     pct = round(100 * passed / total)
     text = f"{pct}% ({passed}/{total})"
-    if bold:
-        text = f"**{text}**"
-    return text
+    return winner_cell(text, bold)
 
 
 def scenario_mean_score(agent_runs: list, conversation_id: str) -> float | None:
-    """Mean correctness score for one agent on one scenario across all runs."""
+    """Mean score for one scenario, counting technical failures as zero."""
     scores = []
     for results in agent_runs:
         if results is None:
             continue
-        s = get_score(results, conversation_id, CORRECTNESS_METRIC)
+        _, s = get_performance_result(results, conversation_id)
         if s is not None:
             scores.append(s)
     return sum(scores) / len(scores) if scores else None
 
 
 def mean_score(agent_runs: list, conversations: list[str]) -> float | None:
-    """Mean correctness score across all runs and conversations."""
+    """Mean score across runs and scenarios, counting technical failures as zero."""
     scores = []
     for results in agent_runs:
         if results is None:
@@ -413,7 +492,7 @@ def bold_best(values: dict[str, str | None], best_val, cmp="max") -> dict[str, s
         if text is None:
             result[a] = "N/A"
         elif best_val is not None and text == best_val:
-            result[a] = f"**{text}**"
+            result[a] = winner_cell(text, True)
         else:
             result[a] = text
     return result
@@ -440,7 +519,7 @@ def generate_overview_table(
         else:
             text = f"{pcts[a]}%"
             if pcts[a] == best_pct:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| Pass rate | {' | '.join(cells)} |")
 
@@ -455,7 +534,7 @@ def generate_overview_table(
         else:
             text = f"{s:.2f}"
             if best_mean is not None and s == best_mean:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| Avg score | {' | '.join(cells)} |")
 
@@ -470,7 +549,7 @@ def generate_overview_table(
         else:
             text = format_duration(d)
             if best_dur is not None and d == best_dur:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| Avg duration | {' | '.join(cells)} |")
 
@@ -540,7 +619,7 @@ def phase_rate_cell(completed: int, total: int, bold: bool = False) -> str:
         return "N/A"
     pct = round(100 * completed / total)
     text = f"{pct}% ({completed}/{total})"
-    return f"**{text}**" if bold else text
+    return winner_cell(text, bold)
 
 
 def phase_breakdown_cell(agent_amended: list, cid: str, agent: str) -> str:
@@ -640,7 +719,7 @@ def generate_duration_table(
                 anchor = anchor_id(a, cid)
                 text = f"[{format_duration(d)}](#{anchor})"
                 if best is not None and d == best:
-                    text = f"**{text}**"
+                    text = winner_cell(text, True)
                 cells.append(text)
         cid_anchor = cid.lower().replace(" ", "-")
         lines.append(f"| [{cid}](#{cid_anchor}) | {' | '.join(cells)} |")
@@ -656,7 +735,7 @@ def generate_duration_table(
         else:
             text = format_duration(d)
             if best_mean is not None and d == best_mean:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| **Average** | {' | '.join(cells)} |")
 
@@ -706,7 +785,7 @@ def generate_summary_table(
         for a in agent_names:
             cell = score_cell(agent_runs[a], cid, a)
             if best is not None and avg_scores[a] is not None and avg_scores[a] == best:
-                cell = f"**{cell}**"
+                cell = winner_cell(cell, True)
             cells.append(cell)
         lines.append(f"| [{cid}](#{anchor}) | {' | '.join(cells)} |")
     scores = {a: overall_score(agent_runs[a], conversations) for a in agent_names}
@@ -722,6 +801,20 @@ def generate_summary_table(
         for a in agent_names
     )
     lines.append(f"| **Pass rate** | {overall} |")
+
+    mean_scores = {a: mean_score(agent_runs[a], conversations) for a in agent_names}
+    best_mean = max((s for s in mean_scores.values() if s is not None), default=None)
+    avg_score_cells = []
+    for agent in agent_names:
+        score = mean_scores[agent]
+        if score is None:
+            avg_score_cells.append("N/A")
+            continue
+        cell = f"{score:.2f}"
+        if best_mean is not None and score == best_mean:
+            cell = winner_cell(cell, True)
+        avg_score_cells.append(cell)
+    lines.append(f"| **Avg score** | {' | '.join(avg_score_cells)} |")
     return "\n".join(lines)
 
 
@@ -836,6 +929,11 @@ def generate_scenario_details(
                         response = entry["response"]
                         break
 
+                errors = [
+                    r["reason"] for r in conv_results
+                    if r["result"] == "ERROR" and r.get("reason")
+                ]
+                response = append_outcome(response or "", errors)
                 if response:
                     lines.append("````markdown")
                     lines.append(strip_request_section(response).strip())
@@ -913,7 +1011,11 @@ def generate_report(eval_dir: Path) -> str:
     lines.append("## Correctness")
     lines.append("")
     lines.append("Passed repeats / total repeats."
-                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass).")
+                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass)."
+                 " Technical failures count as 0 in score averages.")
+    lines.append("")
+    lines.append("Legend: 🟢 100% pass rate · 🔴 0% pass rate · "
+                 "❌ Technical failure in at least one run (Status = Failed).")
     lines.append("")
     lines.append(generate_summary_table(conversations, agent_names, agent_runs))
     lines.append("")
@@ -1053,7 +1155,7 @@ def main():
 
     eval_dir = Path(args.eval_dir)
     if not eval_dir.is_dir():
-        print(f"Error: {eval_dir} is not a directory", file=sys.stderr)
+        print(f"ERROR: {eval_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     md = generate_report(eval_dir)

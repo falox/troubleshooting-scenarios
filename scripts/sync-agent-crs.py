@@ -8,6 +8,14 @@ import sys
 import yaml
 
 
+class AgentConfigError(ValueError):
+    """Raised when an active agent has an invalid system configuration."""
+
+    def __init__(self, errors: list[str]):
+        self.errors = errors
+        super().__init__("; ".join(errors))
+
+
 def extract_agents(system_yaml_path: str) -> list[dict]:
     """Extract active agents from a system configuration YAML.
 
@@ -22,26 +30,34 @@ def extract_agents(system_yaml_path: str) -> list[dict]:
 
     active_names = agents_config.get("default", {}).get("agent", [])
     result = []
+    errors = []
 
     for agent_name in active_names:
-        agent = agents_config.get(agent_name, {})
+        agent = agents_config.get(agent_name) or {}
         description = agent.get("description", "")
         parts = description.split("|", 1)
-        if len(parts) != 2:
-            print(
-                f"WARNING: {agent_name}: description '{description}' "
-                f"not in provider|model format, skipping",
-                file=sys.stderr,
+        if len(parts) != 2 or not all(part.strip() for part in parts):
+            errors.append(
+                f"{agent_name}: description '{description}' "
+                "not in provider|model format"
             )
             continue
 
-        provider, model = parts
+        agent_ref = agent.get("agent_ref", "")
+        if not agent_ref:
+            errors.append(f"{agent_name}: agent_ref is required")
+            continue
+
+        provider, model = (part.strip() for part in parts)
         result.append({
-            "name": agent.get("agent_ref", ""),
+            "name": agent_ref,
             "provider": provider,
             "model": model,
             "namespace": agent.get("namespace", "openshift-lightspeed"),
         })
+
+    if errors:
+        raise AgentConfigError(errors)
 
     return result
 
@@ -165,7 +181,6 @@ def check_agent_crs(agents: list[dict]) -> bool:
         print("Run 'make setup-ols-agentic' to synchronize the Agent CRs.", file=sys.stderr)
         return False
 
-    print(f"Agent CRs are synchronized ({len(agents)} configured).")
     return True
 
 
@@ -182,9 +197,20 @@ def main():
     )
     args = parser.parse_args()
 
-    agents = extract_agents(args.system_yaml)
+    try:
+        agents = extract_agents(args.system_yaml)
+    except AgentConfigError as error:
+        print(
+            f"ERROR: Invalid agent configuration in {args.system_yaml}.",
+            file=sys.stderr,
+        )
+        for detail in error.errors:
+            print(f"  - {detail}", file=sys.stderr)
+        sys.exit(1)
+
     if not agents:
-        print("No agents configured; Agent CR check passed." if args.check else "No agents to sync.")
+        if not args.check:
+            print("No agents to sync.")
         return
 
     if args.check:

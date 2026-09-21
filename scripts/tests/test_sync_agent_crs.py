@@ -66,7 +66,7 @@ def test_extract_agents(tmp_path):
     }
 
 
-def test_extract_agents_skips_missing_provider(tmp_path, capsys):
+def test_extract_agents_rejects_missing_provider(tmp_path):
     config = textwrap.dedent("""\
         agents:
           enabled: true
@@ -82,12 +82,11 @@ def test_extract_agents_skips_missing_provider(tmp_path, capsys):
     system_yaml = tmp_path / "system.yaml"
     system_yaml.write_text(config)
 
-    agents = mod.extract_agents(str(system_yaml))
+    with pytest.raises(mod.AgentConfigError) as error:
+        mod.extract_agents(str(system_yaml))
 
-    assert len(agents) == 0
-    captured = capsys.readouterr()
-    assert "agent-bad" in captured.err
-    assert "provider|model" in captured.err
+    assert "agent-bad" in str(error.value)
+    assert "provider|model" in str(error.value)
 
 
 def test_extract_agents_disabled(tmp_path):
@@ -192,7 +191,7 @@ def test_check_agent_crs_succeeds(capsys):
         capture_output=True,
         text=True,
     )
-    assert "Agent CRs are synchronized" in capsys.readouterr().out
+    assert capsys.readouterr().out == ""
 
 
 def test_check_agent_crs_accepts_cluster_scoped_resource(capsys):
@@ -223,7 +222,7 @@ def test_check_agent_crs_accepts_cluster_scoped_resource(capsys):
     ):
         assert mod.check_agent_crs(agents) is True
 
-    assert "Agent CRs are synchronized" in capsys.readouterr().out
+    assert capsys.readouterr().out == ""
 
 
 def test_check_agent_crs_reports_missing_and_stale(capsys):

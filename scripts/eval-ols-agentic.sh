@@ -32,7 +32,7 @@ PYTHON="${VENV_DIR}/bin/python3"
 for scenario in "${SCENARIOS[@]}"; do
   if [ ! -d "$scenario" ]; then
     scenario_name="${scenario##*/}"
-    echo "Error: scenario '$scenario_name' not found. Available scenarios:"
+    echo "ERROR: scenario '$scenario_name' not found. Available scenarios:" >&2
     echo ""
     available_scenarios=()
     for d in scenarios/*/; do

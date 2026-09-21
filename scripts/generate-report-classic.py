@@ -790,7 +790,7 @@ def main():
 
     eval_dir = Path(args.eval_dir)
     if not eval_dir.is_dir():
-        print(f"Error: {eval_dir} is not a directory", file=sys.stderr)
+        print(f"ERROR: {eval_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     md = generate_report(eval_dir)

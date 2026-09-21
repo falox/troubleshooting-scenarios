@@ -145,10 +145,10 @@ function cleanup() {
 AGENT="${AGENT:-openai-gpt-5-6-luna}"
 case "$AGENT" in
     openai-gpt-5-6-luna|openai-gpt-5-6-terra) PROVIDER_NAME="openai" ;;
-    google-gemini-3-7-flash) PROVIDER_NAME="vertex-google" ;;
+    google-gemini-3.5-flash-lite|google-gemini-3-8-flash|google-gemini-3-7-flash) PROVIDER_NAME="vertex-google" ;;
     anthropic-opus-4-6|anthropic-sonnet-5) PROVIDER_NAME="vertex-anthropic" ;;
     *)
-        echo "ERROR: Unknown AGENT=${AGENT}. Valid values: openai-gpt-5-6-luna, openai-gpt-5-6-terra, google-gemini-3-7-flash, anthropic-opus-4-6, anthropic-sonnet-5" >&2
+        echo "ERROR: Unknown AGENT=${AGENT}. Valid values: openai-gpt-5-6-luna, openai-gpt-5-6-terra, google-gemini-3.5-flash-lite, google-gemini-3-8-flash, google-gemini-3-7-flash, anthropic-opus-4-6, anthropic-sonnet-5" >&2
         exit 1
         ;;
 esac

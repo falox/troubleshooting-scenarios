@@ -434,7 +434,7 @@ def main():
             args.pop(0)
             run_type = args.pop(0)
             if run_type not in ("agentic", "ols"):
-                print(f"Error: --run-type must be 'agentic' or 'ols', got '{run_type}'")
+                print(f"ERROR: --run-type must be 'agentic' or 'ols', got '{run_type}'")
                 sys.exit(1)
         else:
             break
