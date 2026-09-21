@@ -7,7 +7,8 @@
 #   GOOGLE_APPLICATION_CREDENTIALS  - Path to GCP service account JSON (Vertex AI)
 #   VERTEX_PROJECT_ID               - GCP project ID (falls back to credentials JSON)
 #   VERTEX_REGION                   - GCP region (default: us-east1)
-#   AGENT                           - Agent model to use: gpt-5.4, gemini-2.5-pro, claude-opus-4-6
+#   AGENT                           - Agent key from system-ols-agentic.yaml
+#                                     (default: openai-gpt-5-6-luna)
 #   SCENARIOS                       - Space-separated scenario list (default: all)
 #   ARTIFACT_DIR                    - CI artifact directory (default: /tmp/artifacts)
 
@@ -39,9 +40,8 @@ function setup_openai_secret() {
     echo "    OpenAI secret configured."
 }
 
-function setup_openai_agent() {
-    local AGENT_MODEL="$1"
-    echo "==> Setting up OpenAI agent with model: ${AGENT_MODEL}..."
+function setup_openai_provider() {
+    echo "==> Setting up OpenAI provider..."
 
     oc apply -f - <<EOF
 apiVersion: agentic.openshift.io/v1alpha1
@@ -54,27 +54,14 @@ spec:
   openAI:
     credentialsSecret:
       name: llm-creds-openai
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: Agent
-metadata:
-  name: default
-  namespace: openshift-lightspeed
-spec:
-  llmProvider:
-    name: openai
-  model: "${AGENT_MODEL}"
-  timeouts:
-    analysisSeconds: 600
-    executionSeconds: 600
-    verificationSeconds: 600
 EOF
-    echo "    OpenAI agent configured with model: ${AGENT_MODEL}"
+    echo "    OpenAI provider configured."
 }
 
 function setup_vertex() {
-    local AGENT_MODEL="$1"
-    echo "==> Setting up Vertex AI provider for ${AGENT_MODEL}..."
+    local PROVIDER_NAME="$1"
+    local MODEL_PROVIDER
+    echo "==> Setting up Vertex AI provider: ${PROVIDER_NAME}..."
     : "${GOOGLE_APPLICATION_CREDENTIALS:?GOOGLE_APPLICATION_CREDENTIALS must be set}"
 
     if [[ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]]; then
@@ -91,22 +78,17 @@ function setup_vertex() {
         --from-file=GOOGLE_APPLICATION_CREDENTIALS="$GOOGLE_APPLICATION_CREDENTIALS" \
         --dry-run=client -o yaml | oc apply -f -
 
-    # Determine provider type and agent name based on model
-    case "$AGENT_MODEL" in
-        claude-opus-4-6)
+    case "$PROVIDER_NAME" in
+        vertex-anthropic)
             VERTEX_REGION="${VERTEX_REGION:-us-east1}"
-            PROVIDER_NAME="vertex-anthropic"
             MODEL_PROVIDER="Anthropic"
-            AGENT_NAME="opus"
             ;;
-        gemini-2.5-pro)
+        vertex-google)
             VERTEX_REGION="global"
-            PROVIDER_NAME="vertex-google"
             MODEL_PROVIDER="Google"
-            AGENT_NAME="gemini"
             ;;
         *)
-            echo "ERROR: Unknown Vertex model: ${AGENT_MODEL}"
+            echo "ERROR: Unknown Vertex provider: ${PROVIDER_NAME}"
             exit 1
             ;;
     esac
@@ -125,29 +107,15 @@ spec:
     modelProvider: ${MODEL_PROVIDER}
     credentialsSecret:
       name: llm-creds-vertex
----
-apiVersion: agentic.openshift.io/v1alpha1
-kind: Agent
-metadata:
-  name: ${AGENT_NAME}
-  namespace: $NAMESPACE
-spec:
-  llmProvider:
-    name: ${PROVIDER_NAME}
-  model: "${AGENT_MODEL}"
-  timeouts:
-    analysisSeconds: 300
-    executionSeconds: 300
-    verificationSeconds: 300
 EOF
-    echo "    Vertex AI provider configured: ${MODEL_PROVIDER} with model ${AGENT_MODEL}"
+    echo "    Vertex AI provider configured: ${MODEL_PROVIDER}"
 }
 
 function run_evals() {
     echo "==> Running agentic evaluations for agent: ${AGENT}"
     cd "$AGENTIC_DIR"
 
-    # Run setup (system-ols-agentic.yaml used as-is)
+    # Create Agent CRs from system-ols-agentic.yaml.
     make setup-ols-agentic
 
     # Run evals with AGENT variable
@@ -173,35 +141,32 @@ function cleanup() {
     make cleanup-ols-agentic || true
 }
 
-trap cleanup EXIT
+# Use the same agent keys as system-ols-agentic.yaml.
+AGENT="${AGENT:-openai-gpt-5-6-luna}"
+case "$AGENT" in
+    openai-gpt-5-6-luna|openai-gpt-5-6-terra) PROVIDER_NAME="openai" ;;
+    google-gemini-3-7-flash) PROVIDER_NAME="vertex-google" ;;
+    anthropic-opus-4-6|anthropic-sonnet-5) PROVIDER_NAME="vertex-anthropic" ;;
+    *)
+        echo "ERROR: Unknown AGENT=${AGENT}. Valid values: openai-gpt-5-6-luna, openai-gpt-5-6-terra, google-gemini-3-7-flash, anthropic-opus-4-6, anthropic-sonnet-5" >&2
+        exit 1
+        ;;
+esac
 
-# Default to gpt-5.4 if not specified
-AGENT="${AGENT:-gpt-5.4}"
+trap cleanup EXIT
 
 echo "==> Running agentic evaluations for agent: ${AGENT}"
 
 install_operator
 
 echo "==> Configuring LLM providers..."
-case "$AGENT" in
-    gpt-5.4)
-        # OpenAI agent - needs secret for both agent and judge
-        setup_openai_secret
-        setup_openai_agent "$AGENT"
+setup_openai_secret
+case "$PROVIDER_NAME" in
+    openai)
+        setup_openai_provider
         ;;
-    gemini-2.5-pro)
-        # Google Gemini agent - needs Vertex for agent, OpenAI secret for judge
-        setup_openai_secret  # For judge LLM only (no Agent CR needed)
-        setup_vertex "$AGENT"
-        ;;
-    claude-opus-4-6)
-        # Anthropic Opus agent - needs Vertex for agent, OpenAI secret for judge
-        setup_openai_secret  # For judge LLM only (no Agent CR needed)
-        setup_vertex "$AGENT"
-        ;;
-    *)
-        echo "ERROR: Unknown AGENT=${AGENT}. Valid values: gpt-5.4, gemini-2.5-pro, claude-opus-4-6"
-        exit 1
+    vertex-google|vertex-anthropic)
+        setup_vertex "$PROVIDER_NAME"
         ;;
 esac
 

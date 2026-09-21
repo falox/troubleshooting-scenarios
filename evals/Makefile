@@ -77,6 +77,7 @@ SCENARIO ?=
 TAG ?=
 AGENT ?=
 SETUP_MODE ?= run
+PREVIEW ?= 0
 
 COMMA := ,
 EMPTY :=
@@ -109,22 +110,34 @@ else
   OLS_CLASSIC_SCENARIOS := $(_OLS_CLASSIC_CANDIDATES)
 endif
 
-.PHONY: setup-ols-agentic setup-ols-classic eval-ols-agentic eval-ols-classic cleanup-ols-agentic cleanup-ols-classic help
+.PHONY: setup-venv setup-ols-agentic setup-ols-classic eval-ols-agentic eval-ols-classic cleanup-ols-agentic cleanup-ols-classic help
 
-setup-ols-agentic:
-	@$(SCRIPTS_DIR)/setup-venv.sh
+setup-ols-agentic: setup-venv
 	@../venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py system-ols-agentic.yaml
 	@echo ""
 	@echo "NOTE: Install lightspeed-agentic-operator manually by following:"
 	@echo "  https://github.com/openshift/lightspeed-agentic-operator/tree/main/hack/quickstart"
 	@echo "This will be automated in the future."
 
-setup-ols-classic: setup-ols-agentic
+setup-venv:
+	@$(SCRIPTS_DIR)/setup-venv.sh
+
+setup-ols-classic: setup-venv
 	@bash $(SCRIPTS_DIR)/preflight.sh
 	@bash $(SCRIPTS_DIR)/setup-ols.sh
 
 eval-ols-agentic:
-ifeq ($(OLS_AGENTIC_SCENARIOS),)
+ifeq ($(PREVIEW),1)
+	@echo "Preview only: no setup, evaluation, or cleanup will run."
+	@echo "AGENT: $(if $(AGENT),$(AGENT),default agents from system-ols-agentic.yaml)"
+	@echo "SETUP_MODE: $(SETUP_MODE)"
+	@echo "Matched scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"
+ifneq ($(OLS_AGENTIC_SCENARIOS),)
+	@printf '  %s\n' $(OLS_AGENTIC_SCENARIOS)
+else
+	@echo "No scenarios match the given filters."
+endif
+else ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
 	@bash $(SCRIPTS_DIR)/eval-ols-agentic.sh \
@@ -171,12 +184,14 @@ help:
 	@echo "Options:"
 	@echo "  SCENARIO=...              Comma-separated scenarios to run (default: all)"
 	@echo "  TAG=...                   Filter scenarios by tag (default: none)"
+	@echo "  PREVIEW=1                List matched OLS agentic scenarios without running them"
 	@echo "  SETUP_MODE=run|scenario   Setup/cleanup lifecycle (default: run)"
 	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
 	@echo "    scenario: per scenario - for read-only agents, parallel OK"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make eval-ols-agentic TAG=core SETUP_MODE=scenario"
+	@echo "  make eval-ols-agentic TAG=core PREVIEW=1"
 	@echo "  make eval-ols-classic SCENARIO=blocked_deployment"
 	@echo ""
 	@echo "OLS agentic scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"

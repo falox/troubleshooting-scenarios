@@ -94,37 +94,40 @@ for scenario in "${SCENARIOS[@]}"; do
   echo "  $scenario"
 done
 
+run_scenario() {
+  local scenario="$1"
+  shift
+  local scenario_status=0
+
+  echo ""
+  echo "==> Setup: $scenario"
+  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  if [ "$scenario_status" -eq 0 ]; then
+    bash "$SCRIPT_DIR/run-agentic-evals.sh" \
+      --system-config "$SYSTEM_CONFIG" \
+      --evals "$scenario/evals-ols-agentic.yaml" \
+      --eval-dir "$EVAL_DIR" \
+      "$@" \
+      "${TAG_FLAGS[@]}" || scenario_status=$?
+  fi
+  echo "==> Cleanup: $scenario"
+  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  return "$scenario_status"
+}
+
 if [ "$SETUP_MODE" = "run" ]; then
   for scenario in "${SCENARIOS[@]}"; do
     for agent in "${AGENTS[@]}"; do
       for run in $(seq 1 "$REPEAT"); do
-        echo ""
-        echo "==> Setup: $scenario"
-        if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh"; fi
-        bash "$SCRIPT_DIR/run-agentic-evals.sh" \
-          --system-config "$SYSTEM_CONFIG" \
-          --evals "$scenario/evals-ols-agentic.yaml" \
-          --eval-dir "$EVAL_DIR" \
+        run_scenario "$scenario" \
           --agent "$agent" \
-          --run-index "$run" \
-          "${TAG_FLAGS[@]}"
-        echo "==> Cleanup: $scenario"
-        if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+          --run-index "$run"
       done
     done
   done
 else
   for scenario in "${SCENARIOS[@]}"; do
-    echo ""
-    echo "==> Setup: $scenario"
-    if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh"; fi
-    bash "$SCRIPT_DIR/run-agentic-evals.sh" \
-      --system-config "$SYSTEM_CONFIG" \
-      --evals "$scenario/evals-ols-agentic.yaml" \
-      --eval-dir "$EVAL_DIR" \
-      "${TAG_FLAGS[@]}"
-    echo "==> Cleanup: $scenario"
-    if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+    run_scenario "$scenario"
   done
 fi
 

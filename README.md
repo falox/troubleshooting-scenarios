@@ -36,6 +36,7 @@ make eval-ols-agentic                                          # run all scenari
 make eval-ols-agentic SCENARIO=stuck_rollout                   # one scenario
 make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota   # multiple
 make eval-ols-agentic TAG=alert                                # filter by tag
+make eval-ols-agentic TAG=alert PREVIEW=1                      # preview matched scenarios
 ```
 
 ### OLS Classic

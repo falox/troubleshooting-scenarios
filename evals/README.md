@@ -19,6 +19,18 @@ cd evals/scenarios/blocked_deployment
 
 See the [root README](../README.md) for OLS Agentic and OLS Classic setup, Make commands, and requirements.
 
+To preview the OLS Agentic scenarios selected by the same `SCENARIO` and `TAG` filters:
+
+```bash
+cd evals
+make eval-ols-agentic TAG=core PREVIEW=1
+make eval-ols-agentic SCENARIO=blocked_deployment,failed_job PREVIEW=1
+```
+
+The preview shows the matched scenarios, their total count, `AGENT`, and `SETUP_MODE`.
+If `AGENT` is not set, it shows that the default agents come from `system-ols-agentic.yaml`.
+It does not run setup, evaluations, cleanup, or report generation. It needs no cluster connection or venv.
+
 ## Conventions
 
 Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-adapter) have:
