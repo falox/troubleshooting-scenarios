@@ -140,6 +140,12 @@ endif
 else ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
+	@if [ ! -x ../venv/bin/python3 ]; then \
+	  echo "ERROR: Agent CRs may not be synchronized." >&2; \
+	  echo "Run 'make setup-ols-agentic' before running evaluations." >&2; \
+	  exit 1; \
+	fi
+	@../venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py --check system-ols-agentic.yaml
 	@bash $(SCRIPTS_DIR)/eval-ols-agentic.sh \
 	  --system-config system-ols-agentic.yaml \
 	  --setup-mode $(SETUP_MODE) \

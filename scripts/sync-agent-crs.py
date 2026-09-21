@@ -74,6 +74,101 @@ def apply_cr(cr: dict) -> None:
     )
 
 
+def get_agent_crs() -> list[dict] | None:
+    """Read all Agent CRs from the cluster."""
+    try:
+        result = subprocess.run(
+            [
+                "oc",
+                "get",
+                "agents.agentic.openshift.io",
+                "--all-namespaces",
+                "--output",
+                "json",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        details = getattr(error, "stderr", "") or ""
+        print("ERROR: Could not read Agent CRs from the cluster.", file=sys.stderr)
+        if details.strip():
+            print(details.strip(), file=sys.stderr)
+        return None
+
+    resources = yaml.safe_load(result.stdout) or {}
+    return resources.get("items", [])
+
+
+def check_agent_crs(agents: list[dict]) -> bool:
+    """Check that configured Agent CRs exist and match the system config."""
+    current_crs = get_agent_crs()
+    if current_crs is None:
+        print("Run 'make setup-ols-agentic' to synchronize the Agent CRs.", file=sys.stderr)
+        return False
+
+    current_by_name = {}
+    for cr in current_crs:
+        name = cr.get("metadata", {}).get("name")
+        if name:
+            current_by_name.setdefault(name, []).append(cr)
+    mismatches = []
+
+    for agent in agents:
+        candidates = current_by_name.get(agent["name"], [])
+        cr = next(
+            (
+                candidate
+                for candidate in candidates
+                if candidate.get("metadata", {}).get("namespace") == agent["namespace"]
+            ),
+            None,
+        )
+        if cr is None and len(candidates) == 1:
+            candidate = candidates[0]
+            candidate_namespace = candidate.get("metadata", {}).get("namespace")
+            if not candidate_namespace:
+                # Cluster-scoped Agent resources do not return a namespace.
+                cr = candidate
+            else:
+                mismatches.append(
+                    f"{agent['namespace']}/{agent['name']} exists in namespace "
+                    f"'{candidate_namespace}'"
+                )
+        if cr is None:
+            if not candidates:
+                mismatches.append(f"missing {agent['namespace']}/{agent['name']}")
+            continue
+
+        spec = cr.get("spec", {})
+        provider = spec.get("llmProvider", {}).get("name")
+        if provider != agent["provider"]:
+            mismatches.append(
+                f"{agent['namespace']}/{agent['name']} has provider "
+                f"'{provider}', expected '{agent['provider']}'"
+            )
+        if spec.get("model") != agent["model"]:
+            mismatches.append(
+                f"{agent['namespace']}/{agent['name']} has model "
+                f"'{spec.get('model')}', expected '{agent['model']}'"
+            )
+
+    if mismatches:
+        print(
+            "ERROR: Agent CRs are not synchronized with "
+            "system-ols-agentic.yaml.",
+            file=sys.stderr,
+        )
+        for mismatch in mismatches:
+            print(f"  - {mismatch}", file=sys.stderr)
+        print("Run 'make setup-ols-agentic' to synchronize the Agent CRs.", file=sys.stderr)
+        return False
+
+    print(f"Agent CRs are synchronized ({len(agents)} configured).")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description="Sync Agent CRs from system configuration")
     parser.add_argument("system_yaml", help="Path to system configuration YAML")
@@ -81,11 +176,20 @@ def main():
         "--dry-run", action="store_true",
         help="Print CRs without applying",
     )
+    parser.add_argument(
+        "--check", action="store_true",
+        help="Check that Agent CRs match the system configuration",
+    )
     args = parser.parse_args()
 
     agents = extract_agents(args.system_yaml)
     if not agents:
-        print("No agents to sync.")
+        print("No agents configured; Agent CR check passed." if args.check else "No agents to sync.")
+        return
+
+    if args.check:
+        if not check_agent_crs(agents):
+            sys.exit(1)
         return
 
     if not args.dry_run:

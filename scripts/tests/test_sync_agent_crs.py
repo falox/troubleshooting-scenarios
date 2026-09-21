@@ -1,6 +1,7 @@
 """Tests for sync-agent-crs.sh YAML parsing logic."""
 
 import json
+import subprocess
 import textwrap
 from pathlib import Path
 from unittest.mock import patch
@@ -145,3 +146,128 @@ def test_generate_cr():
             "model": "gpt-5.6-luna",
         },
     }
+
+
+def test_check_agent_crs_succeeds(capsys):
+    agents = [{
+        "name": "openai-gpt-5-6-luna",
+        "provider": "openai",
+        "model": "gpt-5.6-luna",
+        "namespace": "openshift-lightspeed",
+    }]
+    response = {
+        "items": [
+            {
+                "metadata": {
+                    "name": "openai-gpt-5-6-luna",
+                    "namespace": "openshift-lightspeed",
+                },
+                "spec": {
+                    "llmProvider": {"name": "openai"},
+                    "model": "gpt-5.6-luna",
+                },
+            }
+        ]
+    }
+
+    with patch.object(
+        mod.subprocess,
+        "run",
+        return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(response), stderr=""
+        ),
+    ) as run:
+        assert mod.check_agent_crs(agents) is True
+
+    run.assert_called_once_with(
+        [
+            "oc",
+            "get",
+            "agents.agentic.openshift.io",
+            "--all-namespaces",
+            "--output",
+            "json",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "Agent CRs are synchronized" in capsys.readouterr().out
+
+
+def test_check_agent_crs_accepts_cluster_scoped_resource(capsys):
+    agents = [{
+        "name": "openai-gpt-5-6-luna",
+        "provider": "openai",
+        "model": "gpt-5.6-luna",
+        "namespace": "openshift-lightspeed",
+    }]
+    response = {
+        "items": [
+            {
+                "metadata": {"name": "openai-gpt-5-6-luna"},
+                "spec": {
+                    "llmProvider": {"name": "openai"},
+                    "model": "gpt-5.6-luna",
+                },
+            }
+        ]
+    }
+
+    with patch.object(
+        mod.subprocess,
+        "run",
+        return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(response), stderr=""
+        ),
+    ):
+        assert mod.check_agent_crs(agents) is True
+
+    assert "Agent CRs are synchronized" in capsys.readouterr().out
+
+
+def test_check_agent_crs_reports_missing_and_stale(capsys):
+    agents = [
+        {
+            "name": "openai-gpt-5-6-luna",
+            "provider": "openai",
+            "model": "gpt-5.6-luna",
+            "namespace": "openshift-lightspeed",
+        },
+        {
+            "name": "google-gemini-3-7-flash",
+            "provider": "vertex-google",
+            "model": "gemini-3.7-flash",
+            "namespace": "openshift-lightspeed",
+        },
+    ]
+    response = {
+        "items": [
+            {
+                "metadata": {
+                    "name": "openai-gpt-5-6-luna",
+                    "namespace": "openshift-lightspeed",
+                },
+                "spec": {
+                    "llmProvider": {"name": "old-provider"},
+                    "model": "old-model",
+                },
+            }
+        ]
+    }
+
+    with patch.object(
+        mod.subprocess,
+        "run",
+        return_value=subprocess.CompletedProcess(
+            args=[], returncode=0, stdout=json.dumps(response), stderr=""
+        ),
+    ):
+        assert mod.check_agent_crs(agents) is False
+
+    output = capsys.readouterr().err
+    assert "not synchronized" in output
+    assert "old-provider" in output
+    assert "old-model" in output
+    assert "missing openshift-lightspeed/google-gemini-3-7-flash" in output
+    assert "make setup-ols-agentic" in output

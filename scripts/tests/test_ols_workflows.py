@@ -106,9 +106,28 @@ def test_ci_agent_provisioning(workspace, agent):
         f"#!{sys.executable}\n"
         "import os, sys, yaml, json\n"
         "if sys.argv[1] == 'apply':\n"
+        "    state_path = os.environ['CR_STATE']\n"
+        "    try:\n"
+        "        with open(state_path) as f: resources = json.load(f)\n"
+        "    except FileNotFoundError:\n"
+        "        resources = []\n"
         "    with open(os.environ['CR_LOG'], 'a') as f:\n"
         "        for doc in yaml.safe_load_all(sys.stdin):\n"
-        "            if doc: f.write(json.dumps(doc) + '\\n')\n",
+        "            if doc:\n"
+        "                f.write(json.dumps(doc) + '\\n')\n"
+        "                resources = [r for r in resources if not (\n"
+        "                    r.get('kind') == doc.get('kind') and\n"
+        "                    r.get('metadata', {}).get('name') == doc.get('metadata', {}).get('name') and\n"
+        "                    r.get('metadata', {}).get('namespace') == doc.get('metadata', {}).get('namespace')\n"
+        "                )]\n"
+        "                resources.append(doc)\n"
+        "    with open(state_path, 'w') as f: json.dump(resources, f)\n"
+        "elif sys.argv[1] == 'get':\n"
+        "    try:\n"
+        "        with open(os.environ['CR_STATE']) as f: resources = json.load(f)\n"
+        "    except FileNotFoundError:\n"
+        "        resources = []\n"
+        "    print(json.dumps({'items': [r for r in resources if r.get('kind') == 'Agent']}))\n",
     )
     executable(
         workspace / "scripts/setup-venv.sh", "#!/bin/bash\nexit 0\n"
@@ -131,6 +150,7 @@ def test_ci_agent_provisioning(workspace, agent):
         "ARTIFACT_DIR": str(workspace / "artifacts"),
         "MAKE_LOG": str(workspace / "make.log"),
         "CR_LOG": str(workspace / "cr.log"),
+        "CR_STATE": str(workspace / "cr-state.json"),
     }
     env.pop("AGENT", None)
     if agent is not None:

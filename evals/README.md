@@ -31,6 +31,10 @@ The preview shows the matched scenarios, their total count, `AGENT`, and `SETUP_
 If `AGENT` is not set, it shows that the default agents come from `system-ols-agentic.yaml`.
 It does not run setup, evaluations, cleanup, or report generation. It needs no cluster connection or venv.
 
+Before a real evaluation, `make eval-ols-agentic` checks that the Agent CRs match
+`system-ols-agentic.yaml`. If they are missing or stale, it stops and asks you to
+run `make setup-ols-agentic`.
+
 ## Conventions
 
 Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-adapter) have:
