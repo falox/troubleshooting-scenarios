@@ -63,7 +63,7 @@ if ! curl -ksf --connect-timeout 2 "https://localhost:8443/docs" >/dev/null 2>&1
   oc port-forward -n openshift-lightspeed deployment/lightspeed-app-server 8443:8443 >/dev/null 2>&1 &
   pf_pid=$!
   ols_ok=false
-  for i in $(seq 1 30); do
+  for _ in $(seq 1 30); do
     if curl -ksf --connect-timeout 2 "https://localhost:8443/docs" >/dev/null 2>&1; then ols_ok=true; break; fi
     sleep 2
   done

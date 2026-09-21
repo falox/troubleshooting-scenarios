@@ -1,6 +1,6 @@
 ##@ Linting
 
-LINT_DIRS ?= labs kiali-ossm kubevirt netobserv
+LINT_DIRS ?= evals labs kiali-ossm kubevirt netobserv scripts
 TOOLS_VENV ?= .tools
 TOOLS_PYTHON ?= python3
 TOOLS_REQUIREMENTS := requirements-tools.txt

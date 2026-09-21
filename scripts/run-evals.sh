@@ -81,7 +81,7 @@ fi
 # 3. Wait for OLS endpoint
 echo "==> Waiting for OLS at ${OLS_URL}..."
 ok=false
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
   case "$OLS_URL" in
     https://*) check_cmd="curl -ksf" ;;
     *)         check_cmd="curl -sf" ;;

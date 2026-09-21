@@ -5,7 +5,6 @@ set -euo pipefail
 
 FIXTURE_DIR="$(cd "$(dirname "$0")/fixtures" && pwd)"
 NS="job-scheduler"
-APP="scheduler-app"
 
 echo "Applying priorityclass scenario manifests in namespace ${NS}…"
 oc apply -f "$FIXTURE_DIR/manifest.yaml"

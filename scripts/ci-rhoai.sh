@@ -67,6 +67,7 @@ if [[ "${RHOAI_PROVISION:-false}" == "true" ]]; then
 
   # 6. Fetch vLLM image from RHOAI template
   echo "--> Fetching vLLM image..."
+  # shellcheck source=/dev/null
   source "$RHOAI_DIR/scripts/fetch-vllm-image.sh"
 
   # 7. Deploy vLLM (ServingRuntime + InferenceService)
@@ -76,6 +77,7 @@ if [[ "${RHOAI_PROVISION:-false}" == "true" ]]; then
   # 8. Get vLLM pod info and KSVC_URL
   echo "--> Getting vLLM pod info..."
   "$RHOAI_DIR/scripts/get-vllm-pod-info.sh"
+  # shellcheck source=/dev/null
   source pod.env
   export KSVC_URL
   echo "vLLM endpoint: $KSVC_URL"

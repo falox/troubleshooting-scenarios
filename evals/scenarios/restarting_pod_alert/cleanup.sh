@@ -17,10 +17,7 @@ fi
 umask 077
 TMP_DIR="$(mktemp -d)"
 GET_ERROR="$TMP_DIR/get.err"
-cleanup_runtime() {
-  rm -rf "$TMP_DIR"
-}
-trap cleanup_runtime EXIT
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 CURRENT_CONTEXT="$(timeout --foreground "$REQUEST_TIMEOUT" oc config current-context)"
 echo "Current OpenShift context: $CURRENT_CONTEXT"

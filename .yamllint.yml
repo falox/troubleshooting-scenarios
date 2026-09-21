@@ -2,5 +2,8 @@
 extends: default
 
 rules:
+  document-start: disable
+  indentation:
+    indent-sequences: whatever
   line-length:
     max: 200

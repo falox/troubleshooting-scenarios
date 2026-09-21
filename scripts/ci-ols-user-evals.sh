@@ -31,9 +31,6 @@ done
 # Default to all three suites if not specified
 SUITES="${EVAL_SUITES:-kiali-ossm kubevirt netobserv}"
 
-# Save the key for the judge LLM — we may need to hide it from setup-ols.sh
-JUDGE_OPENAI_API_KEY="$OPENAI_API_KEY"
-
 # ── Auto-extract GCP project ID from SA JSON if needed ───────────────
 
 if [ -n "${GCP_SERVICE_ACCOUNT_JSON:-}" ] && [ -f "${GCP_SERVICE_ACCOUNT_JSON}" ] && [ -z "${GCP_PROJECT_ID:-}" ]; then
@@ -111,12 +108,12 @@ run_suite() {
   export OPENAI_API_KEY="$SAVED_OPENAI_KEY"
 
   echo "==> Running evaluations..."
-  local EVAL_ARGS="OLS_PROVIDER=${PROVIDER}"
-  [ -n "$MODEL" ] && EVAL_ARGS+=" OLS_MODEL=${MODEL}"
+  local -a EVAL_ARGS=("OLS_PROVIDER=${PROVIDER}")
+  [ -n "$MODEL" ] && EVAL_ARGS+=("OLS_MODEL=${MODEL}")
 
   # Run evals and capture exit status
   local EVAL_STATUS=0
-  if ! make evals $EVAL_ARGS; then
+  if ! make evals "${EVAL_ARGS[@]}"; then
     echo "ERROR: make evals failed for ${SUITE}"
     EVAL_STATUS=1
   fi

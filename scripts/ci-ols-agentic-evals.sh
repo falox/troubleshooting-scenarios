@@ -151,14 +151,14 @@ function run_evals() {
     make setup-ols-agentic
 
     # Run evals with AGENT variable
-    local MAKE_ARGS="AGENT=${AGENT}"
+    local -a MAKE_ARGS=("AGENT=${AGENT}")
     if [[ -n "${SCENARIOS:-}" ]]; then
         # Convert space-separated SCENARIOS to comma-separated SCENARIO for Makefile
         local SCENARIO_LIST="${SCENARIOS// /,}"
-        MAKE_ARGS+=" SCENARIO=${SCENARIO_LIST}"
+        MAKE_ARGS+=("SCENARIO=${SCENARIO_LIST}")
     fi
 
-    make eval-ols-agentic $MAKE_ARGS
+    make eval-ols-agentic "${MAKE_ARGS[@]}"
 }
 
 function collect_results() {

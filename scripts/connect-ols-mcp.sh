@@ -23,7 +23,7 @@ oc rollout status deployment/lightspeed-app-server -n "$OLS_NS" --timeout=300s
 # Poll HTTP endpoint until OLS is serving
 OLS_PORT="${OLS_PORT:-8443}"
 echo "==> Waiting for OLS to respond..."
-for i in $(seq 1 30); do
+for _ in $(seq 1 30); do
   if oc exec -n "$OLS_NS" deployment/lightspeed-app-server -- \
     curl -ksf --connect-timeout 3 "https://localhost:${OLS_PORT}/docs" >/dev/null 2>&1; then
     echo "==> OLS connected to MCP and ready."
