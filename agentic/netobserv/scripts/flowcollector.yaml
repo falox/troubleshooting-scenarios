@@ -13,7 +13,7 @@ kind: FlowCollector
 metadata:
   name: cluster
 spec:
-  namespace: netobserv
+  namespace: ${NETOBSERV_NAMESPACE}
   deploymentModel: Service
   networkPolicy:
     enable: true

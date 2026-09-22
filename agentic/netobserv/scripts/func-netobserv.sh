@@ -130,6 +130,7 @@ EOM
 
 install_netobserv_flowcollector() {
   local flowcollector_file="${1}"
+  local rendered_flowcollector
 
   if [ ! -f "${flowcollector_file}" ]; then
     errormsg "FlowCollector manifest not found [${flowcollector_file}]"
@@ -142,7 +143,17 @@ install_netobserv_flowcollector() {
   ${OC} create namespace "${NETOBSERV_NAMESPACE}" --dry-run=client -o yaml | ${OC} apply -f -
 
   infomsg "Applying FlowCollector from [${flowcollector_file}] (Loki via spec.loki.monolithic.installDemoLoki)"
-  ${OC} apply -f "${flowcollector_file}"
+  rendered_flowcollector="$(mktemp)"
+  if ! sed "s|\${NETOBSERV_NAMESPACE}|${NETOBSERV_NAMESPACE}|g" "${flowcollector_file}" >"${rendered_flowcollector}"; then
+    rm -f "${rendered_flowcollector}"
+    errormsg "Failed to render FlowCollector manifest [${flowcollector_file}]"
+    exit 1
+  fi
+  if ! ${OC} apply -f "${rendered_flowcollector}"; then
+    rm -f "${rendered_flowcollector}"
+    exit 1
+  fi
+  rm -f "${rendered_flowcollector}"
 
   infomsg "Waiting for FlowCollector/cluster to become Ready (timeout=${NETOBSERV_FLOWCOLLECTOR_WAIT_TIMEOUT:-10m})"
   if ! ${OC} wait flowcollector/cluster --for=condition=Ready --timeout="${NETOBSERV_FLOWCOLLECTOR_WAIT_TIMEOUT:-10m}"; then
