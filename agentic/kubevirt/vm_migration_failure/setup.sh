@@ -68,13 +68,42 @@ spec:
   vmiName: critical-app-vm
 EOF
 
-echo "==> Waiting for migration to fail (expected due to nodeSelector pinning)..."
-if ! ${KUBECTL} wait \
-  --for=jsonpath='{.status.phase}'=Failed \
-  vmim/critical-app-vm-migration \
-  -n "${NAMESPACE}" \
-  --timeout=180s 2>/dev/null; then
-  echo "ERROR: Migration did not reach Failed after 180s."
+echo "==> Waiting for migration to fail or stall (expected due to nodeSelector pinning)..."
+deadline=$((SECONDS + 180))
+migration_ready=false
+while [ $SECONDS -lt $deadline ]; do
+  phase=$(${KUBECTL} get vmim critical-app-vm-migration -n "${NAMESPACE}" \
+    -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  case "${phase}" in
+    Failed)
+      echo "    Migration reached Failed state."
+      migration_ready=true
+      break
+      ;;
+    Scheduling)
+      # Stuck in Scheduling for 30s+ means the target pod cannot be placed
+      if [ -z "${scheduling_since:-}" ]; then
+        scheduling_since=$SECONDS
+      elif [ $((SECONDS - scheduling_since)) -ge 30 ]; then
+        echo "    Migration stuck in Scheduling (no target node available)."
+        migration_ready=true
+        break
+      fi
+      ;;
+    Succeeded)
+      echo "ERROR: Migration unexpectedly succeeded. nodeSelector may not be blocking it."
+      exit 1
+      ;;
+    *)
+      scheduling_since=""
+      ;;
+  esac
+  sleep 5
+done
+if [ "${migration_ready}" != "true" ]; then
+  phase=$(${KUBECTL} get vmim critical-app-vm-migration -n "${NAMESPACE}" \
+    -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  echo "ERROR: Migration did not fail or stall after 180s (phase: ${phase:-unknown})."
   exit 1
 fi
 

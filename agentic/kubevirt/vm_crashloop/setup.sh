@@ -15,28 +15,40 @@ echo "    VM has a cloud-init runcmd that immediately shuts it down, causing a r
 ${KUBECTL} create namespace "${NAMESPACE}" --dry-run=client -o yaml | ${KUBECTL} apply -f -
 ${KUBECTL} apply -f "${FIXTURE_DIR}/vm.yaml" -n "${NAMESPACE}"
 
-echo "==> Waiting for crashloop to become visible (up to 180s)..."
+echo "==> Waiting for crashloop to become visible (up to 600s)..."
+echo "    Under software emulation, each boot cycle may take several minutes."
 observed_signal=false
-for _ in $(seq 1 18); do
-  vmi_phase=$(${KUBECTL} get vmi web-server-vm -n "${NAMESPACE}" \
-    -o jsonpath='{.status.phase}' 2>/dev/null || true)
-  if [[ "${vmi_phase}" == "Succeeded" || "${vmi_phase}" == "Failed" ]]; then
-    # Wait for at least 2 restart cycles so the crashloop pattern is clearly visible
-    sleep 40
-    observed_signal=true
-    break
-  fi
+for _ in $(seq 1 60); do
   vm_status=$(${KUBECTL} get vm web-server-vm -n "${NAMESPACE}" \
     -o jsonpath='{.status.printableStatus}' 2>/dev/null || true)
   if [[ "${vm_status}" == "CrashLoopBackOff" || "${vm_status}" == "Stopped" ]]; then
     observed_signal=true
     break
   fi
+
+  vmi_phase=$(${KUBECTL} get vmi web-server-vm -n "${NAMESPACE}" \
+    -o jsonpath='{.status.phase}' 2>/dev/null || true)
+  if [[ "${vmi_phase}" == "Succeeded" || "${vmi_phase}" == "Failed" ]]; then
+    observed_signal=true
+    break
+  fi
+
+  if ${KUBECTL} get events -n "${NAMESPACE}" --no-headers 2>/dev/null \
+      | grep -q "web-server-vm.*Stopped"; then
+    echo "    Detected crash event. Waiting for restart cycle..."
+    sleep 30
+    observed_signal=true
+    break
+  fi
+
   sleep 10
 done
 
 if [[ "${observed_signal}" != "true" ]]; then
-  echo "ERROR: VM did not reach a crash-loop or terminal state after 180s."
+  echo "ERROR: VM did not reach a crash-loop or terminal state after 600s."
+  echo "    Events:"
+  ${KUBECTL} get events -n "${NAMESPACE}" --sort-by=.lastTimestamp 2>/dev/null \
+    | grep "web-server" | tail -10 || true
   exit 1
 fi
 
