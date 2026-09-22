@@ -95,9 +95,69 @@ for scenario in "${SCENARIOS[@]}"; do
   echo "  $scenario"
 done
 
+group_setup_script() {
+  local scenario="$1"
+  local group_dir
+  group_dir="$(dirname "$scenario")"
+  if [[ "$scenario" == */* ]] && [ -x "$group_dir/setup.sh" ]; then
+    echo "$group_dir/setup.sh"
+  fi
+}
+
+group_cleanup_script() {
+  local scenario="$1"
+  local group_dir
+  group_dir="$(dirname "$scenario")"
+  if [[ "$scenario" == */* ]] && [ -x "$group_dir/cleanup.sh" ]; then
+    echo "$group_dir/cleanup.sh"
+  fi
+}
+
+restart_port_forward() {
+  if [ -n "$pf_pid" ]; then
+    kill "$pf_pid" 2>/dev/null || true
+    wait "$pf_pid" 2>/dev/null || true
+    echo "==> Restarting port-forward after group setup..."
+    oc port-forward -n openshift-lightspeed deployment/lightspeed-app-server 8443:8443 >/dev/null 2>&1 &
+    pf_pid=$!
+  fi
+  echo "==> Waiting for OLS to be ready..."
+  local ols_ok=false
+  for _ in $(seq 1 30); do
+    if curl -ksf --connect-timeout 2 "https://localhost:8443/docs" >/dev/null 2>&1; then ols_ok=true; break; fi
+    sleep 2
+  done
+  if [ "$ols_ok" != "true" ]; then
+    echo "ERROR: OLS not reachable after group setup" >&2
+    return 1
+  fi
+}
+
 overall_status=0
+groups_setup=()
 
 for scenario in "${SCENARIOS[@]}"; do
+  grp_setup="$(group_setup_script "$scenario")"
+  if [ -n "$grp_setup" ]; then
+    already_done=false
+    for g in "${groups_setup[@]+"${groups_setup[@]}"}"; do
+      if [ "$g" = "$grp_setup" ]; then already_done=true; break; fi
+    done
+    if [ "$already_done" = "false" ]; then
+      echo ""
+      echo "==> Group setup: $grp_setup"
+      if ! bash "$grp_setup"; then
+        overall_status=$?
+        break
+      fi
+      groups_setup+=("$grp_setup")
+      if ! restart_port_forward; then
+        overall_status=1
+        break
+      fi
+    fi
+  fi
+
   echo ""
   echo "==> Setup: $scenario"
   scenario_status=0
@@ -112,6 +172,22 @@ for scenario in "${SCENARIOS[@]}"; do
   echo "==> Cleanup: $scenario"
   if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
   if [ "$scenario_status" -ne 0 ]; then overall_status=$scenario_status; break; fi
+done
+
+groups_cleanup=()
+for scenario in "${SCENARIOS[@]}"; do
+  grp_cleanup="$(group_cleanup_script "$scenario")"
+  if [ -n "$grp_cleanup" ]; then
+    already_done=false
+    for g in "${groups_cleanup[@]+"${groups_cleanup[@]}"}"; do
+      if [ "$g" = "$grp_cleanup" ]; then already_done=true; break; fi
+    done
+    if [ "$already_done" = "false" ]; then
+      echo "==> Group cleanup: $grp_cleanup"
+      bash "$grp_cleanup" || echo "WARNING: group cleanup failed (non-fatal)"
+      groups_cleanup+=("$grp_cleanup")
+    fi
+  fi
 done
 
 if [ -n "$(find "$EVAL_DIR" -name '*_summary.json' -print -quit 2>/dev/null)" ]; then

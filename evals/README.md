@@ -123,3 +123,13 @@ Scenarios with an isolated problem and direct symptom-cause correlation.
 | `unready_pod_alert_remediation` | (remediation variant of above) | HTTP readiness probe targets port 9200 but container has no HTTP server | `Analysis`<br>`Execution`<br>`Verification` | `discovery-hub` | `DiscoveryHubPodNotReady` |
 | `unscheduled_pod` | Pod stuck in Pending, not scheduled to any node | nodeSelector requires `disk-type=ssd-high-iops` but no nodes have this label | `Analysis` | `user-imports` | |
 | `failing_probe` | Pod in CrashLoopBackOff (probe failure) | Liveness probe targets port 8081 but container listens on 8080; connection refused | `Analysis` | `status-api` | |
+
+### Scenario groups
+
+Scenarios that require shared infrastructure and dedicated MCP toolsets are organized into groups.
+
+| Group | Description | Scenarios |
+|-------|-------------|-----------|
+| [`kiali-ossm`](scenarios/kiali-ossm/README.md) | Service mesh diagnostics with OSSM, Kiali, and Bookinfo | 7 |
+| [`kubevirt`](scenarios/kubevirt/README.md) | Virtual machine troubleshooting with OpenShift Virtualization | 3 |
+| [`netobserv`](scenarios/netobserv/README.md) | Network flow analysis with the NetObserv operator | 6 |

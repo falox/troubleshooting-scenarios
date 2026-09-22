@@ -67,6 +67,22 @@ _ALL_OLS_CLASSIC := \
 	failed_job \
 	failing_api_alert \
 	failing_api_alert_cross_namespace \
+	kiali-ossm/check_bookinfo_services \
+	kiali-ossm/check_istio_objects_status \
+	kiali-ossm/check_latency_bookinfo_issue \
+	kiali-ossm/check_mesh_status \
+	kiali-ossm/diagnose_bookinfo_fault_injection \
+	kiali-ossm/diagnose_bookinfo_routing \
+	kiali-ossm/troubleshoot_latency_trace \
+	kubevirt/vm_crashloop \
+	kubevirt/vm_migration_failure \
+	kubevirt/vm_storage_failure \
+	netobserv/dns_latency \
+	netobserv/dns_nxdomain \
+	netobserv/packet_drops_kernel \
+	netobserv/packet_drops_policy \
+	netobserv/tcp_rtt \
+	netobserv/tls_issues \
 	pending_pvc_alert \
 	refused_connections \
 	restarting_pod_alert \
@@ -84,9 +100,12 @@ EMPTY :=
 SPACE := $(EMPTY) $(EMPTY)
 
 ifdef SCENARIO
-  _OLS_AGENTIC_CANDIDATES := $(strip $(subst $(COMMA), ,$(SCENARIO)))
+  _SCENARIO_LIST := $(strip $(subst $(COMMA), ,$(SCENARIO)))
+  _OLS_AGENTIC_CANDIDATES := $(filter $(_ALL_OLS_AGENTIC),$(_SCENARIO_LIST))
+  _OLS_CLASSIC_CANDIDATES := $(filter $(_ALL_OLS_CLASSIC),$(_SCENARIO_LIST))
 else
   _OLS_AGENTIC_CANDIDATES := $(_ALL_OLS_AGENTIC)
+  _OLS_CLASSIC_CANDIDATES := $(_ALL_OLS_CLASSIC)
 endif
 
 ifdef TAG
@@ -95,18 +114,13 @@ ifdef TAG
       grep -q '^    - '"$$t"'$$' $(SCENARIOS_DIR)/$$d/evals-ols-agentic.yaml 2>/dev/null && echo $$d && break; \
     done; \
   done)
-else
-  OLS_AGENTIC_SCENARIOS := $(_OLS_AGENTIC_CANDIDATES)
-endif
-
-_OLS_CLASSIC_CANDIDATES := $(filter $(_OLS_AGENTIC_CANDIDATES),$(_ALL_OLS_CLASSIC))
-ifdef TAG
   OLS_CLASSIC_SCENARIOS := $(shell for d in $(_OLS_CLASSIC_CANDIDATES); do \
     for t in $(subst $(COMMA), ,$(TAG)); do \
       grep -q '^    - '"$$t"'$$' $(SCENARIOS_DIR)/$$d/evals-ols-classic.yaml 2>/dev/null && echo $$d && break; \
     done; \
   done)
 else
+  OLS_AGENTIC_SCENARIOS := $(_OLS_AGENTIC_CANDIDATES)
   OLS_CLASSIC_SCENARIOS := $(_OLS_CLASSIC_CANDIDATES)
 endif
 
@@ -129,8 +143,16 @@ setup-ols-classic: setup-venv
 eval-ols-agentic:
 ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
-	@echo "AGENT: $(if $(AGENT),$(AGENT),default agents from system-ols-agentic.yaml)"
 	@echo "SETUP_MODE: $(SETUP_MODE)"
+	@echo "Agents:"
+ifneq ($(AGENT),)
+	@printf '  %s\n' $(subst $(COMMA), ,$(AGENT))
+else
+	@python3 -c "import yaml; c=yaml.safe_load(open('system-ols-agentic.yaml')); \
+	  agents=c['agents']; \
+	  [print('  ' + agents.get(a,{}).get('description',a)) for a in agents['default']['agent']]" \
+	  2>/dev/null || echo "  (install PyYAML to resolve)"
+endif
 	@echo "Matched scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"
 ifneq ($(OLS_AGENTIC_SCENARIOS),)
 	@printf '  %s\n' $(OLS_AGENTIC_SCENARIOS)
@@ -156,7 +178,25 @@ else
 endif
 
 eval-ols-classic:
-ifeq ($(OLS_CLASSIC_SCENARIOS),)
+ifeq ($(PREVIEW),1)
+	@echo "Preview only: no setup, evaluation, or cleanup will run."
+	@echo "SETUP_MODE: $(SETUP_MODE)"
+	@echo "Agents:"
+ifneq ($(AGENT),)
+	@printf '  %s\n' $(subst $(COMMA), ,$(AGENT))
+else
+	@python3 -c "import yaml; c=yaml.safe_load(open('system-ols-classic.yaml')); \
+	  agents=c['agents']; \
+	  [print('  ' + agents.get(a,{}).get('description',a)) for a in agents['default']['agent']]" \
+	  2>/dev/null || echo "  (install PyYAML to resolve)"
+endif
+	@echo "Matched scenarios ($(words $(OLS_CLASSIC_SCENARIOS))):"
+ifneq ($(OLS_CLASSIC_SCENARIOS),)
+	@printf '  %s\n' $(OLS_CLASSIC_SCENARIOS)
+else
+	@echo "No scenarios match the given filters."
+endif
+else ifeq ($(OLS_CLASSIC_SCENARIOS),)
 	@echo "No OLS classic scenarios match the given filters."
 else
 	@bash $(SCRIPTS_DIR)/eval-ols-classic.sh \
