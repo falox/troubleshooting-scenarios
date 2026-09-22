@@ -46,6 +46,23 @@ Eval definitions for OLS Agentic. Each entry defines:
 
 Eval definitions for OLS Classic. Same structure but with `query`/`expected_response` instead of AgenticRun specs. Only add this file if the scenario is meaningful as a text Q&A.
 
+## Scenario groups
+
+Scenarios that require shared infrastructure (operators, MCP toolsets) can be organized into groups. A group is a directory under `evals/scenarios/` that contains individual scenario subdirectories plus group-level setup and cleanup:
+
+```
+group_name/
+  setup.sh            Provisions shared infrastructure (runs once per group)
+  cleanup.sh          Tears down shared infrastructure (runs once per group)
+  scripts/            Group-specific helpers
+  scenario1/          Individual scenario (same structure as above)
+  scenario2/
+```
+
+The eval runner detects grouped scenarios automatically: it runs group `setup.sh` before the first scenario in the group, and group `cleanup.sh` after all scenarios in the group complete.
+
+Grouped scenario names use the `group/scenario` format (e.g., `kubevirt/vm_crashloop`) in the Makefile variables and README tables.
+
 ## Registering the scenario
 
 After creating the scenario directory:

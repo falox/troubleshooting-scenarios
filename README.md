@@ -12,28 +12,16 @@ Reproducible fault scenarios for OpenShift clusters. Each scenario deploys a spe
 Each scenario under `evals/scenarios/` is a self-contained directory:
 
 ```
-scenario_name/
+my_scenario/
   fixtures/           Kubernetes manifests that reproduce the fault
   setup.sh            Deploys fixtures to the cluster
   cleanup.sh          Removes everything the scenario created
   evals-*.yaml        One per tool under test (e.g. OLS Agentic, OLS Classic)
 ```
 
-Scenarios that require shared infrastructure (operators, MCP toolsets) are organized into **scenario groups**. A group is a directory containing its own `setup.sh` and `cleanup.sh` for one-time infrastructure provisioning, a `scripts/` directory with group-specific helpers, and individual scenario subdirectories:
+**Scenarios are generic and not tied to OpenShift Lightspeed or any other troubleshooting tool**: they deploy real Kubernetes resources (Deployments, Services, ConfigMaps, NetworkPolicies, PrometheusRules, etc.) and create real faults on a live cluster.
 
-```
-group_name/
-  setup.sh            Provisions shared infrastructure (runs once per group)
-  cleanup.sh          Tears down shared infrastructure (runs once per group)
-  scripts/            Group-specific helpers
-  scenario1/          Individual scenario (same structure as above)
-  scenario2/
-  scenario3/
-```
-
-The eval runner detects grouped scenarios automatically and runs group setup before the first scenario in the group, then group cleanup after all scenarios in the group complete.
-
-Scenarios are generic: they deploy real Kubernetes resources (Deployments, Services, ConfigMaps, NetworkPolicies, PrometheusRules, etc.) and create real faults on a live cluster. They are not tied to any specific AI tool.
+To add a scenario, follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Running Evals for OpenShift Lightspeed
 
