@@ -76,7 +76,7 @@ _ALL_OLS_CLASSIC := \
 SCENARIO ?=
 TAG ?=
 AGENT ?=
-SETUP_MODE ?= run
+SETUP_MODE ?= scenario
 PREVIEW ?= 0
 
 COMMA := ,
@@ -191,7 +191,7 @@ help:
 	@echo "  SCENARIO=...              Comma-separated scenarios to run (default: all)"
 	@echo "  TAG=...                   Filter scenarios by tag (default: none)"
 	@echo "  PREVIEW=1                List matched OLS agentic scenarios without running them"
-	@echo "  SETUP_MODE=run|scenario   Setup/cleanup lifecycle (default: run)"
+	@echo "  SETUP_MODE=run|scenario   Setup/cleanup lifecycle (default: scenario)"
 	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
 	@echo "    scenario: per scenario - for read-only agents, parallel OK"
 	@echo ""

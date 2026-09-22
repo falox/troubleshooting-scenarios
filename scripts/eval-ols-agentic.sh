@@ -9,7 +9,7 @@ usage() {
 SYSTEM_CONFIG=""
 SCENARIOS=()
 AGENTS=()
-SETUP_MODE="run"
+SETUP_MODE="scenario"
 TAGS=()
 
 while [ $# -gt 0 ]; do
