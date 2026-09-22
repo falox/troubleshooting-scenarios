@@ -1,0 +1,21 @@
+- conversation_group_id: tcp_rtt
+  description: |
+    Application teams report slow TCP connections in namespace latency-services.
+    RCA: The service path has elevated round-trip latency that should be visible in FlowRTT data.
+    Expected: Use NetObserv metrics or flows to identify the affected path and cite numeric RTT evidence.
+  tag:
+    - classic
+    - netobserv
+    - difficulty_normal
+  turns:
+    - turn_id: tcp_rtt
+      query: >
+        Application teams report slow TCP connections and high network latency between
+        services in namespace latency-services. Use NetObserv to analyze TCP
+        round-trip time trends in the last hour.
+      expected_response: >
+        Analyzes TCP RTT using NetObserv flow metrics and/or flows with TimeFlowRttNs
+        or related RTT fields. Identifies namespaces or paths with elevated RTT in
+        latency-services, cites numeric evidence from tool output, and notes if
+        FlowRTT data is missing.
+      turn_metrics: [custom:answer_correctness]

@@ -1,0 +1,21 @@
+- conversation_group_id: packet_drops_kernel
+  description: |
+    Network traffic in namespace network-traffic shows packet loss.
+    RCA: A sustained UDP workload is intended to produce observable kernel packet-drop data.
+    Expected: Use NetObserv flow metrics and logs to identify affected nodes or workloads, drop causes, and the type of drop.
+  tag:
+    - classic
+    - netobserv
+    - difficulty_medium
+  turns:
+    - turn_id: packet_drops_kernel
+      query: >
+        Network traffic in namespace network-traffic shows packet loss.
+        Investigate kernel-level packet drops using NetObserv flow metrics and flow
+        logs. Which nodes or workloads are affected and what drop causes appear?
+      expected_response: >
+        Investigates kernel packet drops with NetObserv tools: flow metrics or
+        netobserv_list_flows with drop fields (PktDrop*, packetLoss=dropped).
+        Identifies nodes, namespaces, or workloads with drops, cites drop causes from
+        flow data when available, and distinguishes kernel drops from policy drops.
+      turn_metrics: [custom:answer_correctness]

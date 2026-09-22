@@ -107,6 +107,19 @@ Scenarios under [`kubevirt/`](kubevirt/) require OpenShift Virtualization and th
 | `kubevirt/vm_crashloop` | `web-server-vm` | cloud-init `runcmd: shutdown -h now` | `kubevirt-scenarios` |
 | `kubevirt/vm_migration_failure` | `critical-app-vm` | `nodeSelector` pins VM to one node | `kubevirt-scenarios` |
 
+### NetObserv (OLS-classic only)
+
+Scenarios under [`netobserv/`](netobserv/) require the NetObserv operator, a configured FlowCollector, and the `netobserv` MCP toolset. See [netobserv/README.md](netobserv/README.md) for setup and data requirements.
+
+| Scenario | Signal | Required feature | Namespace |
+|----------|--------|------------------|-----------|
+| `netobserv/dns_latency` | Elevated DNS latency in flows or metrics | `DNSTracking` | `name-resolution` |
+| `netobserv/dns_nxdomain` | NXDOMAIN and DNS failures | `DNSTracking` | `service-discovery` |
+| `netobserv/packet_drops_kernel` | Kernel packet drops | `PacketDrop` | `network-traffic` |
+| `netobserv/packet_drops_policy` | NetworkPolicy-related drops | `NetworkEvents`, `PacketDrop` | `service-network` |
+| `netobserv/tcp_rtt` | High TCP round-trip time | `FlowRTT` | `latency-services` |
+| `netobserv/tls_issues` | TLS and HTTPS connection errors | `NetworkEvents` | `web-services` |
+
 ### Conventions
 
 Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-manager) have:

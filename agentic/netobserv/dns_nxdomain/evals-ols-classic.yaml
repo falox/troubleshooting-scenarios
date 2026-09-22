@@ -1,0 +1,22 @@
+- conversation_group_id: dns_nxdomain
+  description: |
+    Namespace service-discovery has DNS resolution failures.
+    RCA: The workload sends queries for non-existent names, producing NXDOMAIN responses.
+    Expected: Use NetObserv flow metrics or logs to identify failing names and explain the DNS failure pattern with evidence.
+  tag:
+    - classic
+    - netobserv
+    - difficulty_normal
+  turns:
+    - turn_id: dns_nxdomain
+      query: >
+        Namespace service-discovery has DNS resolution failures. Use NetObserv
+        flow metrics and flow logs for the last hour to find NXDOMAIN responses or
+        failing query names. Report what is failing with evidence from tool output.
+      expected_response: >
+        Uses NetObserv flow metrics and/or netobserv_list_flows showing NXDOMAIN
+        responses (DnsFlagsResponseCode, failing DnsName such as
+        service-*.example.invalid). Names the target namespace service-discovery,
+        cites sample failing query names or counts from tool output, and explains the
+        DNS resolution failure pattern.
+      turn_metrics: [custom:answer_correctness]

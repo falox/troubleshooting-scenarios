@@ -72,6 +72,12 @@ OLS_CLASSIC_SCENARIOS := \
 	kiali-ossm/diagnose_bookinfo_fault_injection \
 	kiali-ossm/diagnose_bookinfo_routing \
 	kiali-ossm/troubleshoot_latency_trace \
+	netobserv/dns_latency \
+	netobserv/dns_nxdomain \
+	netobserv/packet_drops_kernel \
+	netobserv/packet_drops_policy \
+	netobserv/tcp_rtt \
+	netobserv/tls_issues \
 	kubevirt/vm_crashloop \
 	kubevirt/vm_migration_failure \
 	kubevirt/vm_storage_failure \

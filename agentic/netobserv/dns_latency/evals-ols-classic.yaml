@@ -1,0 +1,22 @@
+- conversation_group_id: dns_latency
+  description: |
+    Applications in namespace name-resolution report slow DNS lookups.
+    RCA: The affected DNS requests must be identified from NetObserv DNSTracking data.
+    Expected: Use flow metrics or flow logs to identify affected workloads or queries and cite concrete latency evidence.
+  tag:
+    - classic
+    - netobserv
+    - difficulty_normal
+  turns:
+    - turn_id: dns_latency
+      query: >
+        Applications in namespace name-resolution report slow DNS lookups
+        over the last hour. Use NetObserv network observability data to investigate
+        DNS latency and identify which workloads or queries are affected.
+      expected_response: >
+        Evidence-based investigation using NetObserv tools (netobserv_get_flow_metrics,
+        netobserv_list_flows): DNS-related flow metrics or flow fields (DnsLatencyMs,
+        DnsName). Identifies namespaces or workloads with elevated latency, cites
+        concrete values from tool output, and mentions DNSTracking or missing data if
+        flows or metrics are unavailable.
+      turn_metrics: [custom:answer_correctness]
