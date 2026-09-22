@@ -25,14 +25,13 @@ To add a scenario, follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Running Evals for OpenShift Lightspeed
 
-Scenarios include eval definitions for OpenShift Lightspeed (OLS). The [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework orchestrates each run: deploy the fault, query OLS, score the response with a judge LLM. All commands run from the `evals/` directory.
+Scenarios include eval definitions for OpenShift Lightspeed (OLS). The [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework orchestrates each run: deploy the fault, query OLS, score the response with a judge LLM.
 
 ### OLS Agentic
 
 Each scenario folder contains an `evals-ols-agentic.yaml` with the eval definitions. Configure which models to test and how many repeats per scenario in `evals/system-ols-agentic.yaml`. Running `make setup-ols-agentic` automatically syncs the Agent CRs on the cluster with the agents defined in the system config. Before a real evaluation, `make eval-ols-agentic` checks that these Agent CRs are present and match the system config; if they do not, it stops and asks you to run `make setup-ols-agentic`.
 
 ```bash
-cd evals
 make setup-ols-agentic
 make eval-ols-agentic                                          # run all scenarios
 make eval-ols-agentic SCENARIO=stuck_rollout                   # one scenario
@@ -46,7 +45,6 @@ make eval-ols-agentic TAG=alert PREVIEW=1                      # preview matched
 Each scenario folder that supports OLS Classic contains an `evals-ols-classic.yaml` with the eval definitions. Configure the OLS model and provider in `evals/system-ols-classic.yaml`.
 
 ```bash
-cd evals
 make setup-ols-classic
 make eval-ols-classic                                          # run all scenarios
 make eval-ols-classic SCENARIO=crashlooping_pod_alert          # one scenario

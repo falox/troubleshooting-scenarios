@@ -22,7 +22,6 @@ See the [root README](../README.md) for OLS Agentic and OLS Classic setup, Make 
 To preview the OLS Agentic scenarios selected by the same `SCENARIO` and `TAG` filters:
 
 ```bash
-cd evals
 make eval-ols-agentic TAG=core PREVIEW=1
 make eval-ols-agentic SCENARIO=blocked_deployment,failed_job PREVIEW=1
 ```

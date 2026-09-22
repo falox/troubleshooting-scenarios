@@ -31,18 +31,22 @@ Each scenario under `evals/scenarios/` is a self-contained directory:
 
 ### Adding or modifying scenarios
 
-When adding, removing, or renaming scenarios under `evals/scenarios/`, keep `evals/README.md` (scenario table) and `evals/Makefile` (scenario variables) in sync.
+When adding, removing, or renaming scenarios under `evals/scenarios/`, keep `evals/README.md` (scenario table) and the root `Makefile` (scenario variables) in sync.
 
 After adding or modifying a scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups.
 
 ### Root Makefile
 
-The root Makefile has maintenance targets only:
+The root Makefile has all targets. Run `make help` for the full list.
 
 ```bash
-make tools          # Install local lint tools in .tools/
-make lint           # Install tools if needed, then run all linters
-make cleanup        # Remove OLS operator + local venv
+make tools              # Install local lint tools in .tools/
+make lint               # Install tools if needed, then run all linters
+make setup-ols-agentic  # Install venv + sync Agent CRs
+make setup-ols-classic  # Install venv + OLS classic
+make eval-ols-agentic   # Run OLS agentic scenarios
+make eval-ols-classic   # Run OLS classic scenarios
+make cleanup-ols-classic # Remove venv + OLS classic
 ```
 
 ## Architecture: labs/payments-api-failure (Database Connection Exhaustion)
