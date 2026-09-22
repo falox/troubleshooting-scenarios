@@ -5,6 +5,7 @@ set -euo pipefail
 
 CNV_NS="${CNV_NS:-openshift-cnv}"
 KUBECTL="${KUBECTL:-oc}"
+CNV_MANAGED_BY_SCENARIO="${CNV_MANAGED_BY_SCENARIO:-0}"
 
 echo "==> Checking OpenShift Virtualization..."
 
@@ -45,6 +46,9 @@ else
     -o jsonpath='{.items[0].spec.configuration.developerConfiguration.useEmulation}' 2>/dev/null || true)
   if [[ "${emulation}" == "true" ]]; then
     echo "==> No KVM devices, but software emulation is enabled."
+  elif [[ "${CNV_MANAGED_BY_SCENARIO}" != "1" ]]; then
+    echo "WARNING: No KVM devices and software emulation is disabled."
+    echo "         Preserving the pre-existing CNV Subscription."
   else
     echo "==> No KVM devices on worker nodes. Enabling software emulation..."
     $KUBECTL patch subscription hco-operatorhub -n "${CNV_NS}" --type=merge \

@@ -16,7 +16,7 @@ OpenShift Virtualization requires KVM for VM execution. On cloud environments, o
 
 ## Setup and Running
 
-CNV, MCP, and scenario fixtures are set up automatically when `eval-ols-classic` runs a kubevirt scenario (via `setup.sh` in this directory). From the parent `agentic/` directory:
+CNV, MCP, and scenario fixtures are set up automatically when `eval-ols-classic` runs a kubevirt scenario (via `setup.sh` in this directory). If the CNV namespace already exists, the suite preserves that installation and does not change its emulation setting or uninstall it during cleanup. From the parent `agentic/` directory:
 
 ```bash
 make setup-ols-classic
@@ -43,3 +43,4 @@ make uninstall-cnv  # remove OpenShift Virtualization
 | `NAMESPACE` | `kubevirt-scenarios` | Namespace for scenario VMs |
 | `NODE_NAME` | First worker node | Node to pin migration VM to |
 | `KUBECTL` | `oc` | CLI tool (`oc` or `kubectl`) |
+| `CNV_NS` | `openshift-cnv` | Namespace of the OpenShift Virtualization installation |

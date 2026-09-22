@@ -13,8 +13,8 @@ require_kvm
 NODE_NAME="${NODE_NAME:-}"
 if [[ -z "${NODE_NAME}" ]]; then
   # || true prevents set -e from aborting on non-zero exit (e.g., no nodes match label)
-  NODE_NAME=$(${KUBECTL} get nodes -l node-role.kubernetes.io/worker \
-    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null) || true
+  NODE_NAME=$(${KUBECTL} get nodes -l node-role.kubernetes.io/worker --no-headers 2>/dev/null \
+    | awk '!/SchedulingDisabled/ {print $1; exit}') || true
   if [[ -z "${NODE_NAME}" ]]; then
     # Fallback: pick the first schedulable node (compact/SNO clusters)
     NODE_NAME=$(${KUBECTL} get nodes --no-headers 2>/dev/null \
@@ -69,11 +69,14 @@ spec:
 EOF
 
 echo "==> Waiting for migration to fail (expected due to nodeSelector pinning)..."
-${KUBECTL} wait \
+if ! ${KUBECTL} wait \
   --for=jsonpath='{.status.phase}'=Failed \
   vmim/critical-app-vm-migration \
   -n "${NAMESPACE}" \
-  --timeout=180s 2>/dev/null || true
+  --timeout=180s 2>/dev/null; then
+  echo "ERROR: Migration did not reach Failed after 180s."
+  exit 1
+fi
 
 echo ""
 echo "==> Migration status:"
