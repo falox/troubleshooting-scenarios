@@ -16,7 +16,7 @@ OpenShift Virtualization requires KVM for VM execution. On cloud environments, o
 
 ## Setup and Running
 
-CNV, MCP, and scenario fixtures are set up automatically when `eval-ols-classic` runs a kubevirt scenario (via `setup.sh` in this directory). If the CNV namespace already exists, the suite preserves that installation and does not change its emulation setting or uninstall it during cleanup. From the parent `evals/` directory:
+CNV, MCP, and scenario fixtures are set up automatically when `eval-ols-classic` runs a kubevirt scenario (via `setup.sh` in this directory). If the CNV namespace already exists, the suite preserves that installation and does not change its emulation setting or uninstall it during cleanup. From the repository root:
 
 ```bash
 make setup-ols-classic
@@ -28,12 +28,12 @@ make eval-ols-classic TAG=kubevirt
 make eval-ols-classic SCENARIO=kubevirt/vm_storage_failure
 ```
 
-To manage CNV independently (from this directory):
+To manage CNV independently, use its scenario Makefile:
 
 ```bash
-make setup-cnv      # install + verify OpenShift Virtualization
-make require-kvm    # check KVM availability on worker nodes
-make uninstall-cnv  # remove OpenShift Virtualization
+make -C evals/scenarios/kubevirt setup-cnv      # install + verify OpenShift Virtualization
+make -C evals/scenarios/kubevirt require-kvm    # check KVM availability on worker nodes
+make -C evals/scenarios/kubevirt uninstall-cnv  # remove OpenShift Virtualization
 ```
 
 ## Variables

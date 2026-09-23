@@ -5,7 +5,6 @@ metadata:
   name: web-server-vm
   labels:
     app: web-server
-    scenario: vm-crashloop
 spec:
   instancetype:
     name: u1.small

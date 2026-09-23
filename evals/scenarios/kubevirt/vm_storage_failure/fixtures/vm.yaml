@@ -5,7 +5,6 @@ metadata:
   name: production-db-vm
   labels:
     app: production-db
-    scenario: vm-storage-failure
 spec:
   dataVolumeTemplates:
     - metadata:

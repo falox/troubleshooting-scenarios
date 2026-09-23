@@ -16,7 +16,7 @@ Evaluation scenarios for AI-assisted diagnosis of OpenShift Service Mesh (OSSM) 
 
 ## Setup and Running
 
-OSSM, Kiali, Bookinfo, MCP, and scenario fixtures are set up automatically when `eval-ols-classic` runs a kiali-ossm scenario (via `setup.sh` in this directory). From the parent `evals/` directory:
+OSSM, Kiali, Bookinfo, MCP, and scenario fixtures are set up automatically when `eval-ols-classic` runs a kiali-ossm scenario (via `setup.sh` in this directory). From the repository root:
 
 ```bash
 make setup-ols-classic
@@ -28,12 +28,12 @@ make eval-ols-classic TAG=kiali-ossm
 make eval-ols-classic SCENARIO=kiali-ossm/check_mesh_status
 ```
 
-To manage OSSM independently (from this directory):
+To manage OSSM independently, use its scenario Makefile:
 
 ```bash
-make setup-ossm       # install OSSM + Bookinfo
-make check-ossm       # show OSSM/Sail/Kiali status
-make uninstall-ossm   # remove OSSM operators + Istio/Kiali
+make -C evals/scenarios/kiali-ossm setup-ossm       # install OSSM + Bookinfo
+make -C evals/scenarios/kiali-ossm check-ossm       # show OSSM/Sail/Kiali status
+make -C evals/scenarios/kiali-ossm uninstall-ossm   # remove OSSM operators + Istio/Kiali
 ```
 
 ## Variables

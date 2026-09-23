@@ -15,7 +15,7 @@ Evaluation scenarios for AI-assisted diagnosis of OpenShift network observabilit
 
 ## Setup and running
 
-The NetObserv operator, FlowCollector, MCP server, and OLS connection are set up automatically when an OLS-classic NetObserv evaluation runs. From the parent `evals/` directory:
+The NetObserv operator, FlowCollector, MCP server, and OLS connection are set up automatically when an OLS-classic NetObserv evaluation runs. From the repository root:
 
 ```bash
 make setup-ols-classic
@@ -29,12 +29,12 @@ make eval-ols-classic SCENARIO=netobserv/dns_latency
 
 The scenario setup scripts deploy synthetic traffic and wait for NetObserv data to reach Loki before the query runs. `NETOBSERV_WARMUP_SECS` controls the default 120-second warm-up.
 
-To manage NetObserv independently from this directory:
+To manage NetObserv independently, use its scenario Makefile:
 
 ```bash
-make setup-netobserv-openshift
-make netobserv-status
-make clean-netobserv-openshift
+make -C evals/scenarios/netobserv setup-netobserv-openshift
+make -C evals/scenarios/netobserv netobserv-status
+make -C evals/scenarios/netobserv clean-netobserv-openshift
 ```
 
 ## Variables
@@ -48,5 +48,3 @@ make clean-netobserv-openshift
 | `NETOBSERV_FLOWCOLLECTOR_WAIT_TIMEOUT` | `10m` | FlowCollector readiness timeout |
 | `NETOBSERV_DELETE_OPERATOR_NAMESPACE` | `yes` | Delete the operator namespace during cleanup |
 | `MCP_TOOLSETS` | `core,config,netobserv` | MCP toolsets enabled for the group |
-
-The legacy [`netobserv/`](../../netobserv/) suite remains available and is not modified by this migration.

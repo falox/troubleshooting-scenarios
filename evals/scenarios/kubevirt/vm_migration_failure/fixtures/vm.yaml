@@ -5,7 +5,6 @@ metadata:
   name: critical-app-vm
   labels:
     app: critical-app
-    scenario: vm-migration-failure
 spec:
   instancetype:
     name: u1.small
