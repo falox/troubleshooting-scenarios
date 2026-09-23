@@ -113,7 +113,7 @@ EOF
 
 function run_evals() {
     echo "==> Running agentic evaluations for agent: ${AGENT}"
-    cd "$AGENTIC_DIR"
+    cd "$REPO_DIR"
 
     # Create Agent CRs from system-ols-agentic.yaml.
     make setup-ols-agentic
@@ -137,7 +137,7 @@ function collect_results() {
 
 function cleanup() {
     echo "==> Cleaning up..."
-    cd "$AGENTIC_DIR"
+    cd "$REPO_DIR"
     make cleanup-ols-agentic || true
 }
 

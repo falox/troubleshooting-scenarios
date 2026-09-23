@@ -29,7 +29,7 @@ def workspace(tmp_path):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     evals = tmp_path / "evals"
     evals.mkdir()
-    shutil.copy(ROOT / "evals/Makefile", evals / "Makefile")
+    shutil.copy(ROOT / "Makefile", tmp_path / "Makefile")
     shutil.copy(ROOT / "evals/system-ols-agentic.yaml", evals / "system-ols-agentic.yaml")
     executable(
         tmp_path / "venv/bin/python3",
@@ -92,7 +92,7 @@ def test_scenario_cleanup(
 def test_setup_dependencies(variant):
     result = subprocess.run(
         ["make", "--dry-run", f"setup-ols-{variant}"],
-        cwd=ROOT / "evals", capture_output=True, text=True, check=True,
+        cwd=ROOT, capture_output=True, text=True, check=True,
     )
     assert result.stdout.count("setup-venv.sh") == 1
     assert ("sync-agent-crs.py" in result.stdout) == (variant == "agentic")

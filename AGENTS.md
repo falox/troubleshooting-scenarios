@@ -12,12 +12,12 @@ Reproducible fault scenarios for OpenShift clusters. Each scenario deploys a spe
 ```
 evals/            Fault scenarios for automated evals
   scenarios/      Scenario definitions (fixtures, evals, setup/cleanup)
-  Makefile        Orchestrates eval runs for OLS Agentic and OLS Classic
   system-*.yaml   Evaluation framework configs (models, repeats, scoring)
   reports/        Curated reports (tracked, manually promoted from results/)
   results/        Generated output (gitignored): eval logs and reports
 labs/             Multi-service scenarios for demos and manual troubleshooting
 scripts/          Shared shell scripts (venv, OLS, eval runners)
+Makefile          Orchestrates eval runs for OLS Agentic and OLS Classic
 ```
 
 ### Scenario structure
