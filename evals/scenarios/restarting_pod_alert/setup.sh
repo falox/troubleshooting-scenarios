@@ -12,7 +12,16 @@ CONTAINER="app"
 REGISTRY_NAMESPACE="openshift-image-registry"
 REGISTRY_SERVICE="image-registry"
 REGISTRY_LOCAL_PORT="${REGISTRY_LOCAL_PORT:-5000}"
-PUSH_REGISTRY="localhost:${REGISTRY_LOCAL_PORT}"
+REGISTRY_ENDPOINT="127.0.0.1:${REGISTRY_LOCAL_PORT}"
+PUSH_REGISTRY="$REGISTRY_ENDPOINT"
+REGISTRY_PORT_FORWARD_ADDRESS="127.0.0.1"
+REGISTRY_LOGIN_ARGS=()
+if [ "$(uname -s)" = Darwin ]; then
+  # Podman on macOS runs in a VM, so localhost is the VM, not the host.
+  PUSH_REGISTRY="host.containers.internal:${REGISTRY_LOCAL_PORT}"
+  REGISTRY_PORT_FORWARD_ADDRESS="0.0.0.0"
+  REGISTRY_LOGIN_ARGS+=(--skip-check)
+fi
 REGISTRY_REPOSITORY="${NS}/report-generator"
 CLUSTER_REGISTRY="image-registry.openshift-image-registry.svc:5000"
 OC_REQUEST_TIMEOUT="${OC_REQUEST_TIMEOUT:-60}"
@@ -90,22 +99,6 @@ cleanup_runtime() {
 }
 trap cleanup_runtime EXIT
 
-normalize_arch() {
-  case "$1" in
-    amd64|x86_64) printf 'amd64\n' ;;
-    arm64|aarch64) printf 'arm64\n' ;;
-    ppc64le) printf 'ppc64le\n' ;;
-    s390x) printf 's390x\n' ;;
-    *) return 1 ;;
-  esac
-}
-
-LOCAL_ARCH_RAW="$(timeout --foreground "$OC_REQUEST_TIMEOUT" podman info --format '{{.Host.Arch}}')"
-LOCAL_ARCH="$(normalize_arch "$LOCAL_ARCH_RAW")" || {
-  echo "ERROR: unsupported local Podman architecture: $LOCAL_ARCH_RAW" >&2
-  exit 1
-}
-
 if oc_request get namespace "$NS" >/dev/null 2>"$NAMESPACE_ERROR"; then
   echo "ERROR: namespace/$NS already exists; use a fresh dedicated namespace or complete cleanup first" >&2
   exit 1
@@ -117,54 +110,6 @@ fi
 
 if ! oc_request get service "$REGISTRY_SERVICE" -n "$REGISTRY_NAMESPACE" >/dev/null 2>&1; then
   echo "ERROR: OpenShift internal registry service is unavailable" >&2
-  exit 1
-fi
-NODE_ARCHES_RAW="$(oc_request get nodes -o jsonpath='{range .items[*]}{.metadata.labels.kubernetes\.io/arch}{"\n"}{end}')"
-if [ -z "$NODE_ARCHES_RAW" ]; then
-  echo "ERROR: no OpenShift node architectures were returned" >&2
-  exit 1
-fi
-ARCH_MATCH=false
-while IFS= read -r node_arch; do
-  [ -n "$node_arch" ] || continue
-  normalized_node_arch="$(normalize_arch "$node_arch")" || continue
-  if [ "$normalized_node_arch" = "$LOCAL_ARCH" ]; then
-    ARCH_MATCH=true
-    break
-  fi
-done <<< "$NODE_ARCHES_RAW"
-if [ "$ARCH_MATCH" != true ]; then
-  echo "ERROR: local architecture $LOCAL_ARCH does not match any cluster node" >&2
-  exit 1
-fi
-
-ELIGIBLE_NODE_COUNT="$(
-  oc_request get nodes -o json |
-    python3 -c '
-import json
-import sys
-
-target = sys.argv[1]
-data = json.load(sys.stdin)
-count = 0
-for node in data.get("items", []):
-    labels = node.get("metadata", {}).get("labels", {})
-    architecture = labels.get("kubernetes.io/arch")
-    ready = any(
-        condition.get("type") == "Ready" and condition.get("status") == "True"
-        for condition in node.get("status", {}).get("conditions", [])
-    )
-    tainted = any(
-        taint.get("effect") in {"NoSchedule", "NoExecute"}
-        for taint in node.get("spec", {}).get("taints", [])
-    )
-    if architecture == target and ready and not node.get("spec", {}).get("unschedulable", False) and not tainted:
-        count += 1
-print(count)
-' "$LOCAL_ARCH"
-)"
-if [ "$ELIGIBLE_NODE_COUNT" -lt 1 ]; then
-  echo "ERROR: no Ready, schedulable, untainted node is available for architecture $LOCAL_ARCH" >&2
   exit 1
 fi
 
@@ -185,6 +130,7 @@ oc_request create -f "$FIXTURE_DIR/namespace.yaml"
 
 echo "Starting registry port-forward on $PUSH_REGISTRY..."
 oc port-forward \
+  --address "$REGISTRY_PORT_FORWARD_ADDRESS" \
   -n "$REGISTRY_NAMESPACE" \
   "service/$REGISTRY_SERVICE" \
   "${REGISTRY_LOCAL_PORT}:5000" >"$REGISTRY_LOG" 2>&1 &
@@ -196,7 +142,7 @@ for _ in $(seq 1 30); do
     break
   fi
   status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' \
-    --connect-timeout 2 --max-time 5 "https://${PUSH_REGISTRY}/v2/" 2>/dev/null || true)"
+    --connect-timeout 2 --max-time 5 "https://${REGISTRY_ENDPOINT}/v2/" 2>/dev/null || true)"
   case "$status_code" in
     200|401|403)
       registry_ready=true
@@ -215,6 +161,7 @@ echo "Authenticating to the internal registry..."
 timeout --foreground "$OC_REQUEST_TIMEOUT" oc registry login \
   --registry="$PUSH_REGISTRY" \
   --insecure \
+  "${REGISTRY_LOGIN_ARGS[@]}" \
   --to="$AUTHFILE"
 [ -s "$AUTHFILE" ] || {
   echo "ERROR: registry authentication did not create an auth file" >&2
@@ -223,23 +170,28 @@ timeout --foreground "$OC_REQUEST_TIMEOUT" oc registry login \
 
 build_and_push() {
   local version="$1"
-  local local_image="report-generator:${version}"
+  local local_manifest="report-generator-multiarch:${version}"
   local destination="${PUSH_REGISTRY}/${REGISTRY_REPOSITORY}:${version}"
   local digest_file="$TMP_DIR/${version}.digest"
   local digest
 
-  echo "Building report-generator release $version..."
+  podman manifest rm "$local_manifest" >/dev/null 2>&1 ||
+    podman image rm "$local_manifest" >/dev/null 2>&1 || true
+
+  echo "Building amd64/arm64 report-generator release $version..."
   timeout --foreground "$BUILD_TIMEOUT" podman build \
+    --platform linux/amd64,linux/arm64 \
+    --manifest "$local_manifest" \
     --build-arg "APP_VERSION=$version" \
-    --tag "$local_image" \
     "$IMAGE_DIR"
 
-  echo "Pushing report-generator release $version..."
-  timeout --foreground "$PUSH_TIMEOUT" podman push \
+  echo "Pushing multi-architecture report-generator release $version..."
+  timeout --foreground "$PUSH_TIMEOUT" podman manifest push \
     --authfile "$AUTHFILE" \
     --tls-verify=false \
     --digestfile "$digest_file" \
-    "$local_image" \
+    --all \
+    "$local_manifest" \
     "docker://$destination"
 
   digest="$(cat "$digest_file" 2>/dev/null || true)"
@@ -263,8 +215,7 @@ render_deployment() {
   timeout --foreground "$OC_REQUEST_TIMEOUT" oc set image --local \
     -f "$FIXTURE_DIR/manifest.yaml" \
     "$CONTAINER=$image" \
-    -o yaml |
-    sed "s/ARCHITECTURE_PLACEHOLDER/$LOCAL_ARCH/g" >"$output"
+    -o yaml >"$output"
   [ -s "$output" ] || {
     echo "ERROR: rendered Deployment is empty" >&2
     exit 1
@@ -285,14 +236,6 @@ render_deployment() {
     echo "ERROR: rendered Deployment does not contain the requested image digest" >&2
     exit 1
   }
-  grep -Fq "kubernetes.io/arch: $LOCAL_ARCH" "$output" || {
-    echo "ERROR: rendered Deployment has no architecture scheduling constraint" >&2
-    exit 1
-  }
-  if grep -Fq ARCHITECTURE_PLACEHOLDER "$output"; then
-    echo "ERROR: rendered Deployment still contains an architecture placeholder" >&2
-    exit 1
-  fi
 }
 
 oc_request apply -f "$FIXTURE_DIR/prometheusrule.yaml"

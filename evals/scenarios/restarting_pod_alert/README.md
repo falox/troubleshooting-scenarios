@@ -27,10 +27,11 @@ The worker emits flushed JSONL events for completed reports and periodic progres
 - Podman, Python 3, `curl`, and `timeout` on the setup machine.
 - Access to the OpenShift internal image registry and permission to push to `data-processing/report-generator`.
 - Permission to apply `cluster-monitoring-config` in `openshift-monitoring`; setup invokes `scripts/enable-uwm.sh` to enable User Workload Monitoring using the same lifecycle as the other alert scenarios.
-- A cluster node architecture compatible with the local Podman build architecture.
+- Cluster nodes supporting at least one of the published Linux architectures
+  (`amd64` or `arm64`).
 - Exclusive ownership of `data-processing`; setup refuses to reuse an existing namespace and cleanup deletes the entire namespace.
 
-Setup enables User Workload Monitoring through `scripts/enable-uwm.sh`, then relies on OpenShift reconciliation and the bounded alert waiter for the monitoring components to become usable. It uses a loopback-bound registry port-forward and a private temporary authentication file. It automatically builds and pushes both releases. Images are deployed by digest; the local forwarded registry address is never used by cluster pods.
+Setup enables User Workload Monitoring through `scripts/enable-uwm.sh`, then relies on OpenShift reconciliation and the bounded alert waiter for the monitoring components to become usable. It builds and pushes both releases as `amd64`/`arm64` multi-architecture images and deploys them by digest. The registry port-forward is loopback-bound on Linux; on macOS it is exposed on the host so Podman's VM can reach it through `host.containers.internal`. A private temporary authentication file is used, and the forwarded registry address is never used by cluster pods.
 
 Do not invoke setup merely to check paths: it builds images and changes the cluster. Confirm the current OpenShift context before cleanup.
 
@@ -117,7 +118,8 @@ When qualification is performed, separate fixture failures from agent reasoning 
 
 ## Outstanding risks
 
-- Local Podman builds depend on base-image availability and architecture compatibility.
+- Multi-architecture Podman builds depend on base-image availability for `linux/amd64`
+  and `linux/arm64`, as well as registry port-forwarding and image propagation.
 - Internal registry port-forwarding, authentication, and image propagation can fail independently of the application.
 - The processing rate and 256Mi limit require live calibration to keep OOM termination reliable without making the fault manifest-obvious.
 - Prometheus availability, metric propagation, or evaluator RBAC can prevent alert/evidence qualification.

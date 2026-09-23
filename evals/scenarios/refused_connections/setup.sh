@@ -18,8 +18,17 @@ NS="ingress-layer"
 IMAGE_TAG="${GATEWAY_PROXY_IMAGE_TAG:-release}"
 REGISTRY_REPOSITORY="${GATEWAY_PROXY_REGISTRY_REPOSITORY:-${NS}/gateway-proxy}"
 REGISTRY_LOCAL_PORT="${GATEWAY_PROXY_REGISTRY_LOCAL_PORT:-5000}"
-PUSH_REGISTRY="localhost:${REGISTRY_LOCAL_PORT}"
-LOCAL_IMAGE="gateway-proxy:${IMAGE_TAG}"
+REGISTRY_ENDPOINT="127.0.0.1:${REGISTRY_LOCAL_PORT}"
+PUSH_REGISTRY="$REGISTRY_ENDPOINT"
+REGISTRY_PORT_FORWARD_ADDRESS="127.0.0.1"
+REGISTRY_LOGIN_ARGS=()
+if [ "$(uname -s)" = Darwin ]; then
+  # Podman on macOS runs in a VM, so localhost is the VM, not the host.
+  PUSH_REGISTRY="host.containers.internal:${REGISTRY_LOCAL_PORT}"
+  REGISTRY_PORT_FORWARD_ADDRESS="0.0.0.0"
+  REGISTRY_LOGIN_ARGS+=(--skip-check)
+fi
+LOCAL_MANIFEST="gateway-proxy-multiarch:${IMAGE_TAG}"
 PUSH_IMAGE="${PUSH_REGISTRY}/${REGISTRY_REPOSITORY}:${IMAGE_TAG}"
 CLUSTER_IMAGE="image-registry.openshift-image-registry.svc:5000/${REGISTRY_REPOSITORY}:${IMAGE_TAG}"
 RENDERED_MANIFEST="$(mktemp)"
@@ -64,11 +73,18 @@ fi
 
 oc create namespace "$NS" 2>/dev/null || true
 
-echo "Building gateway image $LOCAL_IMAGE..."
-podman build --tag "$LOCAL_IMAGE" "$IMAGE_DIR"
+podman manifest rm "$LOCAL_MANIFEST" >/dev/null 2>&1 ||
+  podman image rm "$LOCAL_MANIFEST" >/dev/null 2>&1 || true
+
+echo "Building amd64/arm64 gateway image $LOCAL_MANIFEST..."
+podman build \
+  --platform linux/amd64,linux/arm64 \
+  --manifest "$LOCAL_MANIFEST" \
+  "$IMAGE_DIR"
 
 echo "Starting registry port-forward on ${PUSH_REGISTRY}..."
 oc port-forward \
+  --address "$REGISTRY_PORT_FORWARD_ADDRESS" \
   -n openshift-image-registry \
   service/image-registry \
   "${REGISTRY_LOCAL_PORT}:5000" >"$REGISTRY_PORT_FORWARD_LOG" 2>&1 &
@@ -77,7 +93,7 @@ REGISTRY_PORT_FORWARD_PID=$!
 registry_ready=false
 for _ in $(seq 1 30); do
   status="$(curl -k -sS -o /dev/null -w '%{http_code}' \
-    --connect-timeout 2 "https://${PUSH_REGISTRY}/v2/" 2>/dev/null || true)"
+    --connect-timeout 2 "https://${REGISTRY_ENDPOINT}/v2/" 2>/dev/null || true)"
   case "$status" in
     200|401|403)
       registry_ready=true
@@ -96,14 +112,16 @@ echo "Authenticating to registry $PUSH_REGISTRY..."
 oc registry login \
   --registry="$PUSH_REGISTRY" \
   --insecure \
+  "${REGISTRY_LOGIN_ARGS[@]}" \
   --to="$AUTHFILE"
 
-podman tag "$LOCAL_IMAGE" "$PUSH_IMAGE"
-echo "Pushing gateway image to $PUSH_REGISTRY..."
-podman push \
+echo "Pushing multi-architecture gateway image to $PUSH_REGISTRY..."
+podman manifest push \
   --authfile "$AUTHFILE" \
   --tls-verify=false \
-  "$PUSH_IMAGE"
+  --all \
+  "$LOCAL_MANIFEST" \
+  "docker://$PUSH_IMAGE"
 
 sed "s|IMAGE_PLACEHOLDER|$CLUSTER_IMAGE|g" \
   "$FIXTURE_DIR/manifest.yaml" > "$RENDERED_MANIFEST"
