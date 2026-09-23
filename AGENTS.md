@@ -106,9 +106,9 @@ No custom images or PrometheusRules are needed; this scenario relies on a standa
 
 ## Agent Skills
 
-Agent-agnostic skills live in `.agents/skills/`. Tool-specific symlinks point there:
+Agent-agnostic skills use the `.agents/skills/<skill-name>/SKILL.md` structure. Tool-specific symlinks point to each skill directory:
 
-- `.claude/skills/` symlinks to `.agents/skills/` (Claude Code)
+- `.claude/skills/<skill-name>` symlinks to `.agents/skills/<skill-name>` (Claude Code)
 
 | Skill | Purpose |
 |-------|---------|

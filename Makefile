@@ -92,7 +92,6 @@ _ALL_OLS_AGENTIC := \
 	oversized_requests \
 	partial_fix \
 	pending_pvc_alert \
-	pending_pvc_alert_remediation \
 	pending_replicas \
 	red_herring \
 	refused_connections \

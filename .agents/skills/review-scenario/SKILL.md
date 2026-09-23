@@ -1,6 +1,6 @@
 ---
+name: review-scenario
 description: Review an agentic scenario for eval quality. Use when a scenario is added, modified, or the user says "review scenario".
-allowed-tools: Read, Bash(grep *), Bash(find *), Bash(ls *), Bash(wc *)
 ---
 
 # Review agentic scenario

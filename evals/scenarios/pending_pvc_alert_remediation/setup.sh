@@ -1,1 +1,0 @@
-../pending_pvc_alert/setup.sh
