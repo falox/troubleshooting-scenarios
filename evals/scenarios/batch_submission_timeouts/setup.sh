@@ -11,10 +11,19 @@ REGISTRY_NAMESPACE="openshift-image-registry"
 REGISTRY_SERVICE="image-registry"
 REGISTRY_LOCAL_PORT="${REGISTRY_LOCAL_PORT:-5000}"
 IMAGE_TAG="${BATCH_PROCESSOR_IMAGE_TAG:-1.0.0}"
-PUSH_REGISTRY="localhost:${REGISTRY_LOCAL_PORT}"
+REGISTRY_ENDPOINT="127.0.0.1:${REGISTRY_LOCAL_PORT}"
+PUSH_REGISTRY="$REGISTRY_ENDPOINT"
+REGISTRY_PORT_FORWARD_ADDRESS="127.0.0.1"
+REGISTRY_LOGIN_ARGS=()
+if [ "$(uname -s)" = Darwin ]; then
+  # Podman on macOS runs in a VM, so localhost is the VM, not the host.
+  PUSH_REGISTRY="host.containers.internal:${REGISTRY_LOCAL_PORT}"
+  REGISTRY_PORT_FORWARD_ADDRESS="0.0.0.0"
+  REGISTRY_LOGIN_ARGS+=(--skip-check)
+fi
 REGISTRY_REPOSITORY="${NS}/${APP}"
 CLUSTER_REGISTRY="image-registry.openshift-image-registry.svc:5000"
-LOCAL_IMAGE="${APP}:${IMAGE_TAG}"
+LOCAL_MANIFEST="${APP}-multiarch:${IMAGE_TAG}"
 PUSH_IMAGE="${PUSH_REGISTRY}/${REGISTRY_REPOSITORY}:${IMAGE_TAG}"
 RENDERED_MANIFEST=""
 TMP_DIR=""
@@ -31,42 +40,6 @@ done
 
 if ! [[ "$REGISTRY_LOCAL_PORT" =~ ^[1-9][0-9]*$ ]] || [ "$REGISTRY_LOCAL_PORT" -gt 65535 ]; then
   echo "ERROR: REGISTRY_LOCAL_PORT must be between 1 and 65535" >&2
-  exit 1
-fi
-
-normalize_arch() {
-  case "$1" in
-    amd64|x86_64) printf 'amd64\n' ;;
-    arm64|aarch64) printf 'arm64\n' ;;
-    ppc64le) printf 'ppc64le\n' ;;
-    s390x) printf 's390x\n' ;;
-    *) return 1 ;;
-  esac
-}
-
-LOCAL_ARCH_RAW="$(podman info --format '{{.Host.Arch}}')"
-LOCAL_ARCH="$(normalize_arch "$LOCAL_ARCH_RAW")" || {
-  echo "ERROR: unsupported local Podman architecture: $LOCAL_ARCH_RAW" >&2
-  exit 1
-}
-
-NODE_ARCHES="$(oc get nodes -o jsonpath='{range .items[*]}{.metadata.labels.kubernetes\.io/arch}{"\n"}{end}')"
-if [ -z "$NODE_ARCHES" ]; then
-  echo "ERROR: no OpenShift node architectures were returned" >&2
-  exit 1
-fi
-
-ARCH_MATCH=false
-while IFS= read -r node_arch; do
-  [ -n "$node_arch" ] || continue
-  normalized_node_arch="$(normalize_arch "$node_arch")" || continue
-  if [ "$normalized_node_arch" = "$LOCAL_ARCH" ]; then
-    ARCH_MATCH=true
-    break
-  fi
-done <<< "$NODE_ARCHES"
-if [ "$ARCH_MATCH" != true ]; then
-  echo "ERROR: local architecture $LOCAL_ARCH does not match any cluster node" >&2
   exit 1
 fi
 
@@ -105,11 +78,18 @@ fi
 
 oc create -f "$FIXTURE_DIR/namespace.yaml"
 
-echo "Building $LOCAL_IMAGE..."
-podman build --tag "$LOCAL_IMAGE" "$IMAGE_DIR"
+podman manifest rm "$LOCAL_MANIFEST" >/dev/null 2>&1 ||
+  podman image rm "$LOCAL_MANIFEST" >/dev/null 2>&1 || true
+
+echo "Building amd64/arm64 batch-processor image $LOCAL_MANIFEST..."
+podman build \
+  --platform linux/amd64,linux/arm64 \
+  --manifest "$LOCAL_MANIFEST" \
+  "$IMAGE_DIR"
 
 echo "Starting internal registry port-forward..."
 oc port-forward \
+  --address "$REGISTRY_PORT_FORWARD_ADDRESS" \
   -n "$REGISTRY_NAMESPACE" \
   "service/$REGISTRY_SERVICE" \
   "${REGISTRY_LOCAL_PORT}:5000" >"$REGISTRY_LOG" 2>&1 &
@@ -118,7 +98,7 @@ REGISTRY_PORT_FORWARD_PID=$!
 registry_ready=false
 for _ in $(seq 1 30); do
   status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' \
-    --connect-timeout 2 --max-time 5 "https://${PUSH_REGISTRY}/v2/" 2>/dev/null || true)"
+    --connect-timeout 2 --max-time 5 "https://${REGISTRY_ENDPOINT}/v2/" 2>/dev/null || true)"
   case "$status_code" in
     200|401|403)
       registry_ready=true
@@ -138,15 +118,17 @@ echo "Authenticating to the internal registry..."
 oc registry login \
   --registry="$PUSH_REGISTRY" \
   --insecure \
+  "${REGISTRY_LOGIN_ARGS[@]}" \
   --to="$AUTHFILE"
 
-podman tag "$LOCAL_IMAGE" "$PUSH_IMAGE"
-echo "Pushing $PUSH_IMAGE..."
-podman push \
+echo "Pushing multi-architecture batch-processor image to $PUSH_REGISTRY..."
+podman manifest push \
   --authfile "$AUTHFILE" \
   --tls-verify=false \
+  --all \
   --digestfile "$TMP_DIR/image.digest" \
-  "$PUSH_IMAGE"
+  "$LOCAL_MANIFEST" \
+  "docker://$PUSH_IMAGE"
 
 IMAGE_DIGEST="$(cat "$TMP_DIR/image.digest")"
 if ! [[ "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
