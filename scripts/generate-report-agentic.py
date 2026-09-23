@@ -13,6 +13,7 @@ EVAL_DIR is the eval session directory
 The judge model is extracted from the summary JSON configuration.
 """
 
+import csv
 import json
 import re
 import sys
@@ -20,6 +21,26 @@ from datetime import datetime
 from pathlib import Path
 
 import yaml
+
+_SCRIPT_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
+
+from report_common import (  # noqa: E402
+    anchor_id,
+    collect_conversations,
+    discover_agents,
+    extract_judge_model,
+    find_run_dirs,
+    format_duration,
+    format_report_metadata,
+    format_timestamp,
+    format_token_pair,
+    mean_tokens,
+    overall_score_cell,
+    scenario_tokens,
+    winner_cell,
+)
 
 METRIC_LABELS = {
     "custom:openshift_agentic_run_status": "Completed",
@@ -39,25 +60,6 @@ def metric_label(metric_id: str) -> str:
     return METRIC_LABELS.get(metric_id, metric_id.split(":")[-1])
 
 
-
-def discover_agents(eval_dir: Path) -> list[str]:
-    """Discover agent names from subdirectories containing run_* dirs."""
-    agents = []
-    for child in sorted(eval_dir.iterdir()):
-        if child.is_dir() and any(child.glob("run_*")):
-            agents.append(child.name)
-    return agents
-
-
-def find_run_dirs(eval_dir: Path, agent_name: str) -> list[Path]:
-    """Find run_N directories for an agent, sorted by index."""
-    agent_dir = eval_dir / agent_name
-    if not agent_dir.is_dir():
-        return []
-    dirs = sorted(agent_dir.glob("run_*"), key=lambda p: int(p.name.split("_")[1]))
-    return dirs
-
-
 def load_run_summary(run_dir: Path) -> list[dict] | None:
     """Load results from all summary JSONs in a run directory."""
     files = sorted(run_dir.glob("*_summary.json"))
@@ -67,28 +69,57 @@ def load_run_summary(run_dir: Path) -> list[dict] | None:
     for f in files:
         with open(f) as fh:
             data = json.load(fh)
-        results.extend(data.get("results", []))
+        file_results = data.get("results", [])
+        detailed = f.with_name(f.name.replace("_summary.json", "_detailed.csv"))
+        if detailed.exists():
+            with detailed.open(newline="") as fh:
+                reasons = {
+                    (row.get("conversation_group_id"), row.get("turn_id"),
+                     row.get("metric_identifier")): row.get("reason", "")
+                    for row in csv.DictReader(fh)
+                }
+            for result in file_results:
+                key = (result.get("conversation_group_id"), result.get("turn_id"),
+                       result.get("metric_identifier"))
+                if not result.get("reason") and reasons.get(key):
+                    result["reason"] = reasons[key]
+        results.extend(file_results)
     return results
 
 
-def extract_judge_model(eval_dir: Path, agent_names: list[str]) -> str:
-    """Extract the judge model name from the first available summary JSON."""
-    for agent in agent_names:
-        for rd in find_run_dirs(eval_dir, agent):
-            for f in sorted(rd.glob("*_summary.json")):
-                with open(f) as fh:
-                    data = json.load(fh)
-                config = data.get("configuration", {})
-                judges = config.get("judge_panel", {}).get("judges", [])
-                if not judges:
-                    continue
-                models = config.get("llm_pool", {}).get("models", {})
-                model = models.get(judges[0], {}).get("model", "")
-                if model:
-                    return model
-    return ""
+def append_outcome(response: str, details: list[str]) -> str:
+    """Add saved details to Outcome without repeating existing messages."""
+    missing = []
+    for detail in details:
+        if detail and detail not in response and detail not in missing:
+            missing.append(detail)
+    if not missing:
+        return response
+    addition = "\n\n".join(missing)
+    outcome = re.search(r"^## Outcome\s*$", response, re.MULTILINE)
+    if outcome:
+        next_section = re.search(r"^## ", response[outcome.end():], re.MULTILINE)
+        end = outcome.end() + next_section.start() if next_section else len(response)
+        return response[:end].rstrip() + "\n\n" + addition + "\n\n" + response[end:]
+    return (response.rstrip() + "\n\n## Outcome\n\n" + addition).lstrip()
 
 
+def _format_diagnosis(run_results: dict) -> list[str]:
+    """Read saved diagnosis details for a no-action response."""
+    analysis_results = run_results.get("analysis")
+    if not isinstance(analysis_results, list):
+        return []
+    for analysis in analysis_results:
+        if not isinstance(analysis, dict):
+            continue
+        diagnosis = analysis.get("diagnosis")
+        if not isinstance(diagnosis, dict):
+            continue
+        details = [diagnosis.get(key) for key in ("rootCause", "summary")]
+        details = [detail for detail in details if isinstance(detail, str) and detail]
+        if details:
+            return details
+    return []
 
 
 def load_amended_entries(run_dir: Path) -> list[dict]:
@@ -136,12 +167,14 @@ def load_amended_entries(run_dir: Path) -> list[dict]:
                     e = datetime.fromisoformat(completed.replace("Z", "+00:00"))
                     duration = (e - s).total_seconds()
 
-            agent_tok = (turn.get("api_input_tokens") or 0) + (turn.get("api_output_tokens") or 0)
-
             # Normalize agentic_run_status to dict (handle non-dict truthy values like lists)
             run_status = turn.get("openshift_agentic_run_status")
             if not isinstance(run_status, dict):
                 run_status = {}
+
+            token_usage = run_status.get("tokenUsage") or {}
+            agent_input_tok = token_usage.get("inputTokens")
+            agent_output_tok = token_usage.get("outputTokens")
 
             # Normalize conditions to list of dicts (prevents phase_status iteration errors)
             if "conditions" in run_status:
@@ -154,33 +187,22 @@ def load_amended_entries(run_dir: Path) -> list[dict]:
                         c for c in conditions_raw if isinstance(c, dict)
                     ]
 
+            response = turn.get("response") or ""
+            if run_results and "no action required" in response.lower():
+                response = append_outcome(response, _format_diagnosis(run_results))
+
             entries.append({
                 "conversation_group_id": cid,
                 "description": entry.get("description", ""),
                 "query": turn.get("query", ""),
-                "response": turn.get("response", ""),
+                "response": response,
                 "tags": tags,
                 "agentic_run_status": run_status,
                 "analysis_duration": duration,
-                "agent_tokens": agent_tok,
+                "agent_input_tokens": agent_input_tok,
+                "agent_output_tokens": agent_output_tok,
             })
     return entries
-
-
-def collect_conversations(agent_runs: dict[str, list]) -> list[str]:
-    """Collect ordered unique conversation IDs across all agents/runs."""
-    seen = set()
-    conversations = []
-    for runs in agent_runs.values():
-        for results in runs:
-            if results is None:
-                continue
-            for r in results:
-                cid = r["conversation_group_id"]
-                if cid not in seen:
-                    seen.add(cid)
-                    conversations.append(cid)
-    return conversations
 
 
 def get_score(results: list[dict], conversation_id: str, metric_id: str) -> float | None:
@@ -207,6 +229,18 @@ def get_judge_reason(results: list[dict], conversation_id: str, metric_id: str) 
     return ""
 
 
+def has_technical_failure(results: list[dict], conversation_id: str) -> bool:
+    """Check for an evaluation error or a failed completion check."""
+    return any(
+        metric["conversation_group_id"] == conversation_id
+        and (
+            metric["result"] == "ERROR"
+            or (metric["metric_identifier"] == STATUS_METRIC and metric["result"] == "FAIL")
+        )
+        for metric in results
+    )
+
+
 def get_performance_result(
     results: list[dict], conversation_id: str
 ) -> tuple[str | None, float | None]:
@@ -214,16 +248,16 @@ def get_performance_result(
 
     Correctness is preferred when configured. Status-only evaluations do not
     emit a correctness result, so use their deterministic status result.
+    Technical failures count as zero in reported scores.
     """
     for metric_id in (CORRECTNESS_METRIC, STATUS_METRIC):
         result = get_result(results, conversation_id, metric_id)
         if result is not None:
-            return result, get_score(results, conversation_id, metric_id)
+            score = get_score(results, conversation_id, metric_id)
+            if has_technical_failure(results, conversation_id):
+                score = 0.0
+            return result, score
     return None, None
-
-
-def anchor_id(agent: str, conversation_id: str) -> str:
-    return f"{agent}--{conversation_id}"
 
 
 def strip_request_section(response: str) -> str:
@@ -241,9 +275,12 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     Links to the first run section for that agent+scenario.
     """
     scores = []
+    technical_failure = False
     for results in agent_runs:
         if results is None:
             continue
+        if has_technical_failure(results, conversation_id):
+            technical_failure = True
         result, score = get_performance_result(results, conversation_id)
         if result is not None:
             scores.append((result, score))
@@ -252,27 +289,22 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
         return "N/A"
 
     anchor = anchor_id(agent, conversation_id)
+    passed = sum(1 for r, _ in scores if r == "PASS")
+    total = len(scores)
+    icon = "❌" if technical_failure else (
+        "🟢" if passed == total else ("🔴" if passed == 0 else "")
+    )
 
     if len(scores) == 1:
         result, score = scores[0]
-        icon = "✅" if result == "PASS" else "❌"
         score_str = f"{score:.2f}" if score is not None else "N/A"
         return f"[{icon} {score_str}](#{anchor})"
 
-    passed = sum(1 for r, _ in scores if r == "PASS")
-    total = len(scores)
     valid_scores = [s for _, s in scores if s is not None]
     avg = sum(valid_scores) / len(valid_scores) if valid_scores else None
-    icon = "✅" if passed == total else ("❌" if passed == 0 else "")
     avg_str = f" ({avg:.2f})" if avg is not None else ""
-    return f"[{icon} {passed}/{total}](#{anchor}){avg_str}"
-
-
-def format_timestamp(timestamp: str) -> str:
-    if not timestamp:
-        return ""
-    dt = datetime.fromisoformat(timestamp)
-    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+    label = f"{icon} {passed}/{total}".strip()
+    return f"[{label}](#{anchor}){avg_str}"
 
 
 def overall_score(agent_runs: list, conversations: list[str]) -> tuple[int, int]:
@@ -291,30 +323,20 @@ def overall_score(agent_runs: list, conversations: list[str]) -> tuple[int, int]
     return passed, total
 
 
-def overall_score_cell(passed: int, total: int, bold: bool = False) -> str:
-    if total == 0:
-        return "N/A"
-    pct = round(100 * passed / total)
-    text = f"{pct}% ({passed}/{total})"
-    if bold:
-        text = f"**{text}**"
-    return text
-
-
 def scenario_mean_score(agent_runs: list, conversation_id: str) -> float | None:
-    """Mean correctness score for one agent on one scenario across all runs."""
+    """Mean score for one scenario, counting technical failures as zero."""
     scores = []
     for results in agent_runs:
         if results is None:
             continue
-        s = get_score(results, conversation_id, CORRECTNESS_METRIC)
+        _, s = get_performance_result(results, conversation_id)
         if s is not None:
             scores.append(s)
     return sum(scores) / len(scores) if scores else None
 
 
 def mean_score(agent_runs: list, conversations: list[str]) -> float | None:
-    """Mean correctness score across all runs and conversations."""
+    """Mean score across runs and scenarios, counting technical failures as zero."""
     scores = []
     for results in agent_runs:
         if results is None:
@@ -340,28 +362,6 @@ def mean_duration(agent_amended: list, conversations: list[str]) -> float | None
     return sum(durations) / len(durations)
 
 
-def format_tokens(n: int) -> str:
-    return f"{n:,}"
-
-
-def format_tokens_compact(n: int) -> str:
-    if n >= 1_000_000:
-        v = n / 1_000_000
-        return f"{v:.1f}M".replace(".0M", "M")
-    if n >= 1_000:
-        v = n / 1_000
-        return f"{v:.0f}K"
-    return str(n)
-
-
-def format_duration(seconds: float) -> str:
-    if seconds < 60:
-        return f"{seconds:.0f}s"
-    minutes = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f"{minutes}m {secs}s"
-
-
 def scenario_duration(agent_amended: list, cid: str) -> float | None:
     """Mean analysis duration for a single scenario across runs."""
     durations = []
@@ -374,38 +374,6 @@ def scenario_duration(agent_amended: list, cid: str) -> float | None:
     return sum(durations) / len(durations)
 
 
-def scenario_tokens(agent_amended: list, cid: str) -> int:
-    """Total agent tokens for a single scenario across runs."""
-    total = 0
-    for entries in agent_amended:
-        for entry in entries:
-            if entry["conversation_group_id"] == cid:
-                total += entry.get("agent_tokens", 0)
-    return total
-
-
-def total_tokens(agent_amended: list, conversations: list[str]) -> int:
-    """Total agent tokens across all scenarios and runs."""
-    total = 0
-    for entries in agent_amended:
-        for entry in entries:
-            if entry["conversation_group_id"] in conversations:
-                total += entry.get("agent_tokens", 0)
-    return total
-
-
-def mean_tokens(agent_amended: list, conversations: list[str]) -> int | None:
-    """Mean agent tokens across all runs and conversations."""
-    tokens = []
-    for entries in agent_amended:
-        for entry in entries:
-            if entry["conversation_group_id"] in conversations and entry.get("agent_tokens") is not None:
-                tokens.append(entry["agent_tokens"])
-    if not tokens:
-        return None
-    return round(sum(tokens) / len(tokens))
-
-
 def bold_best(values: dict[str, str | None], best_val, cmp="max") -> dict[str, str]:
     """Bold the best value(s) in a dict of agent -> formatted string."""
     result = {}
@@ -413,7 +381,7 @@ def bold_best(values: dict[str, str | None], best_val, cmp="max") -> dict[str, s
         if text is None:
             result[a] = "N/A"
         elif best_val is not None and text == best_val:
-            result[a] = f"**{text}**"
+            result[a] = winner_cell(text, True)
         else:
             result[a] = text
     return result
@@ -440,7 +408,7 @@ def generate_overview_table(
         else:
             text = f"{pcts[a]}%"
             if pcts[a] == best_pct:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| Pass rate | {' | '.join(cells)} |")
 
@@ -455,7 +423,7 @@ def generate_overview_table(
         else:
             text = f"{s:.2f}"
             if best_mean is not None and s == best_mean:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| Avg score | {' | '.join(cells)} |")
 
@@ -470,13 +438,13 @@ def generate_overview_table(
         else:
             text = format_duration(d)
             if best_dur is not None and d == best_dur:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| Avg duration | {' | '.join(cells)} |")
 
     # Avg tokens
     avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
-    cells = [format_tokens_compact(avg_tok[a]) if avg_tok[a] is not None else "N/A" for a in agent_names]
+    cells = [format_token_pair(*avg_tok[a]) for a in agent_names]
     lines.append(f"| Avg tokens | {' | '.join(cells)} |")
 
     return "\n".join(lines)
@@ -540,7 +508,7 @@ def phase_rate_cell(completed: int, total: int, bold: bool = False) -> str:
         return "N/A"
     pct = round(100 * completed / total)
     text = f"{pct}% ({completed}/{total})"
-    return f"**{text}**" if bold else text
+    return winner_cell(text, bold)
 
 
 def phase_breakdown_cell(agent_amended: list, cid: str, agent: str) -> str:
@@ -640,7 +608,7 @@ def generate_duration_table(
                 anchor = anchor_id(a, cid)
                 text = f"[{format_duration(d)}](#{anchor})"
                 if best is not None and d == best:
-                    text = f"**{text}**"
+                    text = winner_cell(text, True)
                 cells.append(text)
         cid_anchor = cid.lower().replace(" ", "-")
         lines.append(f"| [{cid}](#{cid_anchor}) | {' | '.join(cells)} |")
@@ -656,7 +624,7 @@ def generate_duration_table(
         else:
             text = format_duration(d)
             if best_mean is not None and d == best_mean:
-                text = f"**{text}**"
+                text = winner_cell(text, True)
             cells.append(text)
     lines.append(f"| **Average** | {' | '.join(cells)} |")
 
@@ -664,9 +632,9 @@ def generate_duration_table(
 
 
 def tokens_cell(agent_amended: list, cid: str, agent: str) -> str:
-    t = scenario_tokens(agent_amended, cid)
+    inp, out = scenario_tokens(agent_amended, cid)
     anchor = anchor_id(agent, cid)
-    return f"[{format_tokens_compact(t)}](#{anchor})"
+    return f"[{format_token_pair(inp, out)}](#{anchor})"
 
 
 def generate_tokens_table(
@@ -684,7 +652,7 @@ def generate_tokens_table(
 
     # Mean row
     avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
-    cells = [format_tokens_compact(avg_tok[a]) if avg_tok[a] is not None else "N/A" for a in agent_names]
+    cells = [format_token_pair(*avg_tok[a]) for a in agent_names]
     lines.append(f"| **Average** | {' | '.join(cells)} |")
 
     return "\n".join(lines)
@@ -706,7 +674,7 @@ def generate_summary_table(
         for a in agent_names:
             cell = score_cell(agent_runs[a], cid, a)
             if best is not None and avg_scores[a] is not None and avg_scores[a] == best:
-                cell = f"**{cell}**"
+                cell = winner_cell(cell, True)
             cells.append(cell)
         lines.append(f"| [{cid}](#{anchor}) | {' | '.join(cells)} |")
     scores = {a: overall_score(agent_runs[a], conversations) for a in agent_names}
@@ -722,6 +690,20 @@ def generate_summary_table(
         for a in agent_names
     )
     lines.append(f"| **Pass rate** | {overall} |")
+
+    mean_scores = {a: mean_score(agent_runs[a], conversations) for a in agent_names}
+    best_mean = max((s for s in mean_scores.values() if s is not None), default=None)
+    avg_score_cells = []
+    for agent in agent_names:
+        score = mean_scores[agent]
+        if score is None:
+            avg_score_cells.append("N/A")
+            continue
+        cell = f"{score:.2f}"
+        if best_mean is not None and score == best_mean:
+            cell = winner_cell(cell, True)
+        avg_score_cells.append(cell)
+    lines.append(f"| **Avg score** | {' | '.join(avg_score_cells)} |")
     return "\n".join(lines)
 
 
@@ -822,11 +804,20 @@ def generate_scenario_details(
                         lines.append(f"**{label}**: {icon} {status}")
                     lines.append("")
 
-                # Analysis duration
+                # Analysis duration and tokens
                 for entry in amended_entries:
                     if entry["conversation_group_id"] == cid and entry.get("analysis_duration") is not None:
                         lines.append(f"**Duration**: {format_duration(entry['analysis_duration'])}")
                         lines.append("")
+                        break
+
+                for entry in amended_entries:
+                    if entry["conversation_group_id"] == cid:
+                        inp = entry.get("agent_input_tokens")
+                        out = entry.get("agent_output_tokens")
+                        if inp is not None or out is not None:
+                            lines.append(f"**Tokens**: in {inp or 0:,} out {out or 0:,}")
+                            lines.append("")
                         break
 
                 # Response
@@ -836,6 +827,11 @@ def generate_scenario_details(
                         response = entry["response"]
                         break
 
+                errors = [
+                    r["reason"] for r in conv_results
+                    if r["result"] == "ERROR" and r.get("reason")
+                ]
+                response = append_outcome(response or "", errors)
                 if response:
                     lines.append("````markdown")
                     lines.append(strip_request_section(response).strip())
@@ -889,18 +885,14 @@ def generate_report(eval_dir: Path) -> str:
     # Build the report
     lines = ["# Evaluation Summary"]
     lines.append("")
-    stats = (
-        f"{len(conversations)} scenario{'s' if len(conversations) != 1 else ''}, "
-        f"{len(agent_names)} agent{'s' if len(agent_names) != 1 else ''}, "
-        f"{repeat} repeat{'s' if repeat > 1 else ''}"
-    )
-    parts = []
-    if timestamp_str:
-        parts.append(timestamp_str)
-    parts.append(stats)
-    if judge:
-        parts.append(f"Judge: {judge}")
-    lines.append(" | ".join(parts))
+    lines.append(format_report_metadata(
+        "OLS Agentic",
+        timestamp_str,
+        len(conversations),
+        len(agent_names),
+        repeat,
+        judge,
+    ))
     lines.append("")
 
     # Overview table
@@ -913,7 +905,11 @@ def generate_report(eval_dir: Path) -> str:
     lines.append("## Correctness")
     lines.append("")
     lines.append("Passed repeats / total repeats."
-                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass).")
+                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass)."
+                 " Technical failures count as 0 in score averages.")
+    lines.append("")
+    lines.append("Legend: 🟢 100% pass rate · 🔴 0% pass rate · "
+                 "❌ Technical failure in at least one run (Status = Failed).")
     lines.append("")
     lines.append(generate_summary_table(conversations, agent_names, agent_runs))
     lines.append("")
@@ -938,10 +934,7 @@ def generate_report(eval_dir: Path) -> str:
     # Tokens per scenario
     lines.append("## Cost")
     lines.append("")
-    lines.append("Total token usage for each scenario across all repeats per agent;"
-                 " the Average row shows average usage per evaluation."
-                 " **Note: lightspeed-eval does not expose this data yet;"
-                 " values will appear once it does.**")
+    lines.append("Average input/output token usage per evaluation.")
     lines.append("")
     lines.append(generate_tokens_table(conversations, agent_names, agent_amended))
     lines.append("")
@@ -1053,7 +1046,7 @@ def main():
 
     eval_dir = Path(args.eval_dir)
     if not eval_dir.is_dir():
-        print(f"Error: {eval_dir} is not a directory", file=sys.stderr)
+        print(f"ERROR: {eval_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
     md = generate_report(eval_dir)

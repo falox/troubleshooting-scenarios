@@ -326,7 +326,7 @@ class TestGenerateReport:
                 timestamp=f"20260904_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "**✅ 100% (2/2)**" in report
+        assert "**100% (2/2)** 🥇" in report
         assert "50% (1/2)" in report
         assert "**50% (1/2)**" not in report
 
@@ -338,7 +338,7 @@ class TestGenerateReport:
                 amended_entries=[{"conversation_id": "s1"}],
             )
         report = mod.generate_report(tmp_path)
-        assert report.count("**✅ 100% (1/1)**") == 2
+        assert report.count("**100% (1/1)** 🥇") == 2
 
     def test_judge_in_header(self, tmp_path):
         config = {
@@ -353,6 +353,7 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         assert "Judge: gpt-5.4" in report
+        assert "2026-09-04 10:00:00 UTC | **OLS Classic** | 1 scenario, 1 agent, 1 repeat | Judge: gpt-5.4" in report
 
     def test_no_judge_by_default(self, tmp_path):
         _write_run(
@@ -371,6 +372,39 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         assert "26s" in report
+        assert "## Duration" in report
+        assert "Avg duration" in report
+        assert "**Duration**:" in report
+        assert "## Latency" not in report
+
+    def test_avg_score_footer_in_correctness_table(self, tmp_path):
+        for agent, score in [("agent_a", 0.9), ("agent_b", 0.8)]:
+            _write_run(
+                tmp_path / agent / "run_1",
+                results=[_make_result("s1", score=score)],
+                amended_entries=[{"conversation_id": "s1"}],
+            )
+        report = mod.generate_report(tmp_path)
+        assert "| **Avg score** |" in report
+        assert "**0.90** 🥇" in report
+
+    def test_legend_in_correctness(self, tmp_path):
+        _write_run(
+            tmp_path / "gpt-5.4" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{"conversation_id": "s1"}],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "Legend: 🟢 100% pass rate" in report
+
+    def test_single_run_shows_pass_count_with_score(self, tmp_path):
+        _write_run(
+            tmp_path / "gpt-5.4" / "run_1",
+            results=[_make_result("s1", score=0.95)],
+            amended_entries=[{"conversation_id": "s1"}],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "[🟢 1/1](#gpt-5.4--s1) (0.95)" in report
 
     def test_tokens_in_scenario_details(self, tmp_path):
         _write_run(
@@ -383,7 +417,7 @@ class TestGenerateReport:
             }],
         )
         report = mod.generate_report(tmp_path)
-        assert "**Tokens**: 40,800" in report
+        assert "**Tokens**: in 40,000 out 800" in report
 
     def test_tokens_from_results(self, tmp_path):
         _write_run(
@@ -396,23 +430,23 @@ class TestGenerateReport:
             }],
         )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 51K |" in report
+        assert "| Avg tokens | 50K/1K |" in report
 
     def test_avg_tokens_divides_by_evaluations_not_scenarios(self, tmp_path):
         for run in [1, 2]:
             _write_run(
                 tmp_path / "agent" / f"run_{run}",
-                results=[_make_result("s1", api_input_tokens=60, api_output_tokens=40)],
+                results=[_make_result("s1", api_input_tokens=60000, api_output_tokens=4000)],
                 amended_entries=[{
                     "conversation_id": "s1",
-                    "api_input_tokens": 60,
-                    "api_output_tokens": 40,
+                    "api_input_tokens": 60000,
+                    "api_output_tokens": 4000,
                 }],
                 timestamp=f"20260904_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 100 |" in report
-        assert "| **Average** | 100 |" in report
+        assert "| Avg tokens | 60K/4K |" in report
+        assert "| **Average** | 60K/4K |" in report
 
     def test_tokens_compact_millions(self, tmp_path):
         _write_run(
@@ -425,9 +459,8 @@ class TestGenerateReport:
             }],
         )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 1.2M |" in report
-        # Detail section keeps exact number
-        assert "**Tokens**: 1,250,000" in report
+        assert "| Avg tokens | 1.2M/50K |" in report
+        assert "**Tokens**: in 1,200,000 out 50,000" in report
 
     def test_no_completed_metric(self, tmp_path):
         """Classic evals only have answer_correctness, no status metric."""

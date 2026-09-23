@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+"$(cd "$(dirname "$0")/../../../scripts" && pwd)/check-prerequisites.sh"
+
+NS="discovery-hub"
+
+echo "Removing unready_pod scenario resources from namespace ${NS}…"
+oc delete -f "$(cd "$(dirname "$0")/fixtures" && pwd)/prometheusrule.yaml" --ignore-not-found
+oc delete pod catalog-index-service -n "$NS" --ignore-not-found
+
+oc delete namespace "$NS" --ignore-not-found
+echo "Cleanup complete — all unready_pod scenario resources removed."

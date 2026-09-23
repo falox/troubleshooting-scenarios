@@ -1,97 +1,63 @@
 # Troubleshooting Scenarios
 
-Evaluation suites for AI-assisted troubleshooting with [OpenShift Lightspeed](https://github.com/openshift/lightspeed-service) (OLS). 
+Reproducible fault scenarios for OpenShift clusters. Each scenario deploys a specific fault (misconfiguration, resource exhaustion, network issue, etc.) on a live cluster with setup and cleanup scripts. Use them for automated evaluations, manual troubleshooting, or live demos.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to add a new eval suite.
+## Contents
 
-## Eval suites
+- **[evals/](evals/)**: Fault scenarios with setup/cleanup scripts and Kubernetes fixtures. Designed for automated evals of OpenShift troubleshooting tools (Lightspeed, Incident Detection, and others), but can also be run manually on any cluster.
+- **[labs/](labs/)**: Multi-service scenarios with richer fault models (cascading failures, graduated alerts, red herrings). Designed for live demos and manual troubleshooting practice.
 
-| Suite | Description |
-|-------|-------------|
-| [kiali-ossm/](kiali-ossm/) | Service-mesh troubleshooting using Kiali/OSSM MCP tools |
-| [netobserv/](netobserv/) | Network observability using the NetObserv MCP toolset |
-| [kubevirt/](kubevirt/) | OpenShift Virtualization troubleshooting using the KubeVirt MCP toolset |
-| [agentic/](agentic/) |  Troubleshooting scenarios and benchmarks for [lightspeed-agentic-operator](https://github.com/openshift/lightspeed-agentic-operator) (see [agentic/README.md](agentic/README.md)) |
-| [generic/](generic/) | Standalone fault-injection scenarios, e.g. for Incident Detection demos and Korrel8r testing |
+## Scenario Structure
 
-## Requirements
+Each scenario under `evals/scenarios/` is a self-contained directory:
 
-- OpenShift 4.x cluster accessible via `oc login`
-- `OPENAI_API_KEY` exported (required for the judge LLM; also configures an OpenAI OLS provider)
-- Python 3.11, 3.12, or 3.13
-- **Optional** (for Google/Anthropic providers via Vertex AI):
-  - `GCP_SERVICE_ACCOUNT_JSON` — path to a GCP credentials JSON file (ADC or service account key)
-  - `GCP_PROJECT_ID` — GCP project with Vertex AI access
-
-## Quick start
-
-```bash
-export OPENAI_API_KEY=<your-key>
-
-cd kiali-ossm          # or: cd netobserv, cd kubevirt
-make setup             # install venv + OLS + MCP server + suite dependencies
-make evals             # run all scenarios (default provider)
-make cleanup          # remove suite dependencies + MCP server
+```
+my_scenario/
+  fixtures/           Kubernetes manifests that reproduce the fault
+  setup.sh            Deploys fixtures to the cluster
+  cleanup.sh          Removes everything the scenario created
+  evals-*.yaml        One per tool under test (e.g. OLS Agentic, OLS Classic)
 ```
 
-Run a single scenario:
+**Scenarios are generic and not tied to OpenShift Lightspeed or any other troubleshooting tool**: they deploy real Kubernetes resources (Deployments, Services, ConfigMaps, NetworkPolicies, PrometheusRules, etc.) and create real faults on a live cluster.
+
+To add a scenario, follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Running Evals for OpenShift Lightspeed
+
+Scenarios include eval definitions for OpenShift Lightspeed (OLS). The [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework orchestrates each run: deploy the fault, query OLS, score the response with a judge LLM.
+
+### OLS Agentic
+
+Each scenario folder contains an `evals-ols-agentic.yaml` with the eval definitions. Configure which models to test and how many repeats per scenario in `evals/system-ols-agentic.yaml`. Running `make setup-ols-agentic` automatically syncs the Agent CRs on the cluster with the agents defined in the system config. Before a real evaluation, `make eval-ols-agentic` checks that these Agent CRs are present and match the system config; if they do not, it stops and asks you to run `make setup-ols-agentic`.
 
 ```bash
-make check_mesh_status-eval
+make setup-ols-agentic
+make eval-ols-agentic                                          # run all scenarios
+make eval-ols-agentic SCENARIO=stuck_rollout                   # one scenario
+make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota   # multiple
+make eval-ols-agentic TAG=alert                                # filter by tag
+make eval-ols-agentic TAG=alert PREVIEW=1                      # preview matched scenarios
 ```
 
-### Choosing an LLM provider
+### OLS Classic
 
-By default, evals use the provider and model from `system.yaml` (OpenAI). Override with Make variables:
+Each scenario folder that supports OLS Classic contains an `evals-ols-classic.yaml` with the eval definitions. Configure the OLS model and provider in `evals/system-ols-classic.yaml`.
 
 ```bash
-# Run with a specific provider
-make evals OLS_PROVIDER=google OLS_MODEL=gemini-2.5-pro
-make evals OLS_PROVIDER=anthropic OLS_MODEL=claude-opus-4-6
-
-# Run a single scenario with a specific provider
-make vm_storage_failure-eval OLS_PROVIDER=google OLS_MODEL=gemini-2.5-pro
-
-# Run all scenarios across every configured provider (results in results/<provider>/)
-make evals-all-providers
+make setup-ols-classic
+make eval-ols-classic                                          # run all scenarios
+make eval-ols-classic SCENARIO=crashlooping_pod_alert          # one scenario
 ```
 
-To use Google or Anthropic providers, export the GCP credentials before `make setup`:
+Run `make help` for all targets and options.
 
-```bash
-export GCP_SERVICE_ACCOUNT_JSON=~/.config/gcloud/application_default_credentials.json
-export GCP_PROJECT_ID=<your-gcp-project>
-make setup
-```
+### Requirements
 
-### What `make setup` does
+- OpenShift cluster accessible via `oc login` (5.x for OLS Agentic, 4.x+ for OLS Classic)
+- `OPENAI_API_KEY` exported (judge LLM)
+- Python 3.13+
 
-1. Creates a Python venv with `lightspeed-eval` (skips if exists)
-2. Checks cluster access and OLS readiness
-3. Installs the OLS operator if not present (idempotent)
-4. Deploys the MCP server with the suite's toolsets
-5. Connects OLS to the MCP server
-6. Installs suite-specific dependencies (e.g., Bookinfo, FlowCollector)
+### Results and reports
 
-### What `make cleanup` does
-
-1. Removes suite-specific cluster resources
-2. Disconnects OLS from the MCP server
-3. Removes the MCP server namespace
-
-## Uninstalling OLS
-
-Suite cleanup does not remove OLS, since it's shared across suites. To remove the OLS operator and the local venv entirely, run from the repo root:
-
-```bash
-make cleanup
-```
-
-## Using a cluster Route instead of port-forward
-
-By default, `make evals` auto-starts a port-forward to OLS on `localhost:8443`. To use the cluster Route instead:
-
-```bash
-OLS_URL=https://<ols-route-host> make evals
-```
-
+Eval runs produce logs and reports under `evals/results/` (gitignored). Reports worth keeping can be promoted to `evals/reports/` (tracked in git).

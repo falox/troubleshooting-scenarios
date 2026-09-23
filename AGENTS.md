@@ -5,86 +5,51 @@ This file provides guidance to AI coding agents when working with code in this r
 
 ## Project Purpose
 
-This repository contains evaluation suites for AI-assisted troubleshooting on OpenShift. Each eval suite owns a top-level directory with scenarios that deploy faults on a live cluster, send queries to OpenShift Lightspeed (OLS), and score responses with a judge LLM using the [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework.
-
-The `generic/` directory contains standalone fault-injection demos that do not use the eval framework.
+Reproducible fault scenarios for OpenShift clusters. Each scenario deploys a specific fault on a live cluster with setup and cleanup scripts. Scenarios are used for automated evaluations of OpenShift troubleshooting tools (Lightspeed, Incident Detection) and for manual troubleshooting practice.
 
 ## Repository Structure
 
 ```
-scripts/          Shared shell scripts and eval.mk (MCP, OLS, venv, port-forward)
-_template/        Copyable skeleton for new eval suites
-agentic/          Agentic Lightspeed behavioral eval scenarios
-kiali-ossm/       Kiali/OSSM service-mesh evaluation scenarios
-netobserv/        NetObserv network observability evaluation scenarios
-generic/          Standalone troubleshooting demos (deploy/break/fix lifecycle)
+evals/            Fault scenarios for automated evals
+  scenarios/      Scenario definitions (fixtures, evals, setup/cleanup)
+  Makefile        Orchestrates eval runs for OLS Agentic and OLS Classic
+  system-*.yaml   Evaluation framework configs (models, repeats, scoring)
+  reports/        Curated reports (tracked, manually promoted from results/)
+  results/        Generated output (gitignored): eval logs and reports
+labs/             Multi-service scenarios for demos and manual troubleshooting
+scripts/          Shared shell scripts (venv, OLS, eval runners)
 ```
 
-### Agentic scenarios
+### Scenario structure
 
-When adding, removing, or renaming scenarios under `agentic/`, keep `agentic/README.md` (scenario table) and `agentic/Makefile` (SCENARIO variable) in sync.
+Each scenario under `evals/scenarios/` is a self-contained directory:
 
-After adding or modifying an agentic scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups. The skill is in `.agents/skills/review-scenario.md` (symlinked from `.claude/skills/`).
+- `setup.sh` deploys fixtures to the cluster (creates namespaces, resources, faults)
+- `cleanup.sh` removes everything the scenario created
+- `fixtures/` contains the Kubernetes manifests applied by `setup.sh`
+- `evals-*.yaml` contains eval definitions, one per tool under test (e.g. `evals-ols-agentic.yaml`, `evals-ols-classic.yaml`)
 
-## Working with Eval Suites
+### Adding or modifying scenarios
 
-All commands run from within a suite directory (e.g., `cd kiali-ossm/`).
+When adding, removing, or renaming scenarios under `evals/scenarios/`, keep `evals/README.md` (scenario table) and the root `Makefile` (scenario variables) in sync.
 
-### Prerequisites
-
-- `oc login` to an OpenShift 4.x cluster
-- `OPENAI_API_KEY` exported
-
-### Lifecycle Commands
-
-```bash
-make setup     # Install venv + OLS operator + MCP server + suite dependencies
-make evals     # Run all scenarios (auto port-forward to OLS)
-make cleanup   # Remove suite dependencies + MCP server (OLS stays)
-```
-
-Run a single scenario:
-
-```bash
-make check_mesh_status-eval
-```
-
-### How It Works
-
-Each suite Makefile declares a `SCENARIOS` variable and includes `../scripts/eval.mk`, which auto-generates `<scenario>-eval` targets. The shared `run-evals.sh` script handles system.yaml URL replacement, port-forward lifecycle, and `lightspeed-eval` invocation.
-
-### Key Files per Team
-
-- `Makefile` — declares SCENARIOS, MCP config, setup/cleanup targets
-- `system.yaml` — evaluation framework config (judge model, metrics, output)
-- `evals.yaml` — conversation definitions (queries + expected responses, with tags matching SCENARIOS)
-- `build/` — suite-specific setup scripts and cluster resources
-- `<scenario>/setup.sh` — runs before the conversation (deploy fixtures)
-- `<scenario>/cleanup.sh` — runs after (remove fixtures)
-- `<scenario>/fixtures/` — Kubernetes manifests
-
-### Shared Scripts (scripts/)
-
-| Script | Purpose |
-|--------|---------|
-| `eval.mk` | Makefile include: target generation, _setup-shared, _cleanup-shared |
-| `setup-venv.sh` | Create venv with lightspeed-eval (idempotent) |
-| `setup-ols.sh` | Install OLS operator + OLSConfig (idempotent) |
-| `setup-mcp.sh` | Deploy MCP server with configurable toolsets |
-| `connect-ols-mcp.sh` | Register MCP in OLSConfig + restart + wait |
-| `run-evals.sh` | Port-forward + lightspeed-eval + cleanup |
+After adding or modifying a scenario, run the `review-scenario` skill to check for naming leaks, revealing comments, and unrealistic fault setups.
 
 ### Root Makefile
 
-The root Makefile has maintenance targets only:
+The root Makefile has all targets. Run `make help` for the full list.
 
 ```bash
-make tools          # Install local lint tools in .tools/
-make lint           # Install tools if needed, then run all linters
-make cleanup        # Remove OLS operator + local venv
+make tools              # Install local lint tools in .tools/
+make lint               # Install tools if needed, then run all linters
+make setup-ols-agentic  # Install venv + sync Agent CRs
+make setup-ols-classic  # Install venv + OLS classic
+make eval-ols-agentic   # Run OLS agentic scenarios
+make eval-ols-classic   # Run OLS classic scenarios
+make cleanup-ols-classic # Remove venv + OLS classic
 ```
 
-## Architecture: generic/01-payments-api-failure (Database Connection Exhaustion)
+## Architecture: labs/payments-api-failure (Database Connection Exhaustion)
 
 Services share a PostgreSQL database with `max_connections=20`. The fault: `reporting-service` v1.0.2 accumulates database connections without closing them, exhausting the shared pool and causing payments-api to return 503s.
 
@@ -97,14 +62,14 @@ The deploy script always works on a temp copy of manifests, applying sed transfo
 
 ### Key Paths
 
-- `generic/01-payments-api-failure/README.md` -- scenario overview and components
-- `generic/01-payments-api-failure/manifests/payments/` -- Kubernetes manifests for the payments namespace
-- `generic/01-payments-api-failure/manifests/shared-services/` -- Kubernetes manifests for the shared-services namespace
-- `generic/01-payments-api-failure/scripts/` -- shell scripts that implement each Make target
-- `generic/01-payments-api-failure/reporting-service/v1.0.1/` -- healthy version
-- `generic/01-payments-api-failure/reporting-service/v1.0.2/` -- buggy version (connection leak + division by zero)
+- `labs/payments-api-failure/README.md` -- scenario overview and components
+- `labs/payments-api-failure/manifests/payments/` -- Kubernetes manifests for the payments namespace
+- `labs/payments-api-failure/manifests/shared-services/` -- Kubernetes manifests for the shared-services namespace
+- `labs/payments-api-failure/scripts/` -- shell scripts that implement each Make target
+- `labs/payments-api-failure/reporting-service/v1.0.1/` -- healthy version
+- `labs/payments-api-failure/reporting-service/v1.0.2/` -- buggy version (connection leak + division by zero)
 
-## Architecture: generic/02-alert-storm (Cascading Alert Storm)
+## Architecture: labs/alert-storm (Cascading Alert Storm)
 
 Single `payments` namespace with five microservices:
 
@@ -117,13 +82,13 @@ Monitoring is wired via Prometheus ServiceMonitors and PrometheusRules with aler
 
 ### Key Paths
 
-- `generic/02-alert-storm/README.md` -- scenario overview and components
-- `generic/02-alert-storm/manifests/` -- Kubernetes manifests (namespace, deployments, ServiceMonitors, PrometheusRules)
-- `generic/02-alert-storm/manifests/configmaps/` -- healthy and broken ConfigMap variants
-- `generic/02-alert-storm/scripts/` -- shell scripts that implement each Make target
-- `generic/02-alert-storm/images/` -- Dockerfiles and Python source for all five services
+- `labs/alert-storm/README.md` -- scenario overview and components
+- `labs/alert-storm/manifests/` -- Kubernetes manifests (namespace, deployments, ServiceMonitors, PrometheusRules)
+- `labs/alert-storm/manifests/configmaps/` -- healthy and broken ConfigMap variants
+- `labs/alert-storm/scripts/` -- shell scripts that implement each Make target
+- `labs/alert-storm/images/` -- Dockerfiles and Python source for all five services
 
-## Architecture: generic/03-image-pull-failure (Image Pull Failure with PDB Alert)
+## Architecture: labs/image-pull-failure (Image Pull Failure with PDB Alert)
 
 Single `inventory` namespace with one application:
 
@@ -131,28 +96,28 @@ Single `inventory` namespace with one application:
 
 The fault: A typo is introduced in the container image reference (`ubi9/ubi9` instead of `ubi9/ubi`), causing all pods to enter `ImagePullBackOff`. With zero healthy pods, the PDB is violated and the platform-level `PodDisruptionBudgetLimit` alert fires.
 
-No custom images or PrometheusRules are needed — this scenario relies on a standard Red Hat image and the built-in OpenShift PDB alert.
+No custom images or PrometheusRules are needed; this scenario relies on a standard Red Hat image and the built-in OpenShift PDB alert.
 
 ### Key Paths
 
-- `generic/03-image-pull-failure/README.md` -- scenario overview and components
-- `generic/03-image-pull-failure/manifests/` -- Kubernetes manifests (namespace, deployment, service, ServiceMonitor, PDB)
-- `generic/03-image-pull-failure/scripts/` -- shell scripts that implement each Make target
+- `labs/image-pull-failure/README.md` -- scenario overview and components
+- `labs/image-pull-failure/manifests/` -- Kubernetes manifests (namespace, deployment, service, ServiceMonitor, PDB)
+- `labs/image-pull-failure/scripts/` -- shell scripts that implement each Make target
 
 ## Agent Skills
 
-Agent-agnostic skills live in `.agents/skills/`. Tool-specific symlinks point there:
+Agent-agnostic skills use the `.agents/skills/<skill-name>/SKILL.md` structure. Tool-specific symlinks point to each skill directory:
 
-- `.claude/skills/` symlinks to `.agents/skills/` (Claude Code)
+- `.claude/skills/<skill-name>` symlinks to `.agents/skills/<skill-name>` (Claude Code)
 
 | Skill | Purpose |
 |-------|---------|
-| `review-scenario` | Audit an agentic scenario for naming leaks, revealing comments, unrealistic faults |
+| `review-scenario` | Audit a scenario for naming leaks, revealing comments, unrealistic faults |
 
 ## Tech Stack
 
-- **Eval framework**: [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation), Python 3.11–3.13
-- **System under test**: [OpenShift Lightspeed](https://github.com/openshift/lightspeed-service) with MCP server
-- **Applications** (generic scenarios): Python 3.12, FastAPI, raw psycopg2
-- **Infrastructure**: OpenShift 4.x, Prometheus user workload monitoring
+- **Eval framework**: [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation), Python 3.11+
+- **System under test**: [OpenShift Lightspeed](https://github.com/openshift/lightspeed-service) (Agentic and Classic)
+- **Applications** (labs scenarios): Python 3.12, FastAPI, raw psycopg2
+- **Infrastructure**: OpenShift 4.x/5.x, Prometheus user workload monitoring
 - **Deployment**: Raw Kubernetes YAML manifests via `oc apply`, no Helm/Kustomize

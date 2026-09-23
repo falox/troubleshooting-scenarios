@@ -1,6 +1,4 @@
 **/results/
-!agentic/results/
-agentic/results/logs/
 **/_output/
 **/.caches/
 __pycache__/

@@ -1,0 +1,22 @@
+- conversation_group_id: tls_issues
+  description: |
+    Namespace web-services has HTTPS and TLS connection problems.
+    RCA: The workload generates failed certificate-validation and protocol-mismatch connections.
+    Expected: Use NetObserv metrics and flows to investigate failed connections and explain the observed TLS or connectivity pattern.
+  tag:
+    - classic
+    - netobserv
+    - difficulty_medium
+  turns:
+    - turn_id: tls_issues
+      query: >
+        Namespace web-services has HTTPS and TLS connection problems between
+        workloads over the last hour. Use NetObserv flow metrics and flows to
+        investigate failed connections, TLS errors, or related connectivity issues.
+      expected_response: >
+        Investigates TLS, HTTPS, and connectivity using NetObserv tools: flow metrics
+        and/or netobserv_list_flows showing failed connections on TCP:8443 or related
+        error patterns. Explains whether the issue appears to be TLS termination,
+        backend unreachable, or misconfiguration based on flow evidence from tool
+        output.
+      turn_metrics: [custom:answer_correctness]

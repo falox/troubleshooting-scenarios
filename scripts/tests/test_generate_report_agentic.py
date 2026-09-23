@@ -1,5 +1,6 @@
 """Tests for generate-report-agentic.py."""
 
+import csv
 import json
 import textwrap
 from pathlib import Path
@@ -68,6 +69,8 @@ def _make_amended_yaml(entries: list[dict]) -> list[dict]:
             turn["api_output_tokens"] = e["api_output_tokens"]
         if "agentic_run_status" in e:
             turn["openshift_agentic_run_status"] = e["agentic_run_status"]
+        if "agentic_run_results" in e:
+            turn["openshift_agentic_run_results"] = e["agentic_run_results"]
         entry = {
             "conversation_group_id": e["conversation_id"],
             "tag": e.get("tags", [e["conversation_id"]]),
@@ -166,7 +169,180 @@ class TestLoadRunSummary:
 # --- Tests for generate_report without eval_report.json ---
 
 
+class TestOutcomeDetails:
+    @pytest.mark.parametrize("with_amended", [True, False])
+    def test_csv_errors_appear_once_inside_response_block(self, tmp_path, with_amended):
+        run_dir = tmp_path / "agent" / "run_1"
+        results = [
+            _make_result("s1", metric=metric, result="ERROR", score=None)
+            for metric in (mod.STATUS_METRIC, mod.CORRECTNESS_METRIC)
+        ]
+        for result in results:
+            result["judge_scores"] = None
+        _write_run(
+            run_dir, results,
+            [{"conversation_id": "s1", "response": None}] if with_amended else [],
+        )
+        error = 'Failed to apply AgenticRunApproval:\n"eval-example" already exists'
+        fields = ["conversation_group_id", "turn_id", "metric_identifier", "reason"]
+        with (run_dir / "evaluation_20260830_100000_detailed.csv").open("w", newline="") as fh:
+            writer = csv.DictWriter(fh, fieldnames=fields)
+            writer.writeheader()
+            for result in results:
+                writer.writerow({**{key: result[key] for key in fields[:-1]}, "reason": error})
+
+        report = mod.generate_report(tmp_path)
+        assert f"````markdown\n## Outcome\n\n{error}\n````" in report
+        assert report.count(error) == 1
+        assert "Completed**: ❌ ERROR" in report
+        assert "Correctness**: ❌ ERROR" in report
+
+    def test_csv_reason_matches_file_scenario_turn_and_metric(self, tmp_path):
+        for stamp, reason in [("100000", "first error"), ("100100", "second error")]:
+            result = _make_result("s1", result="ERROR")
+            (tmp_path / f"evaluation_{stamp}_summary.json").write_text(
+                json.dumps(_make_summary_json([result]))
+            )
+            fields = ["conversation_group_id", "turn_id", "metric_identifier", "reason"]
+            with (tmp_path / f"evaluation_{stamp}_detailed.csv").open("w", newline="") as fh:
+                writer = csv.DictWriter(fh, fieldnames=fields)
+                writer.writeheader()
+                row = {key: result[key] for key in fields[:-1]}
+                writer.writerow({**row, "reason": reason})
+                writer.writerow({**row, "turn_id": "turn_2", "reason": "wrong turn"})
+                writer.writerow({**row, "conversation_group_id": "s2", "reason": "wrong scenario"})
+                writer.writerow({**row, "metric_identifier": mod.STATUS_METRIC, "reason": "wrong metric"})
+        assert [r["reason"] for r in mod.load_run_summary(tmp_path)] == [
+            "first error", "second error",
+        ]
+
+    def test_summary_error_works_without_csv_and_keeps_existing_outcome(self, tmp_path):
+        result = _make_result("s1", result="ERROR")
+        result["reason"] = "Judge request failed"
+        _write_run(
+            tmp_path / "agent" / "run_1", [result],
+            [{"conversation_id": "s1", "response": "## Outcome\n\nSandbox completed"}],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "## Outcome\n\nSandbox completed\n\nJudge request failed\n````" in report
+        assert report.count("## Outcome") == 1
+
+    @pytest.mark.parametrize("response", [None, "No action required", "## Outcome\n\nNO ACTION REQUIRED"])
+    def test_no_action_diagnosis_in_outcome(self, tmp_path, response):
+        _write_run(
+            tmp_path / "agent" / "run_1", [_make_result("s1")],
+            [{"conversation_id": "s1", "response": response,
+              "agentic_run_results": {"analysis": [
+                  {"diagnosis": {"rootCause": "Access denied", "summary": "Cannot inspect pods"}},
+              ]}}],
+        )
+        report = mod.generate_report(tmp_path)
+        if response:
+            assert "Access denied\n\nCannot inspect pods\n````" in report
+            assert report.count("## Outcome") == 1
+        else:
+            assert "Access denied" not in report
+
+    def test_outcome_does_not_repeat_errors_or_diagnosis(self):
+        response = "## Analysis\n\nAccess denied\n\n## Outcome\n\nAgent returned empty response"
+        assert mod.append_outcome(response, ["Access denied", "Agent returned empty response"]) == response
+
+    def test_outcome_details_stay_before_the_next_section(self):
+        response = "## Outcome\n\nNo action required\n\n## Notes\n\nSaved notes"
+        enriched = mod.append_outcome(response, ["Access denied"])
+        assert "No action required\n\nAccess denied\n\n## Notes\n\nSaved notes" in enriched
+
+
+class TestScoreCellIcons:
+    @pytest.mark.parametrize("quality,status,expected", [
+        (["PASS", "PASS"], ["PASS", "PASS"], "🟢 2/2"),
+        (["FAIL", "FAIL"], ["PASS", "PASS"], "🔴 0/2"),
+        (["PASS", "FAIL"], ["PASS", "PASS"], "1/2"),
+        (["PASS", "FAIL"], ["PASS", "FAIL"], "❌ 1/2"),
+        (["FAIL", "FAIL"], ["FAIL", "PASS"], "❌ 0/2"),
+        (["PASS", "PASS"], ["PASS", "FAIL"], "❌ 2/2"),
+        (["PASS", "ERROR"], ["PASS", "ERROR"], "❌ 1/2"),
+        (["ERROR"], ["PASS"], "❌ 0.00"),
+        (["FAIL"], ["PASS"], "🔴 0.00"),
+        (["PASS"], ["PASS"], "🟢 1.00"),
+    ])
+    def test_quality_and_technical_failures(self, quality, status, expected):
+        runs = []
+        for quality_result, status_result in zip(quality, status):
+            score = None if quality_result == "ERROR" else float(quality_result == "PASS")
+            runs.append([
+                _make_result("s1", result=quality_result, score=score),
+                _make_result("s1", metric=mod.STATUS_METRIC, result=status_result),
+                _make_result("other", metric=mod.STATUS_METRIC, result="FAIL"),
+            ])
+        assert mod.score_cell(runs, "s1", "agent").startswith(f"[{expected}](#agent--s1)")
+
+    def test_quality_failure_without_status_is_not_a_technical_failure(self):
+        assert mod.score_cell([[_make_result("s1", result="FAIL", score=0)]], "s1", "agent") == (
+            "[🔴 0.00](#agent--s1)"
+        )
+
+
+class TestScoreAverages:
+    @pytest.mark.parametrize("quality,status,score", [
+        ("ERROR", "ERROR", None),
+        ("ERROR", "PASS", None),
+        ("ERROR", "PASS", 0.9),
+        ("PASS", "FAIL", 1.0),
+        ("FAIL", "FAIL", 0.4),
+        ("PASS", "ERROR", 1.0),
+    ])
+    def test_technical_failures_count_as_zero(self, quality, status, score):
+        runs = [
+            [_make_result("s1", result=quality, score=score),
+             _make_result("s1", metric=mod.STATUS_METRIC, result=status)],
+            [_make_result("s1")],
+            [_make_result("s1")],
+        ]
+        assert mod.score_cell(runs, "s1", "agent").endswith(" (0.67)")
+        assert mod.scenario_mean_score(runs, "s1") == pytest.approx(2 / 3)
+        assert mod.mean_score(runs, ["s1"]) == pytest.approx(2 / 3)
+
+    def test_quality_failure_keeps_its_score(self):
+        runs = [[
+            _make_result("s1", result="FAIL", score=0.4),
+            _make_result("s1", metric=mod.STATUS_METRIC),
+            _make_result("other", result="ERROR", score=None),
+        ]]
+        assert mod.score_cell(runs, "s1", "agent") == "[🔴 0.40](#agent--s1)"
+        assert mod.scenario_mean_score(runs, "s1") == 0.4
+        assert mod.mean_score(runs, ["s1"]) == 0.4
+
+    @pytest.mark.parametrize("metric", [mod.CORRECTNESS_METRIC, mod.STATUS_METRIC])
+    def test_all_errors_have_zero_average(self, metric):
+        runs = [[_make_result("s1", metric=metric, result="ERROR", score=None)]] * 3
+        assert mod.score_cell(runs, "s1", "agent") == "[❌ 0/3](#agent--s1) (0.00)"
+        assert mod.scenario_mean_score(runs, "s1") == 0.0
+        assert mod.mean_score(runs, ["s1"]) == 0.0
+
+    def test_missing_results_are_not_reported_as_failures(self):
+        runs = [None, []]
+        assert mod.score_cell(runs, "s1", "agent") == "N/A"
+        assert mod.scenario_mean_score(runs, "s1") is None
+        assert mod.mean_score(runs, ["s1"]) is None
+
+
 class TestGenerateReport:
+    def test_error_scores_affect_averages_and_best_score(self, tmp_path):
+        for agent, scores in [("agent_a", [None, 1.0, 1.0]), ("agent_b", [0.8] * 3)]:
+            for run, score in enumerate(scores, start=1):
+                _write_run(
+                    tmp_path / agent / f"run_{run}",
+                    [_make_result("s1", result="ERROR" if score is None else "PASS", score=score)],
+                    [{"conversation_id": "s1"}],
+                )
+        report = mod.generate_report(tmp_path)
+        assert "| Avg score | 0.67 | **0.80** 🥇 |" in report
+        assert "| **Avg score** | 0.67 | **0.80** 🥇 |" in report
+        assert "| [s1](#s1) | [❌ 2/3](#agent_a--s1) (0.67) | **[🟢 3/3](#agent_b--s1) (0.80)** 🥇 |" in report
+        assert "Technical failures count as 0 in score averages." in report
+        assert "**Correctness**: ❌ ERROR (score: N/A)" in report
+
     def test_single_agent_single_run(self, tmp_path):
         _write_run(
             tmp_path / "gpt-5.4" / "run_1",
@@ -177,6 +353,10 @@ class TestGenerateReport:
         assert "# Evaluation Summary" in report
         assert "gpt-5.4" in report
         assert "blocked_deployment" in report
+        correctness = report.split("## Correctness\n", 1)[1].split("## Time", 1)[0]
+        assert "Legend: 🟢 100% pass rate · 🔴 0% pass rate · ❌ Technical failure in at least one run (Status = Failed)." in correctness
+        assert "No icon: partial pass rate" not in correctness
+        assert "takes priority over pass-rate icons" not in correctness
 
     def test_multi_agent_multi_run(self, tmp_path):
         for agent in ["gpt-5.4", "gemini-2.5-pro"]:
@@ -251,7 +431,7 @@ class TestGenerateReport:
         mod.print_correctness_table(conversations, ["gpt-5.4"], agent_runs)
 
         assert "100% (1/1)" in report
-        assert "✅ 1.00" in report
+        assert "🟢 1.00" in report
         assert "1/1" in capsys.readouterr().out
 
     def test_remediation_phase_breakdown(self, tmp_path):
@@ -368,7 +548,7 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         breakdown = report.split("## Correctness breakdown by Phase")[1].split("## Time")[0]
 
-        assert "| **Pass rate** | A **100% (2/2)**<br>E 50% (1/2)<br>V **50% (1/2)** | A 50% (1/2)<br>E **100% (2/2)**<br>V 0% (0/2) |" in breakdown
+        assert "| **Pass rate** | A **100% (2/2)** 🥇<br>E 50% (1/2)<br>V **50% (1/2)** 🥇 | A 50% (1/2)<br>E **100% (2/2)** 🥇<br>V 0% (0/2) |" in breakdown
 
     def test_omits_phase_breakdown_without_remediation(self, tmp_path):
         _write_run(
@@ -673,6 +853,7 @@ class TestGenerateReport:
             )
         report = mod.generate_report(tmp_path)
         assert "**100% (2/2)**" in report
+        assert "**100% (2/2)** 🥇" in report
         assert "50% (1/2)" in report
         assert "**50% (1/2)**" not in report
 
@@ -699,6 +880,7 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         assert "Judge: gpt-5.4" in report
+        assert "2026-08-30 10:00:00 UTC | **OLS Agentic** | 1 scenario, 1 agent, 1 repeat | Judge: gpt-5.4" in report
 
     def test_no_judge_by_default(self, tmp_path):
         _write_run(
@@ -709,35 +891,94 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         assert "Judge" not in report
 
-    def test_avg_tokens_divides_by_evaluations_not_scenarios(self, tmp_path):
-        """With 2 runs of 1 scenario at 100 tokens each, avg should be 100, not 200."""
+    def test_tokens_from_agentic_run_status(self, tmp_path):
+        """Token usage is extracted from openshift_agentic_run_status.tokenUsage."""
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{
+                "conversation_id": "s1",
+                "agentic_run_status": {
+                    "tokenUsage": {"inputTokens": 76459, "outputTokens": 4914},
+                    "conditions": [],
+                },
+            }],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "76K/5K" in report
+
+    def test_tokens_show_input_output_split(self, tmp_path):
+        """Token display shows input/output separated by /."""
         for run in [1, 2]:
             _write_run(
                 tmp_path / "agent" / f"run_{run}",
                 results=[_make_result("s1")],
                 amended_entries=[{
                     "conversation_id": "s1",
-                    "api_input_tokens": 60,
-                    "api_output_tokens": 40,
+                    "agentic_run_status": {
+                        "tokenUsage": {"inputTokens": 100000, "outputTokens": 5000},
+                        "conditions": [],
+                    },
                 }],
                 timestamp=f"20260830_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 100 |" in report
-        assert "| **Average** | 100 |" in report
+        assert "| Avg tokens | 100K/5K |" in report
+        assert "| **Average** | 100K/5K |" in report
 
-    def test_tokens_compact_formatting(self, tmp_path):
+    def test_tokens_million_formatting(self, tmp_path):
         _write_run(
             tmp_path / "agent" / "run_1",
             results=[_make_result("s1")],
             amended_entries=[{
                 "conversation_id": "s1",
-                "api_input_tokens": 50000,
-                "api_output_tokens": 1000,
+                "agentic_run_status": {
+                    "tokenUsage": {"inputTokens": 1500000, "outputTokens": 50000},
+                    "conditions": [],
+                },
             }],
         )
         report = mod.generate_report(tmp_path)
-        assert "| Avg tokens | 51K |" in report
+        assert "1.5M/50K" in report
+
+    def test_tokens_missing_token_usage_shows_dash(self, tmp_path):
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{
+                "conversation_id": "s1",
+                "agentic_run_status": {"conditions": []},
+            }],
+        )
+        report = mod.generate_report(tmp_path)
+        cost_section = report.split("## Cost")[1].split("# Scenarios")[0]
+        assert "—" in cost_section
+
+    def test_tokens_in_scenario_detail(self, tmp_path):
+        """Token usage appears in the per-run detail section after Duration."""
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{
+                "conversation_id": "s1",
+                "agentic_run_status": {
+                    "tokenUsage": {"inputTokens": 76459, "outputTokens": 4914},
+                    "conditions": [],
+                },
+            }],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "**Tokens**: in 76,459 out 4,914" in report
+
+    def test_tokens_no_lightspeed_eval_note(self, tmp_path):
+        """The old note about lightspeed-eval not exposing data should be gone."""
+        _write_run(
+            tmp_path / "agent" / "run_1",
+            results=[_make_result("s1")],
+            amended_entries=[{"conversation_id": "s1"}],
+        )
+        report = mod.generate_report(tmp_path)
+        assert "lightspeed-eval does not expose" not in report
 
 
 class TestPrintCorrectnessTable:
