@@ -36,6 +36,7 @@ bash "$SCRIPT_DIR/preflight.sh" --require-ols
 
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
+mkdir -p "$EVAL_DIR"
 
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
@@ -47,6 +48,8 @@ eval_sa="ols-classic-eval"
 eval_sa_created=0
 eval_role_bound=0
 
+# Invoked indirectly by the EXIT trap below.
+# shellcheck disable=SC2329
 cleanup_ols_classic() {
   if [ -n "$pf_pid" ]; then kill "$pf_pid" 2>/dev/null || true; fi
   if [ "$eval_role_bound" -eq 1 ]; then
@@ -135,25 +138,53 @@ restart_port_forward() {
 
 overall_status=0
 groups_setup=()
+failed_groups=()
+failed_runs=()
 
+record_failure() {
+  local status="$1"
+  local label="$2"
+
+  if [ "$overall_status" -eq 0 ]; then overall_status="$status"; fi
+  failed_runs+=("$label")
+  echo "WARNING: $label failed (exit $status); continuing." >&2
+}
+
+total_scenarios=${#SCENARIOS[@]}
+progress_index=0
 for scenario in "${SCENARIOS[@]}"; do
+  progress_index=$((progress_index + 1))
   grp_setup="$(group_setup_script "$scenario")"
   if [ -n "$grp_setup" ]; then
     already_done=false
+    group_failed=false
     for g in "${groups_setup[@]+"${groups_setup[@]}"}"; do
       if [ "$g" = "$grp_setup" ]; then already_done=true; break; fi
     done
+    for g in "${failed_groups[@]+"${failed_groups[@]}"}"; do
+      if [ "$g" = "$grp_setup" ]; then group_failed=true; break; fi
+    done
+    if [ "$group_failed" = "true" ]; then
+      echo "WARNING: Skipping $scenario because group setup failed: $grp_setup" >&2
+      continue
+    fi
     if [ "$already_done" = "false" ]; then
       echo ""
       echo "==> Group setup: $grp_setup"
-      if ! bash "$grp_setup"; then
-        overall_status=$?
-        break
-      fi
-      groups_setup+=("$grp_setup")
-      if ! restart_port_forward; then
-        overall_status=1
-        break
+      if bash "$grp_setup"; then
+        if restart_port_forward; then
+          groups_setup+=("$grp_setup")
+        else
+          status=$?
+          failed_groups+=("$grp_setup")
+          record_failure "$status" "$scenario (group setup: $grp_setup)"
+          continue
+        fi
+      else
+        status=$?
+        failed_groups+=("$grp_setup")
+        record_failure "$status" "$scenario (group setup: $grp_setup)"
+        continue
       fi
     fi
   fi
@@ -163,6 +194,7 @@ for scenario in "${SCENARIOS[@]}"; do
   scenario_status=0
   if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
   if [ "$scenario_status" -eq 0 ]; then
+    echo "==> Progress: scenario $progress_index/$total_scenarios | ${scenario#scenarios/}"
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
       --system-config "$SYSTEM_CONFIG" \
       --evals "$scenario/evals-ols-classic.yaml" \
@@ -171,7 +203,7 @@ for scenario in "${SCENARIOS[@]}"; do
   fi
   echo "==> Cleanup: $scenario"
   if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
-  if [ "$scenario_status" -ne 0 ]; then overall_status=$scenario_status; break; fi
+  if [ "$scenario_status" -ne 0 ]; then record_failure "$scenario_status" "$scenario"; fi
 done
 
 groups_cleanup=()
@@ -190,18 +222,22 @@ for scenario in "${SCENARIOS[@]}"; do
   fi
 done
 
-if [ -n "$(find "$EVAL_DIR" -name '*_summary.json' -print -quit 2>/dev/null)" ]; then
-  echo ""
-  echo "==> Generating report..."
-  report_status=0
-  "$PYTHON" "$SCRIPT_DIR/generate-report-classic.py" \
-    "$EVAL_DIR" \
-    --output "results/report_${DATETIME}.md" || report_status=$?
-  if [ "$report_status" -eq 0 ]; then
-    echo "==> Report: results/report_${DATETIME}.md"
-  elif [ "$overall_status" -eq 0 ]; then
-    overall_status=$report_status
-  fi
+if [ ${#failed_runs[@]} -gt 0 ]; then
+  echo "==> Failed scenario runs (${#failed_runs[@]}):"
+  printf '  %s\n' "${failed_runs[@]}"
 fi
 
-if [ "$overall_status" -ne 0 ]; then exit "$overall_status"; fi
+echo ""
+echo "==> Generating report..."
+report_status=0
+"$PYTHON" "$SCRIPT_DIR/generate-report-classic.py" \
+  "$EVAL_DIR" \
+  --output "results/report_${DATETIME}.md" || report_status=$?
+if [ "$report_status" -eq 0 ]; then
+  echo "==> Report: results/report_${DATETIME}.md"
+else
+  echo "ERROR: Report generation failed (exit $report_status)" >&2
+  if [ "$overall_status" -eq 0 ]; then overall_status=$report_status; fi
+fi
+
+exit "$overall_status"

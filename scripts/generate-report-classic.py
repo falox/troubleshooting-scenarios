@@ -612,26 +612,52 @@ def print_correctness_table(
     conversations: list[str],
     agent_names: list[str],
     agent_runs: dict[str, list],
+    agent_amended: dict[str, list] | None = None,
 ) -> None:
+    agent_amended = agent_amended or {}
     grid: list[list[tuple[int, int]]] = []
     for cid in conversations:
         row = [_scenario_pass_total(agent_runs[a], cid) for a in agent_names]
         grid.append(row)
 
     totals = [overall_score(agent_runs[a], conversations) for a in agent_names]
+    avg_scores = [mean_score(agent_runs[a], conversations) for a in agent_names]
+    avg_durations = [mean_latency(agent_runs[a], conversations) for a in agent_names]
+    avg_tokens = [
+        format_token_pair(
+            *mean_tokens(agent_amended.get(a, []), conversations)
+        )
+        for a in agent_names
+    ]
+    avg_score_cells = ["N/A" if score is None else f"{score:.2f}" for score in avg_scores]
+    avg_duration_cells = [
+        "N/A" if duration is None else format_duration(duration)
+        for duration in avg_durations
+    ]
 
     def _footer_plain(p, t):
         pct = round(100 * p / t) if t else 0
         return f"{pct}% ({p}/{t})"
 
-    scenario_w = max(len("Scenario"), len("Pass rate"), *(len(c) for c in conversations))
+    footer_labels = ["Pass rate", "Avg score", "Avg duration", "Avg tokens"]
+    scenario_w = max(
+        [len("Scenario"), *(len(label) for label in footer_labels)]
+        + [len(c) for c in conversations]
+    )
     col_widths = []
     for index, (agent, total) in enumerate(zip(agent_names, totals, strict=True)):
         result_width = max(
             (len(f"{row[index][0]}/{row[index][1]}") for row in grid),
             default=0,
         )
-        col_widths.append(max(len(agent), result_width, len(_footer_plain(*total))))
+        summary_width = max(
+            len(avg_score_cells[index]),
+            len(avg_duration_cells[index]),
+            len(avg_tokens[index]),
+        )
+        col_widths.append(
+            max(len(agent), result_width, len(_footer_plain(*total)), summary_width)
+        )
 
     sep = "+-" + "-+-".join("-" * w for w in [scenario_w] + col_widths) + "-+"
     header = "| " + " | ".join(
@@ -657,6 +683,14 @@ def print_correctness_table(
         text = f"{pct}% ({colored})"
         footer_cells.append(f"{text}{' ' * (w - len(plain))}")
     print("| " + " | ".join(footer_cells) + " |")
+    for label, values in (
+        ("Avg score", avg_score_cells),
+        ("Avg duration", avg_duration_cells),
+        ("Avg tokens", avg_tokens),
+    ):
+        cells = [f"{label:<{scenario_w}}"]
+        cells.extend(f"{value:<{width}}" for value, width in zip(values, col_widths))
+        print("| " + " | ".join(cells) + " |")
     print(sep)
 
 
@@ -688,12 +722,15 @@ def main():
 
     agent_names = discover_agents(eval_dir)
     agent_runs = {}
+    agent_amended = {}
     for agent in agent_names:
-        agent_runs[agent] = [load_run_summary(rd) for rd in find_run_dirs(eval_dir, agent)]
+        run_dirs = find_run_dirs(eval_dir, agent)
+        agent_runs[agent] = [load_run_summary(rd) for rd in run_dirs]
+        agent_amended[agent] = [load_amended_entries(rd) for rd in run_dirs]
     conversations = collect_conversations(agent_runs)
 
     print()
-    print_correctness_table(conversations, agent_names, agent_runs)
+    print_correctness_table(conversations, agent_names, agent_runs, agent_amended)
     print()
     print(f"Report written to {output}")
 

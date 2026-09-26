@@ -50,6 +50,22 @@ Before a real evaluation, `make eval-ols-agentic` checks that the Agent CRs matc
 `system-ols-agentic.yaml`. If they are missing or stale, it stops and asks you to
 run `make setup-ols-agentic`.
 
+### Failures and cleanup during evaluations
+
+For both `make eval-ols-agentic` and `make eval-ols-classic`, once a scenario's
+setup is attempted, its `cleanup.sh` runs before the runner moves on, even if
+setup or evaluation fails. The runner then continues with the other selected
+scenarios. A cleanup failure is logged and does not stop the loop. At the end,
+the runner tries to generate a report from the results that are available. The
+command returns a failure status after the report if any scenario failed.
+
+For OLS Classic scenario groups, the group's `setup.sh` runs before its first
+scenario. The group's `cleanup.sh` runs once after the full scenario loop, after
+all selected scenarios in that group have been handled. A scenario setup failure
+does not move group cleanup earlier. If group setup fails, the runner skips the
+scenarios in that group and continues with other groups. A group cleanup
+failure is logged, and report generation still runs.
+
 ## Conventions
 
 Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-adapter) have:

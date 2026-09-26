@@ -38,13 +38,33 @@ def workspace(tmp_path):
     return tmp_path
 
 
+@pytest.fixture
+def classic_workspace(workspace):
+    shutil.copy(ROOT / "scripts/eval-ols-classic.sh", workspace / "scripts/eval-ols-classic.sh")
+    executable(workspace / "scripts/preflight.sh", "#!/bin/bash\nexit 0\n")
+    executable(workspace / "bin/curl", "#!/bin/bash\nexit 0\n")
+    executable(
+        workspace / "bin/oc",
+        '#!/bin/bash\nif [ "$1" = whoami ]; then echo test-token; fi\n',
+    )
+    (workspace / "evals/system-ols-classic.yaml").write_text("{}\n")
+    (workspace / "scripts/generate-report-classic.py").write_text(
+        'import os, sys\n'
+        'with open(os.environ["EVENT_LOG"], "a") as f:\n'
+        '    f.write("report\\n")\n'
+        'with open(sys.argv[-1], "w") as f:\n'
+        '    f.write("report\\n")\n'
+    )
+    return workspace
+
+
 @pytest.mark.parametrize("mode", ["run", "scenario"])
 @pytest.mark.parametrize(
     "setup_status,eval_status,cleanup_status,expected_status,events",
     [
-        (23, 0, 0, 23, ["setup", "cleanup"]),
-        (0, 42, 0, 42, ["setup", "eval", "cleanup"]),
-        (0, 42, 9, 42, ["setup", "eval", "cleanup"]),
+        (23, 0, 0, 23, ["setup", "cleanup", "report"]),
+        (0, 42, 0, 42, ["setup", "eval", "cleanup", "report"]),
+        (0, 42, 9, 42, ["setup", "eval", "cleanup", "report"]),
         (0, 0, 9, 0, ["setup", "eval", "cleanup", "report"]),
         (0, 0, 0, 0, ["setup", "eval", "cleanup", "report"]),
     ],
@@ -86,6 +106,173 @@ def test_scenario_cleanup(
     )
     assert result.returncode == expected_status, result.stdout + result.stderr
     assert log.read_text().splitlines() == events
+
+
+@pytest.mark.parametrize("mode", ["run", "scenario"])
+@pytest.mark.parametrize("failure_step,expected_status", [("setup", 23), ("eval", 42)])
+def test_failed_scenario_allows_later_scenarios_and_report(
+    workspace, mode, failure_step, expected_status
+):
+    (workspace / "evals/system-ols-agentic.yaml").write_text(yaml.safe_dump({
+        "agents": {
+            "default": {"repeat": 1},
+            "test-agent": {"description": "Test agent"},
+        }
+    }))
+    for name in ("first", "second"):
+        scenario = workspace / "evals/scenarios" / name
+        setup_status = 23 if name == "first" and failure_step == "setup" else 0
+        executable(
+            scenario / "setup.sh",
+            f'#!/bin/bash\necho setup:{name} >> "$EVENT_LOG"\nexit {setup_status}\n',
+        )
+        executable(
+            scenario / "cleanup.sh",
+            f'#!/bin/bash\necho cleanup:{name} >> "$EVENT_LOG"\n',
+        )
+        (scenario / "evals-ols-agentic.yaml").write_text("[]\n")
+
+    executable(
+        workspace / "scripts/run-agentic-evals.sh",
+        '#!/bin/bash\n'
+        'scenario="$(basename "$(dirname "$4")")"\n'
+        'echo "eval:$scenario" >> "$EVENT_LOG"\n'
+        'if [ "$scenario" = first ] && [ "$FAILURE_STEP" = eval ]; then exit 42; fi\n',
+    )
+    (workspace / "scripts/generate-report-agentic.py").write_text(
+        'import os, sys\n'
+        'with open(os.environ["EVENT_LOG"], "a") as f:\n'
+        '    f.write("report\\n")\n'
+        'with open(sys.argv[-1], "w") as f:\n'
+        '    f.write("report\\n")\n'
+    )
+    log = workspace / "events"
+    result = subprocess.run(
+        [
+            "bash", str(workspace / "scripts/eval-ols-agentic.sh"),
+            "--system-config", "system-ols-agentic.yaml",
+            "--setup-mode", mode, "--agents", "test-agent",
+            "--tags", "alert",
+            "--scenarios", "scenarios/first", "scenarios/second",
+        ],
+        cwd=workspace / "evals",
+        env={**os.environ, "EVENT_LOG": str(log), "FAILURE_STEP": failure_step},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == expected_status, result.stdout + result.stderr
+    expected_events = ["setup:first"]
+    if failure_step == "eval":
+        expected_events.append("eval:first")
+    expected_events += [
+        "cleanup:first", "setup:second", "eval:second", "cleanup:second", "report",
+    ]
+    assert log.read_text().splitlines() == expected_events
+    assert list((workspace / "evals/results").glob("report_*.md"))
+
+
+@pytest.mark.parametrize("failure_step,expected_status", [("setup", 23), ("eval", 42)])
+def test_classic_failed_scenario_allows_later_scenarios_and_report(
+    classic_workspace, failure_step, expected_status
+):
+    for name in ("first", "second"):
+        scenario = classic_workspace / "evals/scenarios" / name
+        setup_status = 23 if name == "first" and failure_step == "setup" else 0
+        executable(
+            scenario / "setup.sh",
+            f'#!/bin/bash\necho setup:{name} >> "$EVENT_LOG"\nexit {setup_status}\n',
+        )
+        executable(
+            scenario / "cleanup.sh",
+            f'#!/bin/bash\necho cleanup:{name} >> "$EVENT_LOG"\n',
+        )
+        (scenario / "evals-ols-classic.yaml").write_text("[]\n")
+
+    executable(
+        classic_workspace / "scripts/run-agentic-evals.sh",
+        '#!/bin/bash\n'
+        'scenario="$(basename "$(dirname "$4")")"\n'
+        'echo "eval:$scenario" >> "$EVENT_LOG"\n'
+        'if [ "$scenario" = first ] && [ "$FAILURE_STEP" = eval ]; then exit 42; fi\n',
+    )
+    log = classic_workspace / "events"
+    result = subprocess.run(
+        [
+            "bash", str(classic_workspace / "scripts/eval-ols-classic.sh"),
+            "--system-config", "system-ols-classic.yaml",
+            "--tags", "alert",
+            "--scenarios", "scenarios/first", "scenarios/second",
+        ],
+        cwd=classic_workspace / "evals",
+        env={
+            **os.environ,
+            "PATH": f"{classic_workspace / 'bin'}:{os.environ['PATH']}",
+            "EVENT_LOG": str(log),
+            "FAILURE_STEP": failure_step,
+        },
+        capture_output=True, text=True,
+    )
+    assert result.returncode == expected_status, result.stdout + result.stderr
+    expected_events = ["setup:first"]
+    if failure_step == "eval":
+        expected_events.append("eval:first")
+    expected_events += [
+        "cleanup:first", "setup:second", "eval:second", "cleanup:second", "report",
+    ]
+    assert log.read_text().splitlines() == expected_events
+    assert list((classic_workspace / "evals/results").glob("report_*.md"))
+
+
+def test_classic_failed_group_setup_skips_group_and_reports_other_scenarios(
+    classic_workspace,
+):
+    group = classic_workspace / "evals/scenarios/group"
+    executable(
+        group / "setup.sh",
+        '#!/bin/bash\necho group-setup >> "$EVENT_LOG"\nexit 31\n',
+    )
+    executable(
+        group / "cleanup.sh",
+        '#!/bin/bash\necho group-cleanup >> "$EVENT_LOG"\n',
+    )
+    for name in ("group/first", "group/second", "other/third"):
+        scenario = classic_workspace / "evals/scenarios" / name
+        executable(
+            scenario / "setup.sh",
+            f'#!/bin/bash\necho setup:{name} >> "$EVENT_LOG"\n',
+        )
+        executable(
+            scenario / "cleanup.sh",
+            f'#!/bin/bash\necho cleanup:{name} >> "$EVENT_LOG"\n',
+        )
+        (scenario / "evals-ols-classic.yaml").write_text("[]\n")
+
+    executable(
+        classic_workspace / "scripts/run-agentic-evals.sh",
+        '#!/bin/bash\necho eval >> "$EVENT_LOG"\n',
+    )
+    log = classic_workspace / "events"
+    result = subprocess.run(
+        [
+            "bash", str(classic_workspace / "scripts/eval-ols-classic.sh"),
+            "--system-config", "system-ols-classic.yaml",
+            "--scenarios", "scenarios/group/first", "scenarios/group/second",
+            "scenarios/other/third",
+        ],
+        cwd=classic_workspace / "evals",
+        env={
+            **os.environ,
+            "PATH": f"{classic_workspace / 'bin'}:{os.environ['PATH']}",
+            "EVENT_LOG": str(log),
+        },
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 31, result.stdout + result.stderr
+    assert log.read_text().splitlines() == [
+        "group-setup", "setup:other/third", "eval", "cleanup:other/third",
+        "group-cleanup", "report",
+    ]
+    assert "Skipping scenarios/group/second" in result.stderr
+    assert list((classic_workspace / "evals/results").glob("report_*.md"))
 
 
 @pytest.mark.parametrize("variant", ["classic", "agentic"])
@@ -173,7 +360,7 @@ def test_ci_agent_provisioning(workspace, agent):
         return
 
     assert result.returncode == 0, result.stdout + result.stderr
-    selected = agent or "openai-gpt-5-6-luna"
+    selected = agent or SYSTEM_CONFIG["agents"]["default"]["agent"][0]
     config = SYSTEM_CONFIG["agents"][selected]
     provider, model = config["description"].split("|", 1)
     resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]

@@ -62,6 +62,7 @@ done
 
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
+mkdir -p "$EVAL_DIR"
 
 if [ ${#AGENTS[@]} -eq 0 ]; then
   read -ra AGENTS <<< "$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))")"
@@ -96,13 +97,15 @@ done
 
 run_scenario() {
   local scenario="$1"
-  shift
+  local progress="$2"
+  shift 2
   local scenario_status=0
 
   echo ""
   echo "==> Setup: $scenario"
   if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
   if [ "$scenario_status" -eq 0 ]; then
+    echo "==> Progress: $progress"
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
       --system-config "$SYSTEM_CONFIG" \
       --evals "$scenario/evals-ols-agentic.yaml" \
@@ -115,20 +118,46 @@ run_scenario() {
   return "$scenario_status"
 }
 
+overall_status=0
+failed_runs=()
+
+record_failure() {
+  local status="$1"
+  local label="$2"
+
+  if [ "$overall_status" -eq 0 ]; then overall_status="$status"; fi
+  failed_runs+=("$label")
+  echo "WARNING: $label failed (exit $status); continuing." >&2
+}
+
 if [ "$SETUP_MODE" = "run" ]; then
+  total_runs=$(( ${#SCENARIOS[@]} * ${#AGENTS[@]} * REPEAT ))
+  progress_index=0
   for scenario in "${SCENARIOS[@]}"; do
     for agent in "${AGENTS[@]}"; do
       for run in $(seq 1 "$REPEAT"); do
+        progress_index=$((progress_index + 1))
         run_scenario "$scenario" \
+          "run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
           --agent "$agent" \
-          --run-index "$run"
+          --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
       done
     done
   done
 else
+  total_scenarios=${#SCENARIOS[@]}
+  progress_index=0
   for scenario in "${SCENARIOS[@]}"; do
-    run_scenario "$scenario"
+    progress_index=$((progress_index + 1))
+    run_scenario "$scenario" \
+      "scenario $progress_index/$total_scenarios | ${scenario#scenarios/}" \
+      || record_failure "$?" "$scenario"
   done
+fi
+
+if [ ${#failed_runs[@]} -gt 0 ]; then
+  echo "==> Failed scenario runs (${#failed_runs[@]}):"
+  printf '  %s\n' "${failed_runs[@]}"
 fi
 
 echo ""
@@ -137,3 +166,4 @@ echo "==> Generating report..."
   "$EVAL_DIR" \
   --output "results/report_${DATETIME}.md"
 echo "==> Report: results/report_${DATETIME}.md"
+exit "$overall_status"
