@@ -26,9 +26,11 @@ make eval-ols-agentic TAG=core PREVIEW=1
 make eval-ols-agentic SCENARIO=blocked_deployment,failed_job PREVIEW=1
 ```
 
-The preview shows the matched scenarios, their total count, `AGENT`, and `SETUP_MODE`.
-If `AGENT` is not set, it shows that the default agents come from `system-ols-agentic.yaml`.
-It does not run setup, evaluations, cleanup, or report generation. It needs no cluster connection or venv.
+The preview uses the same summary as a real run. It shows the setup mode,
+repeat count, agents, and matched scenarios. For OLS Agentic, `AGENT` can
+select agents; otherwise, the agents come from the system config. Preview
+needs no cluster connection or eval venv. Without Python 3 or PyYAML, it shows
+the scenario list and placeholders for the config values it cannot read.
 
 To deploy selected scenario faults for a manual investigation or demo without
 running evaluations:
@@ -46,18 +48,25 @@ Setup leaves the selected faults running. Cleanup runs the matching scenario
 present. Both commands require `TAG`, `SCENARIO`, or both. They validate the
 filters before changing the cluster.
 
-Before a real evaluation, `make eval-ols-agentic` checks that the Agent CRs match
-`system-ols-agentic.yaml`. If they are missing or stale, it stops and asks you to
-run `make setup-ols-agentic`.
+Before a real evaluation, both runners check cluster access, evaluation tools,
+and `OPENAI_API_KEY`. OLS Agentic checks that the Agent CRD is present and that
+the Agent CRs match
+`system-ols-agentic.yaml`. OLS Classic checks its operator CRD and server
+deployment. If the Agent CRs are missing or stale, run `make setup-ols-agentic`.
 
 ### Failures and cleanup during evaluations
 
 For both `make eval-ols-agentic` and `make eval-ols-classic`, once a scenario's
 setup is attempted, its `cleanup.sh` runs before the runner moves on, even if
-setup or evaluation fails. The runner then continues with the other selected
-scenarios. A cleanup failure is logged and does not stop the loop. At the end,
-the runner tries to generate a report from the results that are available. The
-command returns a failure status after the report if any scenario failed.
+setup or evaluation fails. The runner then continues with the next selected
+run or scenario. A cleanup failure is logged and does not stop the loop.
+At the end, the runner tries to generate a report from the results that are
+available. The command returns a failure status after the report if any
+scenario failed.
+
+Both runners use `SETUP_MODE=scenario` by default. With `SETUP_MODE=run`, each
+agent and repeat gets its own scenario setup and cleanup. OLS Classic still
+sets up and cleans up each scenario group once.
 
 For OLS Classic scenario groups, the group's `setup.sh` runs before its first
 scenario. The group's `cleanup.sh` runs once after the full scenario loop, after
@@ -68,10 +77,27 @@ failure is logged, and report generation still runs.
 
 ## Conventions
 
-Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-adapter) have:
+Alert analysis scenarios (specific to lightspeed-agentic-alerts-adapter) have:
 - Tag `alert` in their `evals-ols-agentic.yaml`
 - Directory name with `_alert` suffix; remediation variants use `_alert_remediation`
 - Request in the template format defined by lightspeed-agentic-alerts-adapter
+
+## Tags
+
+Each `evals-*.yaml` file has tags under `tag`. Use `TAG=...` with an eval Make
+target to select matching scenarios. The two eval definitions for one scenario
+may have different tags.
+
+| Tag | Meaning |
+|-----|---------|
+| `agentic` | OLS agentic cases. |
+| `classic` | OLS classic cases. |
+| `core` | Representative baseline cases across eval modes and difficulty levels. |
+| `alert` | Alert investigation cases; remediation variants use `remediation`. |
+| `remediation` | OLS Agentic cases that include analysis, a fix, and verification. |
+| `difficulty_normal` | One isolated problem with a direct link between symptom and cause. |
+| `difficulty_medium` | More reasoning is needed, such as several steps, a decoy, or domain knowledge. |
+| `difficulty_hard` | A complex cause chain that can lead to varied results across runs. |
 
 ## Scenarios
 

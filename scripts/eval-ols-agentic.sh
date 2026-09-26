@@ -60,6 +60,8 @@ for scenario in "${SCENARIOS[@]}"; do
   fi
 done
 
+bash "$SCRIPT_DIR/preflight.sh" --require-agentic --system-config "$SYSTEM_CONFIG"
+
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
 mkdir -p "$EVAL_DIR"
@@ -70,30 +72,21 @@ fi
 
 REPEAT="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(c.get('agents',{}).get('default',{}).get('repeat',1))")"
 
-agent_description() {
-  "$PYTHON" -c "
-import yaml
-c = yaml.safe_load(open('$SYSTEM_CONFIG'))
-a = c.get('agents', {}).get('$1', {})
-print(a.get('description', '') or '$1')
-"
-}
-
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
   TAG_FLAGS=(--tags "${TAGS[@]}")
 fi
 
-echo "setup_mode: $SETUP_MODE"
-echo "repeats:    $REPEAT"
-echo "agents:     ${#AGENTS[@]}"
-for agent in "${AGENTS[@]}"; do
-  echo "  $(agent_description "$agent")"
-done
-echo "scenarios:  ${#SCENARIOS[@]}"
-for scenario in "${SCENARIOS[@]}"; do
-  echo "  $scenario"
-done
+SUMMARY_AGENT_ARGS=()
+if [ ${#AGENTS[@]} -gt 0 ]; then
+  SUMMARY_AGENT_ARGS=(--agents "${AGENTS[@]}")
+fi
+bash "$SCRIPT_DIR/show-eval-summary.sh" \
+  --python "$PYTHON" \
+  --system-config "$SYSTEM_CONFIG" \
+  --setup-mode "$SETUP_MODE" \
+  "${SUMMARY_AGENT_ARGS[@]}" \
+  --scenarios "${SCENARIOS[@]}"
 
 run_scenario() {
   local scenario="$1"

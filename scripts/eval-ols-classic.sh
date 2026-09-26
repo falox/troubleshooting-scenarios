@@ -2,17 +2,19 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE --scenarios SCENARIO... [--tags TAG...]"
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario] --scenarios SCENARIO... [--tags TAG...]"
   exit 1
 }
 
 SYSTEM_CONFIG=""
+SETUP_MODE="scenario"
 SCENARIOS=()
 TAGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --system-config) SYSTEM_CONFIG="$2"; shift 2 ;;
+    --setup-mode)    SETUP_MODE="$2"; shift 2 ;;
     --scenarios)     shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do SCENARIOS+=("$1"); shift; done ;;
     --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;
     *) echo "Unknown arg: $1"; usage ;;
@@ -20,6 +22,10 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
+if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ]; then
+  echo "ERROR: setup mode must be run or scenario: $SETUP_MODE" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/../venv"
@@ -42,6 +48,15 @@ TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
   TAG_FLAGS=(--tags "${TAGS[@]}")
 fi
+
+read -ra AGENTS <<< "$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))")"
+REPEAT="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(c.get('agents',{}).get('default',{}).get('repeat',1))")"
+
+bash "$SCRIPT_DIR/show-eval-summary.sh" \
+  --python "$PYTHON" \
+  --system-config "$SYSTEM_CONFIG" \
+  --setup-mode "$SETUP_MODE" \
+  --scenarios "${SCENARIOS[@]}"
 
 pf_pid=""
 eval_sa="ols-classic-eval"
@@ -92,11 +107,6 @@ if [ -z "$auth_token" ]; then
 fi
 
 export API_KEY="$auth_token"
-
-echo "scenarios:  ${#SCENARIOS[@]}"
-for scenario in "${SCENARIOS[@]}"; do
-  echo "  $scenario"
-done
 
 group_setup_script() {
   local scenario="$1"
@@ -150,10 +160,36 @@ record_failure() {
   echo "WARNING: $label failed (exit $status); continuing." >&2
 }
 
+run_scenario() {
+  local scenario="$1"
+  local progress="$2"
+  shift 2
+  local scenario_status=0
+
+  echo ""
+  echo "==> Setup: $scenario"
+  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  if [ "$scenario_status" -eq 0 ]; then
+    echo "==> Progress: $progress"
+    bash "$SCRIPT_DIR/run-agentic-evals.sh" \
+      --system-config "$SYSTEM_CONFIG" \
+      --evals "$scenario/evals-ols-classic.yaml" \
+      --eval-dir "$EVAL_DIR" \
+      "$@" \
+      "${TAG_FLAGS[@]}" || scenario_status=$?
+  fi
+  echo "==> Cleanup: $scenario"
+  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  return "$scenario_status"
+}
+
 total_scenarios=${#SCENARIOS[@]}
-progress_index=0
+if [ "$SETUP_MODE" = "run" ]; then
+  total_runs=$(( total_scenarios * ${#AGENTS[@]} * REPEAT ))
+fi
+scenario_index=0
 for scenario in "${SCENARIOS[@]}"; do
-  progress_index=$((progress_index + 1))
+  scenario_index=$((scenario_index + 1))
   grp_setup="$(group_setup_script "$scenario")"
   if [ -n "$grp_setup" ]; then
     already_done=false
@@ -189,21 +225,23 @@ for scenario in "${SCENARIOS[@]}"; do
     fi
   fi
 
-  echo ""
-  echo "==> Setup: $scenario"
-  scenario_status=0
-  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
-  if [ "$scenario_status" -eq 0 ]; then
-    echo "==> Progress: scenario $progress_index/$total_scenarios | ${scenario#scenarios/}"
-    bash "$SCRIPT_DIR/run-agentic-evals.sh" \
-      --system-config "$SYSTEM_CONFIG" \
-      --evals "$scenario/evals-ols-classic.yaml" \
-      --eval-dir "$EVAL_DIR" \
-      "${TAG_FLAGS[@]}" || scenario_status=$?
+  if [ "$SETUP_MODE" = "run" ]; then
+    agent_index=0
+    for agent in "${AGENTS[@]}"; do
+      agent_index=$((agent_index + 1))
+      for run in $(seq 1 "$REPEAT"); do
+        progress_index=$(( (scenario_index - 1) * ${#AGENTS[@]} * REPEAT + (agent_index - 1) * REPEAT + run ))
+        run_scenario "$scenario" \
+          "run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
+          --agent "$agent" \
+          --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
+      done
+    done
+  else
+    run_scenario "$scenario" \
+      "scenario $scenario_index/$total_scenarios | ${scenario#scenarios/}" \
+      || record_failure "$?" "$scenario"
   fi
-  echo "==> Cleanup: $scenario"
-  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
-  if [ "$scenario_status" -ne 0 ]; then record_failure "$scenario_status" "$scenario"; fi
 done
 
 groups_cleanup=()

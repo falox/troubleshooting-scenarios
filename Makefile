@@ -230,31 +230,14 @@ setup-ols-classic: setup-venv
 eval-ols-agentic:
 ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
-	@echo "SETUP_MODE: $(SETUP_MODE)"
-	@echo "Agents:"
-ifneq ($(AGENT),)
-	@printf '  %s\n' $(subst $(COMMA), ,$(AGENT))
-else
-	@python3 -c "import yaml; c=yaml.safe_load(open('$(EVALS_DIR)/system-ols-agentic.yaml')); \
-	  agents=c['agents']; \
-	  [print('  ' + agents.get(a,{}).get('description',a)) for a in agents['default']['agent']]" \
-	  2>/dev/null || echo "  (install PyYAML to resolve)"
-endif
-	@echo "Matched scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"
-ifneq ($(OLS_AGENTIC_SCENARIOS),)
-	@printf '  %s\n' $(OLS_AGENTIC_SCENARIOS)
-else
-	@echo "No scenarios match the given filters."
-endif
+	@bash $(SCRIPTS_DIR)/show-eval-summary.sh \
+	  --system-config $(EVALS_DIR)/system-ols-agentic.yaml \
+	  --setup-mode $(SETUP_MODE) \
+	  $(if $(AGENT),--agents $(subst $(COMMA), ,$(AGENT))) \
+	  --scenarios $(OLS_AGENTIC_SCENARIOS)
 else ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
-	@if [ ! -x venv/bin/python3 ]; then \
-	  echo "ERROR: Agent CRs may not be synchronized." >&2; \
-	  echo "Run 'make setup-ols-agentic' before running evaluations." >&2; \
-	  exit 1; \
-	fi
-	@venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py --check $(EVALS_DIR)/system-ols-agentic.yaml
 	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-agentic.sh \
 	  --system-config system-ols-agentic.yaml \
 	  --setup-mode $(SETUP_MODE) \
@@ -267,27 +250,16 @@ endif
 eval-ols-classic:
 ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
-	@echo "SETUP_MODE: $(SETUP_MODE)"
-	@echo "Agents:"
-ifneq ($(AGENT),)
-	@printf '  %s\n' $(subst $(COMMA), ,$(AGENT))
-else
-	@python3 -c "import yaml; c=yaml.safe_load(open('$(EVALS_DIR)/system-ols-classic.yaml')); \
-	  agents=c['agents']; \
-	  [print('  ' + agents.get(a,{}).get('description',a)) for a in agents['default']['agent']]" \
-	  2>/dev/null || echo "  (install PyYAML to resolve)"
-endif
-	@echo "Matched scenarios ($(words $(OLS_CLASSIC_SCENARIOS))):"
-ifneq ($(OLS_CLASSIC_SCENARIOS),)
-	@printf '  %s\n' $(OLS_CLASSIC_SCENARIOS)
-else
-	@echo "No scenarios match the given filters."
-endif
+	@bash $(SCRIPTS_DIR)/show-eval-summary.sh \
+	  --system-config $(EVALS_DIR)/system-ols-classic.yaml \
+	  --setup-mode $(SETUP_MODE) \
+	  --scenarios $(OLS_CLASSIC_SCENARIOS)
 else ifeq ($(OLS_CLASSIC_SCENARIOS),)
-	@echo "No OLS classic scenarios match the given filters."
+	@echo "No scenarios match the given filters."
 else
 	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-classic.sh \
 	  --system-config system-ols-classic.yaml \
+	  --setup-mode $(SETUP_MODE) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
 	  --scenarios $(addprefix scenarios/,$(OLS_CLASSIC_SCENARIOS))
 endif

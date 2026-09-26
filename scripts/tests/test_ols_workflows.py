@@ -25,8 +25,12 @@ def executable(path, content):
 def workspace(tmp_path):
     scripts = tmp_path / "scripts"
     scripts.mkdir()
-    for name in ("eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py"):
+    for name in (
+        "eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py",
+        "show-eval-summary.py", "show-eval-summary.sh",
+    ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
+    executable(scripts / "preflight.sh", "#!/bin/bash\nexit 0\n")
     evals = tmp_path / "evals"
     evals.mkdir()
     shutil.copy(ROOT / "Makefile", tmp_path / "Makefile")
@@ -41,13 +45,17 @@ def workspace(tmp_path):
 @pytest.fixture
 def classic_workspace(workspace):
     shutil.copy(ROOT / "scripts/eval-ols-classic.sh", workspace / "scripts/eval-ols-classic.sh")
-    executable(workspace / "scripts/preflight.sh", "#!/bin/bash\nexit 0\n")
     executable(workspace / "bin/curl", "#!/bin/bash\nexit 0\n")
     executable(
         workspace / "bin/oc",
         '#!/bin/bash\nif [ "$1" = whoami ]; then echo test-token; fi\n',
     )
-    (workspace / "evals/system-ols-classic.yaml").write_text("{}\n")
+    (workspace / "evals/system-ols-classic.yaml").write_text(yaml.safe_dump({
+        "agents": {
+            "default": {"agent": ["test-agent"], "repeat": 2},
+            "test-agent": {"description": "test|model"},
+        },
+    }))
     (workspace / "scripts/generate-report-classic.py").write_text(
         'import os, sys\n'
         'with open(os.environ["EVENT_LOG"], "a") as f:\n'
@@ -56,6 +64,129 @@ def classic_workspace(workspace):
         '    f.write("report\\n")\n'
     )
     return workspace
+
+
+@pytest.mark.parametrize("mode", ["agentic", "classic"])
+def test_preflight_checks_the_selected_service(tmp_path, mode):
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(ROOT / "scripts/preflight.sh", scripts / "preflight.sh")
+    executable(
+        tmp_path / "bin/oc",
+        '#!/bin/bash\n'
+        'echo "$*" >> "$PREFLIGHT_LOG"\n'
+        'case "$1" in\n'
+        '  whoami) echo test-user ;;\n'
+        '  api-resources)\n'
+        '    case "$2" in\n'
+        '      --api-group=agentic.openshift.io) echo "agents agentic.openshift.io/v1alpha1" ;;\n'
+        '      --api-group=ols.openshift.io) echo "olsconfigs ols.openshift.io/v1alpha1" ;;\n'
+        '    esac ;;\n'
+        '  get)\n'
+        '    if [[ "$*" == *jsonpath* ]]; then echo True; else echo deployment.apps/lightspeed-app-server; fi ;;\n'
+        'esac\n',
+    )
+    executable(
+        tmp_path / "venv/bin/python3",
+        '#!/bin/bash\necho "$*" >> "$PREFLIGHT_LOG"\n',
+    )
+    executable(tmp_path / "venv/bin/lightspeed-eval", "#!/bin/bash\n")
+    log = tmp_path / "preflight.log"
+    args = ["--require-ols"] if mode == "classic" else [
+        "--require-agentic", "--system-config", "system-ols-agentic.yaml",
+    ]
+    result = subprocess.run(
+        ["bash", str(scripts / "preflight.sh"), *args],
+        env={
+            **os.environ,
+            "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}",
+            "OPENAI_API_KEY": "test-key",
+            "PREFLIGHT_LOG": str(log),
+        },
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    for message in ("oc available", "logged in as test-user", "evaluation tools available",
+                    "OPENAI_API_KEY set", "Preflight complete"):
+        assert message in result.stdout
+    calls = log.read_text()
+    if mode == "agentic":
+        assert "--api-group=agentic.openshift.io" in calls
+        assert "sync-agent-crs.py --check system-ols-agentic.yaml" in calls
+        assert "Agent CRs match" in result.stdout
+        assert "--api-group=ols.openshift.io" not in calls
+    else:
+        assert "--api-group=ols.openshift.io" in calls
+        assert "OpenShift Lightspeed is available" in result.stdout
+        assert "--api-group=agentic.openshift.io" not in calls
+        assert "sync-agent-crs.py" not in calls
+
+
+@pytest.mark.parametrize("mode", ["agentic", "classic"])
+def test_preview_summary_matches_real_run(request, mode):
+    root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
+    scenario_name = "crashlooping_pod_alert"
+    scenario = root / "evals/scenarios" / scenario_name
+    scenario.mkdir(parents=True)
+    (scenario / f"evals-ols-{mode}.yaml").write_text("[]\n")
+    executable(root / "scripts/run-agentic-evals.sh", "#!/bin/bash\nexit 0\n")
+
+    if mode == "agentic":
+        (root / "scripts/generate-report-agentic.py").write_text(
+            'import sys\nwith open(sys.argv[-1], "w") as f: f.write("report\\n")\n'
+        )
+        config = yaml.safe_load((root / "evals/system-ols-agentic.yaml").read_text())
+        agent = config["agents"]["default"]["agent"][0]
+        make_agent = [f"AGENT={agent}"]
+        runner_agent = ["--agents", agent]
+    else:
+        make_agent = []
+        runner_agent = []
+
+    env = {
+        **os.environ,
+        "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+        "EVENT_LOG": str(root / "events"),
+    }
+    preview = subprocess.run(
+        ["make", f"eval-ols-{mode}", f"SCENARIO={scenario_name}",
+         "SETUP_MODE=run", "PREVIEW=1", *make_agent],
+        cwd=root, env=env, capture_output=True, text=True,
+    )
+    runner = subprocess.run(
+        ["bash", str(root / "scripts" / f"eval-ols-{mode}.sh"),
+         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", "run",
+         *runner_agent, "--scenarios", f"scenarios/{scenario_name}"],
+        cwd=root / "evals", env=env, capture_output=True, text=True,
+    )
+    assert preview.returncode == 0, preview.stdout + preview.stderr
+    assert runner.returncode == 0, runner.stdout + runner.stderr
+
+    def summary(output):
+        lines = output.splitlines()
+        start = next(i for i, line in enumerate(lines) if line.startswith("setup_mode: "))
+        return "\n".join(line for line in lines[start:] if line and not line.startswith("==>"))
+
+    assert summary(preview.stdout) == summary(runner.stdout)
+    assert "setup_mode: run" in preview.stdout
+    assert "scenarios:  1\n  crashlooping_pod_alert" in preview.stdout
+
+
+@pytest.mark.parametrize("mode", ["agentic", "classic"])
+def test_preview_works_without_python_yaml(request, mode):
+    root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
+    executable(root / "bin/python3", "#!/bin/bash\nexit 1\n")
+    result = subprocess.run(
+        ["make", f"eval-ols-{mode}", "SCENARIO=crashlooping_pod_alert", "PREVIEW=1"],
+        cwd=root,
+        env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}"},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "setup_mode: scenario" in result.stdout
+    assert "repeats:    (Python 3 and PyYAML needed for details)" in result.stdout
+    assert "agents:     (Python 3 and PyYAML needed for details)" in result.stdout
+    assert "scenarios:  1\n  crashlooping_pod_alert" in result.stdout
 
 
 @pytest.mark.parametrize("mode", ["run", "scenario"])
@@ -212,6 +343,10 @@ def test_classic_failed_scenario_allows_later_scenarios_and_report(
         capture_output=True, text=True,
     )
     assert result.returncode == expected_status, result.stdout + result.stderr
+    assert "setup_mode: scenario" in result.stdout
+    assert "repeats:    2" in result.stdout
+    assert "agents:     1\n  test|model" in result.stdout
+    assert "scenarios:  2" in result.stdout
     expected_events = ["setup:first"]
     if failure_step == "eval":
         expected_events.append("eval:first")
@@ -219,6 +354,67 @@ def test_classic_failed_scenario_allows_later_scenarios_and_report(
         "cleanup:first", "setup:second", "eval:second", "cleanup:second", "report",
     ]
     assert log.read_text().splitlines() == expected_events
+    assert list((classic_workspace / "evals/results").glob("report_*.md"))
+
+
+def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
+    (classic_workspace / "evals/system-ols-classic.yaml").write_text(yaml.safe_dump({
+        "agents": {
+            "default": {"agent": ["first", "second"], "repeat": 2},
+            "first": {"description": "test|first"},
+            "second": {"description": "test|second"},
+        },
+    }))
+    group = classic_workspace / "evals/scenarios/group"
+    executable(group / "setup.sh", '#!/bin/bash\necho group-setup >> "$EVENT_LOG"\n')
+    executable(group / "cleanup.sh", '#!/bin/bash\necho group-cleanup >> "$EVENT_LOG"\n')
+    scenario = group / "first"
+    executable(scenario / "setup.sh", '#!/bin/bash\necho setup >> "$EVENT_LOG"\n')
+    executable(scenario / "cleanup.sh", '#!/bin/bash\necho cleanup >> "$EVENT_LOG"\n')
+    (scenario / "evals-ols-classic.yaml").write_text("[]\n")
+    executable(
+        classic_workspace / "scripts/run-agentic-evals.sh",
+        '#!/bin/bash\n'
+        'while [ $# -gt 0 ]; do\n'
+        '  case "$1" in\n'
+        '    --agent) agent="$2"; shift 2 ;;\n'
+        '    --run-index) run="$2"; shift 2 ;;\n'
+        '    *) shift ;;\n'
+        '  esac\n'
+        'done\n'
+        'echo "eval:$agent:$run" >> "$EVENT_LOG"\n'
+        'if [ "$agent" = first ] && [ "$run" = 1 ]; then exit 42; fi\n',
+    )
+    log = classic_workspace / "events"
+    result = subprocess.run(
+        [
+            "bash", str(classic_workspace / "scripts/eval-ols-classic.sh"),
+            "--system-config", "system-ols-classic.yaml",
+            "--setup-mode", "run",
+            "--scenarios", "scenarios/group/first",
+        ],
+        cwd=classic_workspace / "evals",
+        env={
+            **os.environ,
+            "PATH": f"{classic_workspace / 'bin'}:{os.environ['PATH']}",
+            "EVENT_LOG": str(log),
+        },
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 42, result.stdout + result.stderr
+    assert "setup_mode: run" in result.stdout
+    assert "repeats:    2" in result.stdout
+    assert "agents:     2" in result.stdout
+    assert "run 1/4" in result.stdout
+    assert "run 4/4" in result.stdout
+    assert log.read_text().splitlines() == [
+        "group-setup",
+        "setup", "eval:first:1", "cleanup",
+        "setup", "eval:first:2", "cleanup",
+        "setup", "eval:second:1", "cleanup",
+        "setup", "eval:second:2", "cleanup",
+        "group-cleanup", "report",
+    ]
     assert list((classic_workspace / "evals/results").glob("report_*.md"))
 
 

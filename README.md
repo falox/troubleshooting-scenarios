@@ -48,6 +48,8 @@ Each scenario folder that supports OLS Classic contains an `evals-ols-classic.ya
 make setup-ols-classic
 make eval-ols-classic                                          # run all scenarios
 make eval-ols-classic SCENARIO=crashlooping_pod_alert          # one scenario
+make eval-ols-classic TAG=alert                                # filter by tag
+make eval-ols-classic TAG=alert PREVIEW=1                      # preview matched scenarios
 ```
 
 Run `make help` for all targets and options.
@@ -66,9 +68,10 @@ make cleanup-scenario SCENARIO=stuck_rollout,exhausted_quota
 make cleanup-scenario TAG=alert PREVIEW=1
 ```
 
-The `TAG` and `SCENARIO` filters use the same matching rules as the evaluation
-targets. Setup leaves the selected faults running. Cleanup runs each selected
-scenario's `cleanup.sh`, then the group's `cleanup.sh` once when present.
+The [`TAG` filter](evals/README.md#tags) and `SCENARIO` filter use the same
+matching rules as the evaluation targets. Setup leaves the selected faults
+running. Cleanup runs each selected scenario's `cleanup.sh`, then the group's
+`cleanup.sh` once when present.
 Both commands require at least one filter. They validate all scenario names and
 the final match before changing the cluster.
 

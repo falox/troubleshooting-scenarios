@@ -1,5 +1,5 @@
 logging:
-  source_level: DEBUG
+  source_level: ERROR
 
 core:
   max_threads: 1
