@@ -14,7 +14,7 @@ except ImportError:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Show an evaluation summary")
     parser.add_argument("--system-config", required=True)
-    parser.add_argument("--setup-mode", choices=("run", "scenario"), required=True)
+    parser.add_argument("--setup-mode", choices=("run", "scenario", "skip"), required=True)
     parser.add_argument("--agents", nargs="+")
     parser.add_argument("--scenarios", nargs="*", required=True)
     args = parser.parse_args()
@@ -26,9 +26,21 @@ def main() -> None:
     defaults = agents_config.get("default") or {}
     agent_names = args.agents if args.agents is not None else defaults.get("agent", [])
     repeat = defaults.get("repeat", 1)
+    parallel = False if args.setup_mode == "run" else defaults.get("parallel", False)
+    judge_ids = (config.get("judge_panel") or {}).get("judges") or []
+    if isinstance(judge_ids, str):
+        judge_ids = [judge_ids]
+    llm_models = (config.get("llm_pool") or {}).get("models") or {}
+    judge_models = [
+        (llm_models.get(judge_id) or {}).get("model", "unknown")
+        for judge_id in judge_ids
+    ]
+    judge = ", ".join(judge_models) or "not configured"
 
     print(f"setup_mode: {args.setup_mode}")
     print(f"repeats:    {repeat}")
+    print(f"parallel:   {str(parallel).lower()}")
+    print(f"judge:      {judge}")
     print(f"agents:     {len(agent_names)}")
     for name in agent_names:
         agent = agents_config.get(name) or {}

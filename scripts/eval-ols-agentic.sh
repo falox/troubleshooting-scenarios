@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
   exit 1
 }
 
@@ -24,6 +24,10 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
+if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/../venv"
@@ -72,6 +76,9 @@ fi
 
 REPEAT="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(c.get('agents',{}).get('default',{}).get('repeat',1))")"
 
+PARALLEL_RUNS="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print('yes' if c.get('agents',{}).get('default',{}).get('parallel',False) else 'no')")"
+if [ "$SETUP_MODE" = "run" ]; then PARALLEL_RUNS=no; fi
+
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
   TAG_FLAGS=(--tags "${TAGS[@]}")
@@ -95,8 +102,12 @@ run_scenario() {
   local scenario_status=0
 
   echo ""
-  echo "==> Setup: $scenario"
-  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Setup: $scenario"
+    if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  else
+    echo "==> Setup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   if [ "$scenario_status" -eq 0 ]; then
     echo "==> Progress: $progress"
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
@@ -106,8 +117,12 @@ run_scenario() {
       "$@" \
       "${TAG_FLAGS[@]}" || scenario_status=$?
   fi
-  echo "==> Cleanup: $scenario"
-  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Cleanup: $scenario"
+    if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  else
+    echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   return "$scenario_status"
 }
 
@@ -156,6 +171,7 @@ fi
 echo ""
 echo "==> Generating report..."
 "$PYTHON" "$SCRIPT_DIR/generate-report-agentic.py" \
+  --parallel-runs "$PARALLEL_RUNS" \
   "$EVAL_DIR" \
   --output "results/report_${DATETIME}.md"
 echo "==> Report: results/report_${DATETIME}.md"

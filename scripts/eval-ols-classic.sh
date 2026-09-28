@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario] --scenarios SCENARIO... [--tags TAG...]"
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] --scenarios SCENARIO... [--tags TAG...]"
   exit 1
 }
 
@@ -22,8 +22,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
-if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ]; then
-  echo "ERROR: setup mode must be run or scenario: $SETUP_MODE" >&2
+if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
   exit 2
 fi
 
@@ -43,6 +43,9 @@ bash "$SCRIPT_DIR/preflight.sh" --require-ols
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
 mkdir -p "$EVAL_DIR"
+
+PARALLEL_RUNS="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print('yes' if c.get('agents',{}).get('default',{}).get('parallel',False) else 'no')")"
+if [ "$SETUP_MODE" = "run" ]; then PARALLEL_RUNS=no; fi
 
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
@@ -167,8 +170,12 @@ run_scenario() {
   local scenario_status=0
 
   echo ""
-  echo "==> Setup: $scenario"
-  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Setup: $scenario"
+    if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  else
+    echo "==> Setup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   if [ "$scenario_status" -eq 0 ]; then
     echo "==> Progress: $progress"
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
@@ -178,8 +185,12 @@ run_scenario() {
       "$@" \
       "${TAG_FLAGS[@]}" || scenario_status=$?
   fi
-  echo "==> Cleanup: $scenario"
-  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Cleanup: $scenario"
+    if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  else
+    echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   return "$scenario_status"
 }
 
@@ -191,7 +202,7 @@ scenario_index=0
 for scenario in "${SCENARIOS[@]}"; do
   scenario_index=$((scenario_index + 1))
   grp_setup="$(group_setup_script "$scenario")"
-  if [ -n "$grp_setup" ]; then
+  if [ -n "$grp_setup" ] && [ "$SETUP_MODE" != "skip" ]; then
     already_done=false
     group_failed=false
     for g in "${groups_setup[@]+"${groups_setup[@]}"}"; do
@@ -223,6 +234,8 @@ for scenario in "${SCENARIOS[@]}"; do
         continue
       fi
     fi
+  elif [ -n "$grp_setup" ]; then
+    echo "==> Group setup skipped: $grp_setup (SETUP_MODE=skip)"
   fi
 
   if [ "$SETUP_MODE" = "run" ]; then
@@ -244,21 +257,25 @@ for scenario in "${SCENARIOS[@]}"; do
   fi
 done
 
-groups_cleanup=()
-for scenario in "${SCENARIOS[@]}"; do
-  grp_cleanup="$(group_cleanup_script "$scenario")"
-  if [ -n "$grp_cleanup" ]; then
-    already_done=false
-    for g in "${groups_cleanup[@]+"${groups_cleanup[@]}"}"; do
-      if [ "$g" = "$grp_cleanup" ]; then already_done=true; break; fi
-    done
-    if [ "$already_done" = "false" ]; then
-      echo "==> Group cleanup: $grp_cleanup"
-      bash "$grp_cleanup" || echo "WARNING: group cleanup failed (non-fatal)"
-      groups_cleanup+=("$grp_cleanup")
+if [ "$SETUP_MODE" != "skip" ]; then
+  groups_cleanup=()
+  for scenario in "${SCENARIOS[@]}"; do
+    grp_cleanup="$(group_cleanup_script "$scenario")"
+    if [ -n "$grp_cleanup" ]; then
+      already_done=false
+      for g in "${groups_cleanup[@]+"${groups_cleanup[@]}"}"; do
+        if [ "$g" = "$grp_cleanup" ]; then already_done=true; break; fi
+      done
+      if [ "$already_done" = "false" ]; then
+        echo "==> Group cleanup: $grp_cleanup"
+        bash "$grp_cleanup" || echo "WARNING: group cleanup failed (non-fatal)"
+        groups_cleanup+=("$grp_cleanup")
+      fi
     fi
-  fi
-done
+  done
+else
+  echo "==> Group cleanup skipped (SETUP_MODE=skip)"
+fi
 
 if [ ${#failed_runs[@]} -gt 0 ]; then
   echo "==> Failed scenario runs (${#failed_runs[@]}):"
@@ -269,6 +286,7 @@ echo ""
 echo "==> Generating report..."
 report_status=0
 "$PYTHON" "$SCRIPT_DIR/generate-report-classic.py" \
+  --parallel-runs "$PARALLEL_RUNS" \
   "$EVAL_DIR" \
   --output "results/report_${DATETIME}.md" || report_status=$?
 if [ "$report_status" -eq 0 ]; then

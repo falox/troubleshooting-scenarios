@@ -125,6 +125,10 @@ def test_preflight_checks_the_selected_service(tmp_path, mode):
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
 def test_preview_summary_matches_real_run(request, mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
+    config_path = root / "evals" / f"system-ols-{mode}.yaml"
+    config = yaml.safe_load(config_path.read_text())
+    config["agents"]["default"]["parallel"] = True
+    config_path.write_text(yaml.safe_dump(config))
     scenario_name = "crashlooping_pod_alert"
     scenario = root / "evals/scenarios" / scenario_name
     scenario.mkdir(parents=True)
@@ -169,7 +173,23 @@ def test_preview_summary_matches_real_run(request, mode):
 
     assert summary(preview.stdout) == summary(runner.stdout)
     assert "setup_mode: run" in preview.stdout
+    assert "parallel:   false" in preview.stdout
     assert "scenarios:  1\n  crashlooping_pod_alert" in preview.stdout
+
+
+@pytest.mark.parametrize("setup_mode", ["run", "scenario", "skip"])
+@pytest.mark.parametrize("parallel", [True, False])
+def test_summary_shows_effective_parallel_setting(tmp_path, setup_mode, parallel):
+    config = tmp_path / "system.yaml"
+    config.write_text(yaml.safe_dump({"agents": {"default": {"parallel": parallel}}}))
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/show-eval-summary.py"),
+         "--system-config", str(config), "--setup-mode", setup_mode, "--scenarios"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, result.stderr
+    expected = parallel and setup_mode != "run"
+    assert f"parallel:   {str(expected).lower()}" in result.stdout
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])

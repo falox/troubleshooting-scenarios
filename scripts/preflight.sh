@@ -59,6 +59,13 @@ if [ "$MODE" != "optional" ]; then
     exit 1
   fi
   printf '\033[0;32m  OK:\033[0m EVAL_OPENAI_API_KEY set\n'
+
+  if [ -n "${EVAL_VERTEX_CREDENTIALS:-}" ]; then
+    printf '\033[0;32m  OK:\033[0m EVAL_VERTEX_CREDENTIALS set\n'
+  fi
+  if [ -n "${EVAL_VERTEX_PROJECT_ID:-}" ]; then
+    printf '\033[0;32m  OK:\033[0m EVAL_VERTEX_PROJECT_ID set\n'
+  fi
 fi
 
 # 4. Check the service required by this evaluation mode.

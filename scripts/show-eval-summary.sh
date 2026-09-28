@@ -41,6 +41,8 @@ done
 
 echo "setup_mode: $SETUP_MODE"
 echo "repeats:    (Python 3 and PyYAML needed for details)"
+echo "parallel:   (Python 3 and PyYAML needed for details)"
+echo "judge:      (Python 3 and PyYAML needed for details)"
 if [ "$AGENTS_GIVEN" -eq 1 ]; then
   echo "agents:     ${#AGENTS[@]}"
   printf '  %s\n' "${AGENTS[@]}"
