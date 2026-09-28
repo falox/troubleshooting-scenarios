@@ -113,7 +113,6 @@ _ALL_OLS_CLASSIC := \
 	batch_submission_timeouts \
 	crashlooping_pod_alert \
 	failed_job \
-	failing_api_alert \
 	failing_api_alert_cross_namespace \
 	kiali-ossm/check_bookinfo_services \
 	kiali-ossm/check_istio_objects_status \
