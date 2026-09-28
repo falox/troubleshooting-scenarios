@@ -3,12 +3,12 @@
 # and run agentic troubleshooting evaluations.
 #
 # Input environment variables:
-#   OPENAI_API_KEY                  - OpenAI API key (judge LLM + OpenAI agent)
+#   EVAL_OPENAI_API_KEY             - OpenAI API key (judge LLM + OpenAI agent)
 #   GOOGLE_APPLICATION_CREDENTIALS  - Path to GCP service account JSON (Vertex AI)
 #   VERTEX_PROJECT_ID               - GCP project ID (falls back to credentials JSON)
 #   VERTEX_REGION                   - GCP region (default: us-east1)
 #   AGENT                           - Agent key from system-ols-agentic.yaml
-#                                     (default: openai-gpt-5-6-luna)
+#                                     (default: openai-gpt-6-luna)
 #   SCENARIOS                       - Space-separated scenario list (default: all)
 #   ARTIFACT_DIR                    - CI artifact directory (default: /tmp/artifacts)
 
@@ -31,10 +31,10 @@ function install_operator() {
 
 function setup_openai_secret() {
     echo "==> Setting up OpenAI secret for judge LLM..."
-    : "${OPENAI_API_KEY:?OPENAI_API_KEY must be set}"
+    : "${EVAL_OPENAI_API_KEY:?EVAL_OPENAI_API_KEY must be set}"
 
     oc create secret generic llm-creds-openai -n "$NAMESPACE" \
-        --from-literal=OPENAI_API_KEY="$OPENAI_API_KEY" \
+        --from-literal=OPENAI_API_KEY="$EVAL_OPENAI_API_KEY" \
         --dry-run=client -o yaml | oc apply -f -
 
     echo "    OpenAI secret configured."
@@ -142,13 +142,13 @@ function cleanup() {
 }
 
 # Use the same agent keys as system-ols-agentic.yaml.
-AGENT="${AGENT:-openai-gpt-5-6-luna}"
+AGENT="${AGENT:-openai-gpt-6-luna}"
 case "$AGENT" in
-    openai-gpt-5-6-luna|openai-gpt-5-6-terra) PROVIDER_NAME="openai" ;;
+    openai-gpt-6-luna|openai-gpt-6-sol) PROVIDER_NAME="openai" ;;
     google-gemini-3.5-flash-lite|google-gemini-3-8-flash|google-gemini-3-7-flash) PROVIDER_NAME="vertex-google" ;;
     anthropic-opus-4-6|anthropic-sonnet-5) PROVIDER_NAME="vertex-anthropic" ;;
     *)
-        echo "ERROR: Unknown AGENT=${AGENT}. Valid values: openai-gpt-5-6-luna, openai-gpt-5-6-terra, google-gemini-3.5-flash-lite, google-gemini-3-8-flash, google-gemini-3-7-flash, anthropic-opus-4-6, anthropic-sonnet-5" >&2
+        echo "ERROR: Unknown AGENT=${AGENT}. Valid values: openai-gpt-6-luna, openai-gpt-6-sol, google-gemini-3.5-flash-lite, google-gemini-3-8-flash, google-gemini-3-7-flash, anthropic-opus-4-6, anthropic-sonnet-5" >&2
         exit 1
         ;;
 esac

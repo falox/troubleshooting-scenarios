@@ -2,17 +2,19 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE --scenarios SCENARIO... [--tags TAG...]"
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] --scenarios SCENARIO... [--tags TAG...]"
   exit 1
 }
 
 SYSTEM_CONFIG=""
+SETUP_MODE="scenario"
 SCENARIOS=()
 TAGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --system-config) SYSTEM_CONFIG="$2"; shift 2 ;;
+    --setup-mode)    SETUP_MODE="$2"; shift 2 ;;
     --scenarios)     shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do SCENARIOS+=("$1"); shift; done ;;
     --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;
     *) echo "Unknown arg: $1"; usage ;;
@@ -20,6 +22,10 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
+if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/../venv"
@@ -36,17 +42,34 @@ bash "$SCRIPT_DIR/preflight.sh" --require-ols
 
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
+mkdir -p "$EVAL_DIR"
+cp "$SYSTEM_CONFIG" "$EVAL_DIR/system-ols-classic.yaml"
+SYSTEM_CONFIG="$EVAL_DIR/system-ols-classic.yaml"
+
+PARALLEL_RUNS="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print('yes' if c.get('agents',{}).get('default',{}).get('parallel',False) else 'no')")"
+if [ "$SETUP_MODE" = "run" ]; then PARALLEL_RUNS=no; fi
 
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
   TAG_FLAGS=(--tags "${TAGS[@]}")
 fi
 
+read -ra AGENTS <<< "$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))")"
+REPEAT="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(c.get('agents',{}).get('default',{}).get('repeat',1))")"
+
+bash "$SCRIPT_DIR/show-eval-summary.sh" \
+  --python "$PYTHON" \
+  --system-config "$SYSTEM_CONFIG" \
+  --setup-mode "$SETUP_MODE" \
+  --scenarios "${SCENARIOS[@]}"
+
 pf_pid=""
 eval_sa="ols-classic-eval"
 eval_sa_created=0
 eval_role_bound=0
 
+# Invoked indirectly by the EXIT trap below.
+# shellcheck disable=SC2329
 cleanup_ols_classic() {
   if [ -n "$pf_pid" ]; then kill "$pf_pid" 2>/dev/null || true; fi
   if [ "$eval_role_bound" -eq 1 ]; then
@@ -90,11 +113,6 @@ fi
 
 export API_KEY="$auth_token"
 
-echo "scenarios:  ${#SCENARIOS[@]}"
-for scenario in "${SCENARIOS[@]}"; do
-  echo "  $scenario"
-done
-
 group_setup_script() {
   local scenario="$1"
   local group_dir
@@ -135,73 +153,149 @@ restart_port_forward() {
 
 overall_status=0
 groups_setup=()
+failed_groups=()
+failed_runs=()
 
-for scenario in "${SCENARIOS[@]}"; do
-  grp_setup="$(group_setup_script "$scenario")"
-  if [ -n "$grp_setup" ]; then
-    already_done=false
-    for g in "${groups_setup[@]+"${groups_setup[@]}"}"; do
-      if [ "$g" = "$grp_setup" ]; then already_done=true; break; fi
-    done
-    if [ "$already_done" = "false" ]; then
-      echo ""
-      echo "==> Group setup: $grp_setup"
-      if ! bash "$grp_setup"; then
-        overall_status=$?
-        break
-      fi
-      groups_setup+=("$grp_setup")
-      if ! restart_port_forward; then
-        overall_status=1
-        break
-      fi
-    fi
-  fi
+record_failure() {
+  local status="$1"
+  local label="$2"
+
+  if [ "$overall_status" -eq 0 ]; then overall_status="$status"; fi
+  failed_runs+=("$label")
+  echo "WARNING: $label failed (exit $status); continuing." >&2
+}
+
+run_scenario() {
+  local scenario="$1"
+  local progress="$2"
+  shift 2
+  local scenario_status=0
 
   echo ""
-  echo "==> Setup: $scenario"
-  scenario_status=0
-  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Setup: $scenario"
+    if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  else
+    echo "==> Setup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   if [ "$scenario_status" -eq 0 ]; then
+    echo "==> Progress: $progress"
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
       --system-config "$SYSTEM_CONFIG" \
       --evals "$scenario/evals-ols-classic.yaml" \
       --eval-dir "$EVAL_DIR" \
+      "$@" \
       "${TAG_FLAGS[@]}" || scenario_status=$?
   fi
-  echo "==> Cleanup: $scenario"
-  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
-  if [ "$scenario_status" -ne 0 ]; then overall_status=$scenario_status; break; fi
-done
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Cleanup: $scenario"
+    if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  else
+    echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
+  fi
+  return "$scenario_status"
+}
 
-groups_cleanup=()
+total_scenarios=${#SCENARIOS[@]}
+if [ "$SETUP_MODE" = "run" ]; then
+  total_runs=$(( total_scenarios * ${#AGENTS[@]} * REPEAT ))
+fi
+scenario_index=0
 for scenario in "${SCENARIOS[@]}"; do
-  grp_cleanup="$(group_cleanup_script "$scenario")"
-  if [ -n "$grp_cleanup" ]; then
+  scenario_index=$((scenario_index + 1))
+  grp_setup="$(group_setup_script "$scenario")"
+  if [ -n "$grp_setup" ] && [ "$SETUP_MODE" != "skip" ]; then
     already_done=false
-    for g in "${groups_cleanup[@]+"${groups_cleanup[@]}"}"; do
-      if [ "$g" = "$grp_cleanup" ]; then already_done=true; break; fi
+    group_failed=false
+    for g in "${groups_setup[@]+"${groups_setup[@]}"}"; do
+      if [ "$g" = "$grp_setup" ]; then already_done=true; break; fi
     done
-    if [ "$already_done" = "false" ]; then
-      echo "==> Group cleanup: $grp_cleanup"
-      bash "$grp_cleanup" || echo "WARNING: group cleanup failed (non-fatal)"
-      groups_cleanup+=("$grp_cleanup")
+    for g in "${failed_groups[@]+"${failed_groups[@]}"}"; do
+      if [ "$g" = "$grp_setup" ]; then group_failed=true; break; fi
+    done
+    if [ "$group_failed" = "true" ]; then
+      echo "WARNING: Skipping $scenario because group setup failed: $grp_setup" >&2
+      continue
     fi
+    if [ "$already_done" = "false" ]; then
+      echo ""
+      echo "==> Group setup: $grp_setup"
+      if bash "$grp_setup"; then
+        if restart_port_forward; then
+          groups_setup+=("$grp_setup")
+        else
+          status=$?
+          failed_groups+=("$grp_setup")
+          record_failure "$status" "$scenario (group setup: $grp_setup)"
+          continue
+        fi
+      else
+        status=$?
+        failed_groups+=("$grp_setup")
+        record_failure "$status" "$scenario (group setup: $grp_setup)"
+        continue
+      fi
+    fi
+  elif [ -n "$grp_setup" ]; then
+    echo "==> Group setup skipped: $grp_setup (SETUP_MODE=skip)"
+  fi
+
+  if [ "$SETUP_MODE" = "run" ]; then
+    agent_index=0
+    for agent in "${AGENTS[@]}"; do
+      agent_index=$((agent_index + 1))
+      for run in $(seq 1 "$REPEAT"); do
+        progress_index=$(( (scenario_index - 1) * ${#AGENTS[@]} * REPEAT + (agent_index - 1) * REPEAT + run ))
+        run_scenario "$scenario" \
+          "run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
+          --agent "$agent" \
+          --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
+      done
+    done
+  else
+    run_scenario "$scenario" \
+      "scenario $scenario_index/$total_scenarios | ${scenario#scenarios/}" \
+      || record_failure "$?" "$scenario"
   fi
 done
 
-if [ -n "$(find "$EVAL_DIR" -name '*_summary.json' -print -quit 2>/dev/null)" ]; then
-  echo ""
-  echo "==> Generating report..."
-  report_status=0
-  "$PYTHON" "$SCRIPT_DIR/generate-report-classic.py" \
-    "$EVAL_DIR" \
-    --output "results/report_${DATETIME}.md" || report_status=$?
-  if [ "$report_status" -eq 0 ]; then
-    echo "==> Report: results/report_${DATETIME}.md"
-  elif [ "$overall_status" -eq 0 ]; then
-    overall_status=$report_status
-  fi
+if [ "$SETUP_MODE" != "skip" ]; then
+  groups_cleanup=()
+  for scenario in "${SCENARIOS[@]}"; do
+    grp_cleanup="$(group_cleanup_script "$scenario")"
+    if [ -n "$grp_cleanup" ]; then
+      already_done=false
+      for g in "${groups_cleanup[@]+"${groups_cleanup[@]}"}"; do
+        if [ "$g" = "$grp_cleanup" ]; then already_done=true; break; fi
+      done
+      if [ "$already_done" = "false" ]; then
+        echo "==> Group cleanup: $grp_cleanup"
+        bash "$grp_cleanup" || echo "WARNING: group cleanup failed (non-fatal)"
+        groups_cleanup+=("$grp_cleanup")
+      fi
+    fi
+  done
+else
+  echo "==> Group cleanup skipped (SETUP_MODE=skip)"
 fi
 
-if [ "$overall_status" -ne 0 ]; then exit "$overall_status"; fi
+if [ ${#failed_runs[@]} -gt 0 ]; then
+  echo "==> Failed scenario runs (${#failed_runs[@]}):"
+  printf '  %s\n' "${failed_runs[@]}"
+fi
+
+echo ""
+echo "==> Generating report..."
+report_status=0
+"$PYTHON" "$SCRIPT_DIR/generate-report-classic.py" \
+  --parallel-runs "$PARALLEL_RUNS" \
+  "$EVAL_DIR" \
+  --output "results/report_${DATETIME}.md" || report_status=$?
+if [ "$report_status" -eq 0 ]; then
+  echo "==> Report: results/report_${DATETIME}.md"
+else
+  echo "ERROR: Report generation failed (exit $report_status)" >&2
+  if [ "$overall_status" -eq 0 ]; then overall_status=$report_status; fi
+fi
+
+exit "$overall_status"

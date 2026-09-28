@@ -4,7 +4,49 @@ import json
 from datetime import datetime
 from pathlib import Path
 
+import yaml
+
 MEDAL = "🥇"
+STATUS_METRIC = "custom:openshift_agentic_run_status"
+CORRECTNESS_LEGEND = (
+    "Legend: 🟢 100% pass rate · 🔴 0% pass rate · "
+    "❌ Technical failure in at least one run (evaluation error or failed completion check)."
+)
+
+
+def has_technical_failure(results: list[dict], conversation_id: str) -> bool:
+    """Check for an evaluation error or a failed completion check."""
+    return any(
+        metric["conversation_group_id"] == conversation_id
+        and (
+            metric["result"] == "ERROR"
+            or (metric["metric_identifier"] == STATUS_METRIC and metric["result"] == "FAIL")
+        )
+        for metric in results
+    )
+
+
+def performance_result(
+    results: list[dict], conversation_id: str, metric_ids: tuple[str, ...]
+) -> tuple[str | None, float | None]:
+    """Choose the first available metric; technical failures count as zero."""
+    if has_technical_failure(results, conversation_id):
+        return "ERROR", 0.0
+    for metric_id in metric_ids:
+        for metric in results:
+            if (
+                metric["conversation_group_id"] == conversation_id
+                and metric["metric_identifier"] == metric_id
+                and metric.get("result") is not None
+            ):
+                return metric["result"], metric.get("score")
+    return None, None
+
+
+def correctness_icon(passed: int, total: int, technical_failure: bool) -> str:
+    if technical_failure:
+        return "❌"
+    return "🟢" if passed == total else ("🔴" if passed == 0 else "")
 
 
 def winner_cell(text: str, is_winner: bool) -> str:
@@ -12,13 +54,25 @@ def winner_cell(text: str, is_winner: bool) -> str:
     return f"**{text}** {MEDAL}" if is_winner else text
 
 
-def discover_agents(eval_dir: Path) -> list[str]:
-    """Discover agent names from subdirectories containing run_* dirs."""
+def is_best_score(score: float | None, best: float | None) -> bool:
+    """Award tied scores a medal using the displayed two decimal places."""
+    return score is not None and best is not None and f"{score:.2f}" == f"{best:.2f}"
+
+
+def discover_agents(eval_dir: Path, system_config: Path | None = None) -> list[str]:
+    """List agents in config order, then unknown agents in alphabetical order."""
     agents = []
     for child in sorted(eval_dir.iterdir()):
         if child.is_dir() and any(child.glob("run_*")):
             agents.append(child.name)
-    return agents
+    if system_config is None or not system_config.is_file():
+        return agents
+    config = yaml.safe_load(system_config.read_text()) or {}
+    order = config.get("agents", {}).get("default", {}).get("agent", [])
+    if isinstance(order, str):
+        order = [order]
+    ordered = list(dict.fromkeys(name for name in order if name in agents))
+    return ordered + [name for name in agents if name not in ordered]
 
 
 def find_run_dirs(eval_dir: Path, agent_name: str) -> list[Path]:
@@ -157,6 +211,8 @@ def format_report_metadata(
     agent_count: int,
     repeat_count: int,
     judge: str,
+    parallel_runs: bool = False,
+    config_link: bool = False,
 ) -> str:
     """Format the report type, dimensions, timestamp, and optional judge."""
     stats = (
@@ -164,8 +220,32 @@ def format_report_metadata(
         f"{agent_count} agent{'s' if agent_count != 1 else ''}, "
         f"{repeat_count} repeat{'s' if repeat_count > 1 else ''}"
     )
+    if parallel_runs:
+        stats += " (parallel)"
     parts = [timestamp] if timestamp else []
     parts.extend((f"**{report_type}**", stats))
     if judge:
         parts.append(f"Judge: {judge}")
+    if config_link:
+        parts.append("[System config](#system-config)")
     return " | ".join(parts)
+
+
+def system_config_appendix(eval_dir: Path, filename: str) -> str:
+    """Include the saved input YAML without substituting the current config."""
+    lines = ["", '<a id="system-config"></a>', "## Appendix: System config", ""]
+    path = eval_dir / filename
+    if path.is_file():
+        content = path.read_text()
+        # Keep YAML comments containing Markdown fences inside the code block.
+        fence = "```"
+        while fence in content:
+            fence += "`"
+        lines.extend([
+            f"Saved input file: `{filename}`. Run mode can override agent, repeat, and parallel settings.",
+            "", f"{fence}yaml", content.rstrip("\n"), fence,
+        ])
+    else:
+        lines.append("The original YAML was not saved for this session.")
+    lines.extend(["", "[Back to top](#evaluation-summary)", ""])
+    return "\n".join(lines)

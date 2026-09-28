@@ -5,7 +5,6 @@ SCRIPTS_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
 # Defaults (teams override before include)
 
-OLS_NS          ?= openshift-lightspeed
 OLS_PORT        ?= 8443
 OLS_URL         ?= https://localhost:$(OLS_PORT)
 MCP_NS          ?= openshift-mcp
@@ -19,11 +18,6 @@ MCP_OLS_NAME    ?= openshift-mcp
 SYSTEM_CONFIG   ?= ./system.yaml
 EVALS           ?= ./evals.yaml
 RESULTS_DIR     ?= ./results
-OLS_PROVIDER    ?=
-OLS_MODEL       ?=
-
-# Build optional --provider/--model flags for run-evals.sh
-_PROVIDER_FLAGS = $(if $(OLS_PROVIDER),--provider $(OLS_PROVIDER)) $(if $(OLS_MODEL),--model $(OLS_MODEL))
 
 # Shared setup (venv + preflight + OLS + MCP + connect)
 
@@ -31,22 +25,20 @@ _PROVIDER_FLAGS = $(if $(OLS_PROVIDER),--provider $(OLS_PROVIDER)) $(if $(OLS_MO
 _setup-shared:
 	@bash $(SCRIPTS_DIR)/setup-venv.sh
 	@bash $(SCRIPTS_DIR)/preflight.sh
-	@OPENAI_API_KEY="$(OPENAI_API_KEY)" OLS_NS=$(OLS_NS) \
-	  bash $(SCRIPTS_DIR)/setup-ols.sh
+	@EVAL_OPENAI_API_KEY="$(EVAL_OPENAI_API_KEY)" \
+	  bash $(SCRIPTS_DIR)/setup-ols-classic.sh
 	@MCP_NS=$(MCP_NS) MCP_DEPLOYMENT=$(MCP_DEPLOYMENT) MCP_IMAGE=$(MCP_IMAGE) \
 	  MCP_COMMAND=$(MCP_COMMAND) MCP_CONFIG_MOUNT=$(MCP_CONFIG_MOUNT) \
 	  MCP_TOOLSETS=$(MCP_TOOLSETS) MCP_KIALI_URL=$(MCP_KIALI_URL) \
 	  bash $(SCRIPTS_DIR)/setup-mcp.sh
 	@MCP_NS=$(MCP_NS) MCP_DEPLOYMENT=$(MCP_DEPLOYMENT) MCP_OLS_NAME=$(MCP_OLS_NAME) \
-	  OLS_NS=$(OLS_NS) \
 	  bash $(SCRIPTS_DIR)/connect-ols-mcp.sh
 
 # Shared cleanup (disconnect + remove MCP; OLS stays)
 
 .PHONY: _cleanup-shared
 _cleanup-shared:
-	@OLS_NS=$(OLS_NS) \
-	  bash $(SCRIPTS_DIR)/disconnect-ols-mcp.sh
+	@bash $(SCRIPTS_DIR)/disconnect-ols-mcp.sh
 	@MCP_NS=$(MCP_NS) MCP_DEPLOYMENT=$(MCP_DEPLOYMENT) \
 	  bash $(SCRIPTS_DIR)/cleanup-mcp.sh
 
@@ -57,7 +49,6 @@ evals:
 	@bash $(SCRIPTS_DIR)/run-evals.sh \
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
-	  $(_PROVIDER_FLAGS) \
 	  --tags $(SCENARIOS)
 
 # Auto-generated per-scenario targets
@@ -68,7 +59,6 @@ $(1)-eval:
 	@bash $(SCRIPTS_DIR)/run-evals.sh \
 	  --system-config $(SYSTEM_CONFIG) --evals $(EVALS) \
 	  --results-dir $(RESULTS_DIR) --ols-url $(OLS_URL) \
-	  $(_PROVIDER_FLAGS) \
 	  --tags $(1)
 endef
 $(foreach s,$(SCENARIOS),$(eval $(call _eval_target,$(s))))
@@ -107,6 +97,4 @@ help:
 	@echo "  make cleanup           Remove suite dependencies + MCP"
 	@echo ""
 	@echo "  OLS_URL=$(OLS_URL)  (override with OLS_URL=https://...)"
-	@echo "  OLS_PROVIDER=          Override the LLM provider (e.g. google, anthropic)"
-	@echo "  OLS_MODEL=             Override the LLM model (e.g. gemini-2.5-pro)"
 	@echo ""

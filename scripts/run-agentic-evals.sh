@@ -40,8 +40,8 @@ if [ ! -f "${VENV_DIR}/bin/lightspeed-eval" ]; then
   exit 1
 fi
 
-if [ -z "${OPENAI_API_KEY:-}" ]; then
-  printf '\033[0;31mERROR:\033[0m OPENAI_API_KEY not set (needed for judge LLM)\n'
+if [ -z "${EVAL_OPENAI_API_KEY:-}" ]; then
+  printf '\033[0;31mERROR:\033[0m EVAL_OPENAI_API_KEY not set (needed for judge LLM)\n'
   exit 1
 fi
 
@@ -82,7 +82,7 @@ else
   echo "==> Eval: evals=$(basename "$EVALS")"
 fi
 
-"${VENV_DIR}/bin/lightspeed-eval" \
+OPENAI_API_KEY="$EVAL_OPENAI_API_KEY" "${VENV_DIR}/bin/lightspeed-eval" \
   --system-config "$RUNTIME_CONFIG" \
   --output-dir "$TMPDIR_EVAL" \
   --eval-data "$EVALS" \

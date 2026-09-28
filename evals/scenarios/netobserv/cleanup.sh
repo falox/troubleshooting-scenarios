@@ -13,7 +13,6 @@ NETOBSERV_CATALOG_SOURCE="${NETOBSERV_CATALOG_SOURCE:-redhat}"
 NETOBSERV_CHANNEL="${NETOBSERV_CHANNEL:-}"
 NETOBSERV_DELETE_OPERATOR_NAMESPACE="${NETOBSERV_DELETE_OPERATOR_NAMESPACE:-yes}"
 
-OLS_NS="${OLS_NS:-openshift-lightspeed}"
 MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
 
@@ -29,7 +28,7 @@ if [[ -n "$NETOBSERV_CHANNEL" ]]; then
 fi
 
 echo "==> Disconnecting OLS from MCP server..."
-OLS_NS="$OLS_NS" bash "$SCRIPTS_DIR/disconnect-ols-mcp.sh" || true
+bash "$SCRIPTS_DIR/disconnect-ols-mcp.sh" || true
 
 echo "==> Removing MCP server..."
 MCP_NS="$MCP_NS" MCP_DEPLOYMENT="$MCP_DEPLOYMENT" \

@@ -9,7 +9,7 @@ Unlike agentic evals, classic evals use a single metric
 in the results JSON.
 
 Usage:
-    python3 generate-report-classic.py EVAL_DIR [--output FILE]
+    python3 generate-report-classic.py EVAL_DIR [--output FILE] [--parallel-runs yes|no]
 
 EVAL_DIR is the eval session directory
 (e.g., results/ols-classic/20260904_124503/).
@@ -26,6 +26,10 @@ if _SCRIPT_DIR not in sys.path:
     sys.path.insert(0, _SCRIPT_DIR)
 
 from report_common import (  # noqa: E402
+    CORRECTNESS_LEGEND,
+    correctness_icon,
+    has_technical_failure,
+    performance_result,
     anchor_id,
     collect_conversations,
     discover_agents,
@@ -39,6 +43,8 @@ from report_common import (  # noqa: E402
     overall_score_cell,
     scenario_tokens,
     winner_cell,
+    is_best_score,
+    system_config_appendix,
 )
 
 CORRECTNESS_METRIC = "custom:answer_correctness"
@@ -122,13 +128,22 @@ def get_agent_latency(results: list[dict], conversation_id: str) -> float | None
     return None
 
 
+def get_performance_result(
+    results: list[dict], conversation_id: str
+) -> tuple[str | None, float | None]:
+    """Return correctness, counting technical failures as zero."""
+    return performance_result(results, conversation_id, (CORRECTNESS_METRIC,))
+
+
 def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     scores = []
+    technical_failure = False
     for results in agent_runs:
         if results is None:
             continue
-        score = get_score(results, conversation_id)
-        result = get_result(results, conversation_id)
+        if has_technical_failure(results, conversation_id):
+            technical_failure = True
+        result, score = get_performance_result(results, conversation_id)
         if result is not None:
             scores.append((result, score))
 
@@ -141,7 +156,7 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     total = len(scores)
     valid_scores = [s for _, s in scores if s is not None]
     avg = sum(valid_scores) / len(valid_scores) if valid_scores else None
-    icon = "🟢" if passed == total else ("🔴" if passed == 0 else "")
+    icon = correctness_icon(passed, total, technical_failure)
     avg_str = f" ({avg:.2f})" if avg is not None else ""
     label = f"{icon} {passed}/{total}".strip()
     return f"[{label}](#{anchor}){avg_str}"
@@ -154,7 +169,7 @@ def overall_score(agent_runs: list, conversations: list[str]) -> tuple[int, int]
         if results is None:
             continue
         for cid in conversations:
-            result = get_result(results, cid)
+            result, _ = get_performance_result(results, cid)
             if result is not None:
                 total += 1
                 if result == "PASS":
@@ -167,7 +182,7 @@ def scenario_mean_score(agent_runs: list, conversation_id: str) -> float | None:
     for results in agent_runs:
         if results is None:
             continue
-        s = get_score(results, conversation_id)
+        _, s = get_performance_result(results, conversation_id)
         if s is not None:
             scores.append(s)
     return sum(scores) / len(scores) if scores else None
@@ -179,7 +194,7 @@ def mean_score(agent_runs: list, conversations: list[str]) -> float | None:
         if results is None:
             continue
         for cid in conversations:
-            s = get_score(results, cid)
+            _, s = get_performance_result(results, cid)
             if s is not None:
                 scores.append(s)
     if not scores:
@@ -246,7 +261,7 @@ def generate_overview_table(
             cells.append("N/A")
         else:
             text = f"{s:.2f}"
-            cells.append(winner_cell(text, best_mean is not None and s == best_mean))
+            cells.append(winner_cell(text, is_best_score(s, best_mean)))
     lines.append(f"| Avg score | {' | '.join(cells)} |")
 
     # Mean latency
@@ -285,7 +300,7 @@ def generate_summary_table(
         cells = []
         for a in agent_names:
             cell = score_cell(agent_runs[a], cid, a)
-            cell = winner_cell(cell, best is not None and avg_scores[a] is not None and avg_scores[a] == best)
+            cell = winner_cell(cell, is_best_score(avg_scores[a], best))
             cells.append(cell)
         lines.append(f"| [{cid}](#{anchor}) | {' | '.join(cells)} |")
     scores = {a: overall_score(agent_runs[a], conversations) for a in agent_names}
@@ -311,7 +326,7 @@ def generate_summary_table(
             avg_score_cells.append("N/A")
         else:
             cell = f"{score:.2f}"
-            avg_score_cells.append(winner_cell(cell, best_mean is not None and score == best_mean))
+            avg_score_cells.append(winner_cell(cell, is_best_score(score, best_mean)))
     lines.append(f"| **Avg score** | {' | '.join(avg_score_cells)} |")
 
     return "\n".join(lines)
@@ -494,8 +509,10 @@ def generate_scenario_details(
     return "\n".join(lines)
 
 
-def generate_report(eval_dir: Path) -> str:
-    agent_names = discover_agents(eval_dir)
+def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
+    agent_names = discover_agents(
+        eval_dir, Path(_SCRIPT_DIR).parent / "evals" / "system-ols-classic.yaml"
+    )
 
     agent_runs: dict[str, list] = {}
     agent_amended: dict[str, list] = {}
@@ -537,6 +554,8 @@ def generate_report(eval_dir: Path) -> str:
         len(agent_names),
         repeat,
         judge,
+        parallel_runs=parallel_runs == "yes",
+        config_link=True,
     ))
     lines.append("")
 
@@ -548,9 +567,10 @@ def generate_report(eval_dir: Path) -> str:
     lines.append("## Correctness")
     lines.append("")
     lines.append("Passed repeats / total repeats."
-                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass).")
+                 " Score: 0-1.00 (1.00 = perfect, 0.75 = minimum to pass)."
+                 " Technical failures count as 0 in score averages.")
     lines.append("")
-    lines.append("Legend: 🟢 100% pass rate · 🔴 0% pass rate.")
+    lines.append(CORRECTNESS_LEGEND)
     lines.append("")
     lines.append(generate_summary_table(conversations, agent_names, agent_runs))
     lines.append("")
@@ -576,6 +596,8 @@ def generate_report(eval_dir: Path) -> str:
             conversations, agent_names, agent_runs, agent_amended
         )
     )
+
+    lines.append(system_config_appendix(eval_dir, "system-ols-classic.yaml"))
 
     return "\n".join(lines)
 
@@ -612,26 +634,52 @@ def print_correctness_table(
     conversations: list[str],
     agent_names: list[str],
     agent_runs: dict[str, list],
+    agent_amended: dict[str, list] | None = None,
 ) -> None:
+    agent_amended = agent_amended or {}
     grid: list[list[tuple[int, int]]] = []
     for cid in conversations:
         row = [_scenario_pass_total(agent_runs[a], cid) for a in agent_names]
         grid.append(row)
 
     totals = [overall_score(agent_runs[a], conversations) for a in agent_names]
+    avg_scores = [mean_score(agent_runs[a], conversations) for a in agent_names]
+    avg_durations = [mean_latency(agent_runs[a], conversations) for a in agent_names]
+    avg_tokens = [
+        format_token_pair(
+            *mean_tokens(agent_amended.get(a, []), conversations)
+        )
+        for a in agent_names
+    ]
+    avg_score_cells = ["N/A" if score is None else f"{score:.2f}" for score in avg_scores]
+    avg_duration_cells = [
+        "N/A" if duration is None else format_duration(duration)
+        for duration in avg_durations
+    ]
 
     def _footer_plain(p, t):
         pct = round(100 * p / t) if t else 0
         return f"{pct}% ({p}/{t})"
 
-    scenario_w = max(len("Scenario"), len("Pass rate"), *(len(c) for c in conversations))
+    footer_labels = ["Pass rate", "Avg score", "Avg duration", "Avg tokens"]
+    scenario_w = max(
+        [len("Scenario"), *(len(label) for label in footer_labels)]
+        + [len(c) for c in conversations]
+    )
     col_widths = []
     for index, (agent, total) in enumerate(zip(agent_names, totals, strict=True)):
         result_width = max(
             (len(f"{row[index][0]}/{row[index][1]}") for row in grid),
             default=0,
         )
-        col_widths.append(max(len(agent), result_width, len(_footer_plain(*total))))
+        summary_width = max(
+            len(avg_score_cells[index]),
+            len(avg_duration_cells[index]),
+            len(avg_tokens[index]),
+        )
+        col_widths.append(
+            max(len(agent), result_width, len(_footer_plain(*total)), summary_width)
+        )
 
     sep = "+-" + "-+-".join("-" * w for w in [scenario_w] + col_widths) + "-+"
     header = "| " + " | ".join(
@@ -657,6 +705,14 @@ def print_correctness_table(
         text = f"{pct}% ({colored})"
         footer_cells.append(f"{text}{' ' * (w - len(plain))}")
     print("| " + " | ".join(footer_cells) + " |")
+    for label, values in (
+        ("Avg score", avg_score_cells),
+        ("Avg duration", avg_duration_cells),
+        ("Avg tokens", avg_tokens),
+    ):
+        cells = [f"{label:<{scenario_w}}"]
+        cells.extend(f"{value:<{width}}" for value, width in zip(values, col_widths))
+        print("| " + " | ".join(cells) + " |")
     print(sep)
 
 
@@ -674,6 +730,10 @@ def main():
         "--output", "-o",
         help="Output file path (default: EVAL_DIR/results.md)",
     )
+    parser.add_argument(
+        "--parallel-runs", choices=("yes", "no"),
+        help="Whether evaluation runs were executed in parallel",
+    )
     args = parser.parse_args()
 
     eval_dir = Path(args.eval_dir)
@@ -681,19 +741,24 @@ def main():
         print(f"ERROR: {eval_dir} is not a directory", file=sys.stderr)
         sys.exit(1)
 
-    md = generate_report(eval_dir)
+    md = generate_report(eval_dir, args.parallel_runs)
 
     output = Path(args.output) if args.output else eval_dir / "results.md"
     output.write_text(md)
 
-    agent_names = discover_agents(eval_dir)
+    agent_names = discover_agents(
+        eval_dir, Path(_SCRIPT_DIR).parent / "evals" / "system-ols-classic.yaml"
+    )
     agent_runs = {}
+    agent_amended = {}
     for agent in agent_names:
-        agent_runs[agent] = [load_run_summary(rd) for rd in find_run_dirs(eval_dir, agent)]
+        run_dirs = find_run_dirs(eval_dir, agent)
+        agent_runs[agent] = [load_run_summary(rd) for rd in run_dirs]
+        agent_amended[agent] = [load_amended_entries(rd) for rd in run_dirs]
     conversations = collect_conversations(agent_runs)
 
     print()
-    print_correctness_table(conversations, agent_names, agent_runs)
+    print_correctness_table(conversations, agent_names, agent_runs, agent_amended)
     print()
     print(f"Report written to {output}")
 

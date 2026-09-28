@@ -59,7 +59,10 @@ group_name/
   scenario2/
 ```
 
-The eval runner detects grouped scenarios automatically: it runs group `setup.sh` before the first scenario in the group, and group `cleanup.sh` after all scenarios in the group complete.
+The Classic eval runner runs group `setup.sh` before the first scenario in
+the group and group `cleanup.sh` after the full scenario loop.
+`SETUP_MODE=skip` skips both. The manual setup and cleanup targets also handle
+group resources.
 
 Grouped scenario names use the `group/scenario` format (e.g., `kubevirt/vm_crashloop`) in the Makefile variables and README tables.
 
@@ -71,7 +74,7 @@ After creating the scenario directory:
 2. Add a row to the scenario table in `evals/README.md`
 3. Run the `review-scenario` skill (`.agents/skills/review-scenario/SKILL.md`, symlinked as `.claude/skills/review-scenario/`) to check for naming leaks, revealing comments, and unrealistic fault setups. In Claude Code: `/review-scenario my_scenario`
 
-## Lint
+## Checks
 
 Run all linters from the repository root:
 
@@ -80,3 +83,14 @@ make lint
 ```
 
 This installs the pinned lint tools into `.tools/` when needed. To install them without running lint, use `make tools`.
+
+For changes to shared scripts or reports, also run the script tests in an
+environment with pytest and PyYAML:
+
+```bash
+python3 -m pytest scripts/tests -q
+```
+
+Check that usage examples and README instructions still match the changed
+behavior. Keep generated eval output in `evals/results/`; only copy selected
+reports to `evals/reports/`.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
   exit 1
 }
 
@@ -24,6 +24,10 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
+if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+  exit 2
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VENV_DIR="${SCRIPT_DIR}/../venv"
@@ -60,8 +64,13 @@ for scenario in "${SCENARIOS[@]}"; do
   fi
 done
 
+bash "$SCRIPT_DIR/preflight.sh" --require-agentic --system-config "$SYSTEM_CONFIG"
+
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
+mkdir -p "$EVAL_DIR"
+cp "$SYSTEM_CONFIG" "$EVAL_DIR/system-ols-agentic.yaml"
+SYSTEM_CONFIG="$EVAL_DIR/system-ols-agentic.yaml"
 
 if [ ${#AGENTS[@]} -eq 0 ]; then
   read -ra AGENTS <<< "$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))")"
@@ -69,40 +78,40 @@ fi
 
 REPEAT="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(c.get('agents',{}).get('default',{}).get('repeat',1))")"
 
-agent_description() {
-  "$PYTHON" -c "
-import yaml
-c = yaml.safe_load(open('$SYSTEM_CONFIG'))
-a = c.get('agents', {}).get('$1', {})
-print(a.get('description', '') or '$1')
-"
-}
+PARALLEL_RUNS="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print('yes' if c.get('agents',{}).get('default',{}).get('parallel',False) else 'no')")"
+if [ "$SETUP_MODE" = "run" ]; then PARALLEL_RUNS=no; fi
 
 TAG_FLAGS=()
 if [ ${#TAGS[@]} -gt 0 ]; then
   TAG_FLAGS=(--tags "${TAGS[@]}")
 fi
 
-echo "setup_mode: $SETUP_MODE"
-echo "repeats:    $REPEAT"
-echo "agents:     ${#AGENTS[@]}"
-for agent in "${AGENTS[@]}"; do
-  echo "  $(agent_description "$agent")"
-done
-echo "scenarios:  ${#SCENARIOS[@]}"
-for scenario in "${SCENARIOS[@]}"; do
-  echo "  $scenario"
-done
+SUMMARY_AGENT_ARGS=()
+if [ ${#AGENTS[@]} -gt 0 ]; then
+  SUMMARY_AGENT_ARGS=(--agents "${AGENTS[@]}")
+fi
+bash "$SCRIPT_DIR/show-eval-summary.sh" \
+  --python "$PYTHON" \
+  --system-config "$SYSTEM_CONFIG" \
+  --setup-mode "$SETUP_MODE" \
+  "${SUMMARY_AGENT_ARGS[@]}" \
+  --scenarios "${SCENARIOS[@]}"
 
 run_scenario() {
   local scenario="$1"
-  shift
+  local progress="$2"
+  shift 2
   local scenario_status=0
 
   echo ""
-  echo "==> Setup: $scenario"
-  if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Setup: $scenario"
+    if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+  else
+    echo "==> Setup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   if [ "$scenario_status" -eq 0 ]; then
+    echo "==> Progress: $progress"
     bash "$SCRIPT_DIR/run-agentic-evals.sh" \
       --system-config "$SYSTEM_CONFIG" \
       --evals "$scenario/evals-ols-agentic.yaml" \
@@ -110,30 +119,62 @@ run_scenario() {
       "$@" \
       "${TAG_FLAGS[@]}" || scenario_status=$?
   fi
-  echo "==> Cleanup: $scenario"
-  if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  if [ "$SETUP_MODE" != "skip" ]; then
+    echo "==> Cleanup: $scenario"
+    if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+  else
+    echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
+  fi
   return "$scenario_status"
 }
 
+overall_status=0
+failed_runs=()
+
+record_failure() {
+  local status="$1"
+  local label="$2"
+
+  if [ "$overall_status" -eq 0 ]; then overall_status="$status"; fi
+  failed_runs+=("$label")
+  echo "WARNING: $label failed (exit $status); continuing." >&2
+}
+
 if [ "$SETUP_MODE" = "run" ]; then
+  total_runs=$(( ${#SCENARIOS[@]} * ${#AGENTS[@]} * REPEAT ))
+  progress_index=0
   for scenario in "${SCENARIOS[@]}"; do
     for agent in "${AGENTS[@]}"; do
       for run in $(seq 1 "$REPEAT"); do
+        progress_index=$((progress_index + 1))
         run_scenario "$scenario" \
+          "run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
           --agent "$agent" \
-          --run-index "$run"
+          --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
       done
     done
   done
 else
+  total_scenarios=${#SCENARIOS[@]}
+  progress_index=0
   for scenario in "${SCENARIOS[@]}"; do
-    run_scenario "$scenario"
+    progress_index=$((progress_index + 1))
+    run_scenario "$scenario" \
+      "scenario $progress_index/$total_scenarios | ${scenario#scenarios/}" \
+      || record_failure "$?" "$scenario"
   done
+fi
+
+if [ ${#failed_runs[@]} -gt 0 ]; then
+  echo "==> Failed scenario runs (${#failed_runs[@]}):"
+  printf '  %s\n' "${failed_runs[@]}"
 fi
 
 echo ""
 echo "==> Generating report..."
 "$PYTHON" "$SCRIPT_DIR/generate-report-agentic.py" \
+  --parallel-runs "$PARALLEL_RUNS" \
   "$EVAL_DIR" \
   --output "results/report_${DATETIME}.md"
 echo "==> Report: results/report_${DATETIME}.md"
+exit "$overall_status"

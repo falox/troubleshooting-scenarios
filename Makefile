@@ -113,7 +113,6 @@ _ALL_OLS_CLASSIC := \
 	batch_submission_timeouts \
 	crashlooping_pod_alert \
 	failed_job \
-	failing_api_alert \
 	failing_api_alert_cross_namespace \
 	kiali-ossm/check_bookinfo_services \
 	kiali-ossm/check_istio_objects_status \
@@ -225,36 +224,19 @@ setup-venv:
 
 setup-ols-classic: setup-venv
 	@bash $(SCRIPTS_DIR)/preflight.sh
-	@bash $(SCRIPTS_DIR)/setup-ols.sh
+	@bash $(SCRIPTS_DIR)/setup-ols-classic.sh
 
 eval-ols-agentic:
 ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
-	@echo "SETUP_MODE: $(SETUP_MODE)"
-	@echo "Agents:"
-ifneq ($(AGENT),)
-	@printf '  %s\n' $(subst $(COMMA), ,$(AGENT))
-else
-	@python3 -c "import yaml; c=yaml.safe_load(open('$(EVALS_DIR)/system-ols-agentic.yaml')); \
-	  agents=c['agents']; \
-	  [print('  ' + agents.get(a,{}).get('description',a)) for a in agents['default']['agent']]" \
-	  2>/dev/null || echo "  (install PyYAML to resolve)"
-endif
-	@echo "Matched scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"
-ifneq ($(OLS_AGENTIC_SCENARIOS),)
-	@printf '  %s\n' $(OLS_AGENTIC_SCENARIOS)
-else
-	@echo "No scenarios match the given filters."
-endif
+	@bash $(SCRIPTS_DIR)/show-eval-summary.sh \
+	  --system-config $(EVALS_DIR)/system-ols-agentic.yaml \
+	  --setup-mode $(SETUP_MODE) \
+	  $(if $(AGENT),--agents $(subst $(COMMA), ,$(AGENT))) \
+	  --scenarios $(OLS_AGENTIC_SCENARIOS)
 else ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
-	@if [ ! -x venv/bin/python3 ]; then \
-	  echo "ERROR: Agent CRs may not be synchronized." >&2; \
-	  echo "Run 'make setup-ols-agentic' before running evaluations." >&2; \
-	  exit 1; \
-	fi
-	@venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py --check $(EVALS_DIR)/system-ols-agentic.yaml
 	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-agentic.sh \
 	  --system-config system-ols-agentic.yaml \
 	  --setup-mode $(SETUP_MODE) \
@@ -267,27 +249,16 @@ endif
 eval-ols-classic:
 ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
-	@echo "SETUP_MODE: $(SETUP_MODE)"
-	@echo "Agents:"
-ifneq ($(AGENT),)
-	@printf '  %s\n' $(subst $(COMMA), ,$(AGENT))
-else
-	@python3 -c "import yaml; c=yaml.safe_load(open('$(EVALS_DIR)/system-ols-classic.yaml')); \
-	  agents=c['agents']; \
-	  [print('  ' + agents.get(a,{}).get('description',a)) for a in agents['default']['agent']]" \
-	  2>/dev/null || echo "  (install PyYAML to resolve)"
-endif
-	@echo "Matched scenarios ($(words $(OLS_CLASSIC_SCENARIOS))):"
-ifneq ($(OLS_CLASSIC_SCENARIOS),)
-	@printf '  %s\n' $(OLS_CLASSIC_SCENARIOS)
-else
-	@echo "No scenarios match the given filters."
-endif
+	@bash $(SCRIPTS_DIR)/show-eval-summary.sh \
+	  --system-config $(EVALS_DIR)/system-ols-classic.yaml \
+	  --setup-mode $(SETUP_MODE) \
+	  --scenarios $(OLS_CLASSIC_SCENARIOS)
 else ifeq ($(OLS_CLASSIC_SCENARIOS),)
-	@echo "No OLS classic scenarios match the given filters."
+	@echo "No scenarios match the given filters."
 else
 	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-classic.sh \
 	  --system-config system-ols-classic.yaml \
+	  --setup-mode $(SETUP_MODE) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
 	  --scenarios $(addprefix scenarios/,$(OLS_CLASSIC_SCENARIOS))
 endif
@@ -327,9 +298,10 @@ help: ## Show available targets
 	@echo "  SCENARIO=...              Comma-separated scenarios (required unless TAG is set)"
 	@echo "  TAG=...                   Filter by tag (required unless SCENARIO is set)"
 	@echo "  PREVIEW=1                 List matched scenarios without running them"
-	@echo "  SETUP_MODE=run|scenario   Setup/cleanup lifecycle (default: scenario)"
+	@echo "  SETUP_MODE=run|scenario|skip Setup/cleanup lifecycle (default: scenario)"
 	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
 	@echo "    scenario: per scenario - for read-only agents, parallel OK"
+	@echo "    skip:     no scenario or group setup/cleanup"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make setup-scenario TAG=core"
@@ -339,7 +311,9 @@ help: ## Show available targets
 	@echo "  make cleanup-scenario TAG=alert PREVIEW=1"
 	@echo "  make eval-ols-agentic TAG=core SETUP_MODE=scenario"
 	@echo "  make eval-ols-agentic TAG=core PREVIEW=1"
+	@echo "  make eval-ols-agentic SCENARIO=blocked_deployment SETUP_MODE=skip"
 	@echo "  make eval-ols-classic SCENARIO=crashlooping_pod_alert"
+	@echo "  make eval-ols-classic SCENARIO=crashlooping_pod_alert SETUP_MODE=skip"
 	@echo ""
 	@echo "OLS agentic scenarios ($(words $(OLS_AGENTIC_SCENARIOS))):"
 	@echo "$(OLS_AGENTIC_SCENARIOS)" | tr ' ' '\n' | column -x -c $$(tput cols) | expand | sed 's/^/  /'

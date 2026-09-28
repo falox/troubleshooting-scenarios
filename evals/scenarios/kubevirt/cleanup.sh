@@ -4,7 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SCRIPTS_DIR="$(cd "$SCRIPT_DIR/../../../scripts" && pwd)"
 
-OLS_NS="${OLS_NS:-openshift-lightspeed}"
 MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
 CNV_NS="${CNV_NS:-openshift-cnv}"
@@ -12,7 +11,7 @@ KUBECTL="${KUBECTL:-oc}"
 CNV_STATE_FILE="${CNV_STATE_FILE:-${TMPDIR:-/tmp}/troubleshooting-scenarios-kubevirt-cnv-created}"
 
 echo "==> Disconnecting OLS from MCP server..."
-OLS_NS="$OLS_NS" bash "$SCRIPTS_DIR/disconnect-ols-mcp.sh" || true
+bash "$SCRIPTS_DIR/disconnect-ols-mcp.sh" || true
 
 echo "==> Removing MCP server..."
 MCP_NS="$MCP_NS" MCP_DEPLOYMENT="$MCP_DEPLOYMENT" \

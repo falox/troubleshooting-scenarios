@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OLS_NS="${OLS_NS:-openshift-lightspeed}"
 MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
 MCP_OLS_NAME="${MCP_OLS_NAME:-openshift-mcp}"
@@ -17,14 +16,14 @@ patch="$(printf \
 oc patch olsconfig cluster --type=merge -p "$patch"
 
 echo "==> Restarting lightspeed-app-server..."
-oc rollout restart deployment/lightspeed-app-server -n "$OLS_NS"
-oc rollout status deployment/lightspeed-app-server -n "$OLS_NS" --timeout=300s
+oc rollout restart deployment/lightspeed-app-server -n openshift-lightspeed
+oc rollout status deployment/lightspeed-app-server -n openshift-lightspeed --timeout=300s
 
 # Poll HTTP endpoint until OLS is serving
 OLS_PORT="${OLS_PORT:-8443}"
 echo "==> Waiting for OLS to respond..."
 for _ in $(seq 1 30); do
-  if oc exec -n "$OLS_NS" deployment/lightspeed-app-server -- \
+  if oc exec -n openshift-lightspeed deployment/lightspeed-app-server -- \
     curl -ksf --connect-timeout 3 "https://localhost:${OLS_PORT}/docs" >/dev/null 2>&1; then
     echo "==> OLS connected to MCP and ready."
     exit 0

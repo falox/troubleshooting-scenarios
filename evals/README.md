@@ -1,67 +1,134 @@
 # Evals
 
-Fault scenarios for automated troubleshooting evaluation on OpenShift. Each scenario deploys a fault on a live cluster, submits queries to the tool under test, and scores the responses with a judge LLM using the [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework.
-
-Scenarios are generic: they deploy real Kubernetes resources and create real faults. They are not tied to any specific AI tool and can be run manually on any cluster.
+Fault scenarios for OpenShift troubleshooting. Automated evaluations use
+[lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation)
+to query the tool under test and score its response. You can also deploy the
+faults for manual investigation.
 
 ## Running a scenario manually
 
-```bash
-oc login ...
-cd evals/scenarios/blocked_deployment
+From the repository root:
 
-./setup.sh          # deploy the fault
-# ... investigate, troubleshoot, demo ...
-./cleanup.sh        # tear down
+```bash
+make setup-scenario SCENARIO=blocked_deployment
+# Investigate the fault.
+make cleanup-scenario SCENARIO=blocked_deployment
 ```
+
+For a single scenario without group dependencies, you can also run its
+`setup.sh` and `cleanup.sh` from the scenario directory.
 
 ## Running automated evals
 
-See the [root README](../README.md) for OLS Agentic and OLS Classic setup, Make commands, and requirements.
+Follow the [root README](../README.md) to set up OLS Agentic or OLS Classic.
+Run Make commands from the repository root.
 
-To preview the OLS Agentic scenarios selected by the same `SCENARIO` and `TAG` filters:
+| Option | Purpose |
+|--------|---------|
+| `SCENARIO=a,b` | Select named scenarios supported by the eval mode. |
+| `TAG=core,alert` | Select scenarios with at least one of these tags. |
+| `AGENT=a,b` | Select agents for OLS Agentic; defaults to the system config. |
+| `PREVIEW=1` | Show the selection without running setup, evaluation, or cleanup. |
+| `SETUP_MODE=scenario` | Control when resources are set up and removed; see below. |
+
+With both `SCENARIO` and `TAG`, tags filter the named scenarios. With neither,
+the eval target selects all supported scenarios. Manual `setup-scenario` and
+`cleanup-scenario` targets require at least one filter.
 
 ```bash
 make eval-ols-agentic TAG=core PREVIEW=1
-make eval-ols-agentic SCENARIO=blocked_deployment,failed_job PREVIEW=1
+make eval-ols-agentic SCENARIO=blocked_deployment,failed_job
+make eval-ols-classic SCENARIO=crashlooping_pod_alert PREVIEW=1
 ```
 
-The preview shows the matched scenarios, their total count, `AGENT`, and `SETUP_MODE`.
-If `AGENT` is not set, it shows that the default agents come from `system-ols-agentic.yaml`.
-It does not run setup, evaluations, cleanup, or report generation. It needs no cluster connection or venv.
+The preview and real run show the same summary: setup mode, repeat count,
+effective parallel setting, judge, agents, and scenarios. Preview needs no
+cluster connection or eval environment. Without Python 3 or PyYAML, config
+values appear as placeholders.
 
-To deploy selected scenario faults for a manual investigation or demo without
-running evaluations:
+Before a real run, both runners check cluster access, evaluation tools, and
+`EVAL_OPENAI_API_KEY`. Agentic also checks that Agent CRs match the config;
+Classic checks its operator CRD and server deployment.
+
+### Setup modes
+
+| Mode | Setup and cleanup | Parallel runs |
+|------|-------------------|---------------|
+| `scenario` (default) | Once per scenario. Use for agents that only read resources. | Uses the system config. |
+| `run` | Once per scenario, agent, and repeat. Use for agents that change resources. | Disabled. |
+| `skip` | None. Use resources already deployed on the cluster. | Uses the system config. |
 
 ```bash
-make setup-scenario TAG=core
-make setup-scenario SCENARIO=blocked_deployment,failed_job
-make setup-scenario TAG=alert PREVIEW=1
-make cleanup-scenario SCENARIO=blocked_deployment,failed_job
-make cleanup-scenario TAG=alert PREVIEW=1
+make eval-ols-agentic SCENARIO=blocked_deployment_alert_remediation SETUP_MODE=run
+make eval-ols-classic SCENARIO=crashlooping_pod_alert SETUP_MODE=skip
 ```
 
-Setup leaves the selected faults running. Cleanup runs the matching scenario
-`cleanup.sh` scripts and then each selected group's `cleanup.sh` once when
-present. Both commands require `TAG`, `SCENARIO`, or both. They validate the
-filters before changing the cluster.
+Classic group setup and cleanup run once per selected group in `scenario` and
+`run` modes. In `skip` mode, group setup and cleanup are skipped too.
 
-Before a real evaluation, `make eval-ols-agentic` checks that the Agent CRs match
-`system-ols-agentic.yaml`. If they are missing or stale, it stops and asks you to
-run `make setup-ols-agentic`.
+### Failures and cleanup
+
+In `scenario` and `run` modes, cleanup runs after each setup attempt, even if
+setup or evaluation fails. The runner logs the failure and continues with the
+next run or scenario. Cleanup failures are logged without stopping the loop.
+The runner then tries to generate a report from available results and returns
+a failure status if setup or evaluation failed.
+
+If Classic group setup fails, the runner skips that group's scenarios and
+continues with other groups. Group cleanup runs after the full scenario loop.
+
+## Reports
+
+Runners save Markdown reports to `evals/results/report_<session>.md`.
+To regenerate a report from saved results, run from the repository root:
+
+```bash
+venv/bin/python3 scripts/generate-report-classic.py "evals/results/<session>" \
+  --output "evals/results/report_<session>.md"
+```
+
+Use `generate-report-agentic.py` for Agentic results. Pass
+`--parallel-runs yes` if that session used parallel runs.
+
+Both report types use the same scoring rules:
+
+- Technical errors count as failed runs with score 0 in averages.
+- ❌ marks a technical error in at least one run. Otherwise, 🟢 means all runs
+  passed and 🔴 means none passed. Mixed results have no icon.
+- Score medals compare values rounded to two decimal places.
+- Model columns follow `agents.default.agent` in the matching
+  `system-ols-*.yaml`. Models absent from the list appear last, alphabetically.
 
 ## Conventions
 
-Scenarios triggered by alerts (specific to lightspeed-agentic-alerts-adapter) have:
+Alert analysis scenarios (specific to lightspeed-agentic-alerts-adapter) have:
+
 - Tag `alert` in their `evals-ols-agentic.yaml`
 - Directory name with `_alert` suffix; remediation variants use `_alert_remediation`
 - Request in the template format defined by lightspeed-agentic-alerts-adapter
+
+## Tags
+
+Each `evals-*.yaml` file has tags under `tag`. Use `TAG=...` with an eval Make
+target to select matching scenarios. The two eval definitions for one scenario
+may have different tags.
+
+| Tag | Meaning |
+|-----|---------|
+| `agentic` | OLS agentic cases. |
+| `classic` | OLS classic cases. |
+| `core` | Representative baseline cases across eval modes and difficulty levels. |
+| `alert` | Alert investigation cases; remediation variants use `remediation`. |
+| `remediation` | OLS Agentic cases that include analysis, a fix, and verification. |
+| `difficulty_normal` | One isolated problem with a direct link between symptom and cause. |
+| `difficulty_medium` | More reasoning is needed, such as several steps, a decoy, or domain knowledge. |
+| `difficulty_hard` | A complex cause chain that can lead to varied results across runs. |
 
 ## Scenarios
 
 ### Difficulty level: Hard
 
-Scenarios with non-trivial causality chains that produce a wide score distribution, useful for benchmarking and comparing model capabilities across runs.
+Scenarios with several linked causes, used to compare model results across runs.
 
 | Scenario | Symptom | Root Cause | Phases | Namespace | Alert |
 |----------|---------|------------|--------|-----------|-------|
@@ -70,7 +137,7 @@ Scenarios with non-trivial causality chains that produce a wide score distributi
 
 ### Difficulty level: Medium
 
-Scenarios that require multi-step reasoning, resisting traps or decoys, behavioral constraints, or domain-specific knowledge.
+Scenarios that need several reasoning steps, domain knowledge, or checks against misleading clues.
 
 | Scenario | Symptom | Root Cause | Phases | Namespace | Alert |
 |----------|---------|------------|--------|-----------|-------|
@@ -92,7 +159,7 @@ Scenarios that require multi-step reasoning, resisting traps or decoys, behavior
 
 ### Difficulty level: Normal
 
-Scenarios with an isolated problem and direct symptom-cause correlation.
+Scenarios with one problem and a direct link between symptom and cause.
 
 | Scenario | Symptom | Root Cause | Phases | Namespace | Alert |
 |----------|---------|------------|--------|-----------|-------|

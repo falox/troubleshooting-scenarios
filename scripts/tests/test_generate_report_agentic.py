@@ -260,7 +260,7 @@ class TestScoreCellIcons:
         (["PASS", "FAIL"], ["PASS", "PASS"], "1/2"),
         (["PASS", "FAIL"], ["PASS", "FAIL"], "❌ 1/2"),
         (["FAIL", "FAIL"], ["FAIL", "PASS"], "❌ 0/2"),
-        (["PASS", "PASS"], ["PASS", "FAIL"], "❌ 2/2"),
+        (["PASS", "PASS"], ["PASS", "FAIL"], "❌ 1/2"),
         (["PASS", "ERROR"], ["PASS", "ERROR"], "❌ 1/2"),
         (["ERROR"], ["PASS"], "❌ 0.00"),
         (["FAIL"], ["PASS"], "🔴 0.00"),
@@ -354,7 +354,7 @@ class TestGenerateReport:
         assert "gpt-5.4" in report
         assert "blocked_deployment" in report
         correctness = report.split("## Correctness\n", 1)[1].split("## Time", 1)[0]
-        assert "Legend: 🟢 100% pass rate · 🔴 0% pass rate · ❌ Technical failure in at least one run (Status = Failed)." in correctness
+        assert mod.CORRECTNESS_LEGEND in correctness
         assert "No icon: partial pass rate" not in correctness
         assert "takes priority over pass-rate icons" not in correctness
 

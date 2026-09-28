@@ -1,83 +1,89 @@
 # Troubleshooting Scenarios
 
-Reproducible fault scenarios for OpenShift clusters. Each scenario deploys a specific fault (misconfiguration, resource exhaustion, network issue, etc.) on a live cluster with setup and cleanup scripts. Use them for automated evaluations, manual troubleshooting, or live demos.
+Reproducible faults for OpenShift clusters. Use them to evaluate troubleshooting
+tools, practise manual diagnosis, or run demos.
 
-## Contents
+- [Evals](evals/README.md): scenarios for automated evaluation and manual use.
+- [Labs](labs/README.md): demos with manual fault controls.
+- [Contributing](CONTRIBUTING.md): how to add a scenario and run checks.
 
-- **[evals/](evals/)**: Fault scenarios with setup/cleanup scripts and Kubernetes fixtures. Designed for automated evals of OpenShift troubleshooting tools (Lightspeed, Incident Detection, and others), but can also be run manually on any cluster.
-- **[labs/](labs/)**: Multi-service scenarios with richer fault models (cascading failures, graduated alerts, red herrings). Designed for live demos and manual troubleshooting practice.
+## Requirements
 
-## Scenario Structure
+Run the commands below from the repository root. You need:
 
-Each scenario under `evals/scenarios/` is a self-contained directory:
+- An OpenShift cluster and an active `oc login` session.
+- Python 3.11–3.13 for the evaluation environment.
+- `EVAL_OPENAI_API_KEY` for the judge and OpenAI models.
+- `EVAL_VERTEX_CREDENTIALS` and `EVAL_VERTEX_PROJECT_ID` when active models use
+  Google or Anthropic. The credentials value is a service account JSON path.
 
+```bash
+export EVAL_OPENAI_API_KEY="<openai-api-key>"
+# Also set these when using Google or Anthropic:
+export EVAL_VERTEX_CREDENTIALS="/path/to/service-account.json"
+export EVAL_VERTEX_PROJECT_ID="<gcp-project-id>"
 ```
-my_scenario/
-  fixtures/           Kubernetes manifests that reproduce the fault
-  setup.sh            Deploys fixtures to the cluster
-  cleanup.sh          Removes everything the scenario created
-  evals-*.yaml        One per tool under test (e.g. OLS Agentic, OLS Classic)
-```
 
-**Scenarios are generic and not tied to OpenShift Lightspeed or any other troubleshooting tool**: they deploy real Kubernetes resources (Deployments, Services, ConfigMaps, NetworkPolicies, PrometheusRules, etc.) and create real faults on a live cluster.
+The setup targets create the local `venv/` and install the evaluation framework.
 
-To add a scenario, follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
+## OLS Agentic
 
-## Running Evals for OpenShift Lightspeed
-
-Scenarios include eval definitions for OpenShift Lightspeed (OLS). The [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework orchestrates each run: deploy the fault, query OLS, score the response with a judge LLM.
-
-### OLS Agentic
-
-Each scenario folder contains an `evals-ols-agentic.yaml` with the eval definitions. Configure which models to test and how many repeats per scenario in `evals/system-ols-agentic.yaml`. Running `make setup-ols-agentic` automatically syncs the Agent CRs on the cluster with the agents defined in the system config. Before a real evaluation, `make eval-ols-agentic` checks that these Agent CRs are present and match the system config; if they do not, it stops and asks you to run `make setup-ols-agentic`.
+Choose models and repeat counts in
+[`evals/system-ols-agentic.yaml`](evals/system-ols-agentic.yaml).
+The cluster needs the Lightspeed Agentic operator. The setup target syncs
+Agent CRs; it does not install the operator.
 
 ```bash
 make setup-ols-agentic
-make eval-ols-agentic                                          # run all scenarios
-make eval-ols-agentic SCENARIO=stuck_rollout                   # one scenario
-make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota   # multiple
-make eval-ols-agentic TAG=alert                                # filter by tag
-make eval-ols-agentic TAG=alert PREVIEW=1                      # preview matched scenarios
+make eval-ols-agentic SCENARIO=blocked_deployment PREVIEW=1
+make eval-ols-agentic SCENARIO=blocked_deployment
+make eval-ols-agentic TAG=core
 ```
 
-### OLS Classic
+Before an evaluation, the runner checks that Agent CRs match the config.
+Run `make setup-ols-agentic` again after changing agent settings.
+For evaluations that change cluster resources, use `SETUP_MODE=run` to reset
+resources before each agent and repeat.
 
-Each scenario folder that supports OLS Classic contains an `evals-ols-classic.yaml` with the eval definitions. Configure the OLS model and provider in `evals/system-ols-classic.yaml`.
+## OLS Classic
+
+Choose models in `agents.default.agent` in
+[`evals/system-ols-classic.yaml`](evals/system-ols-classic.yaml).
+Setup registers the active agents and judge models in OLS, using each entry's
+`provider` and `model`. The first active agent sets the default model and must
+use OpenAI. Remove Google and Anthropic entries for an OpenAI-only run.
 
 ```bash
 make setup-ols-classic
-make eval-ols-classic                                          # run all scenarios
-make eval-ols-classic SCENARIO=crashlooping_pod_alert          # one scenario
+make eval-ols-classic SCENARIO=crashlooping_pod_alert PREVIEW=1
+make eval-ols-classic SCENARIO=crashlooping_pod_alert
+make eval-ols-classic TAG=alert
 ```
 
-Run `make help` for all targets and options.
+Setup uses the `openshift-lightspeed` namespace. Without `SCENARIO` or `TAG`,
+either evaluation target runs all scenarios supported by that mode.
+See the [eval guide](evals/README.md#running-automated-evals) for filters,
+setup modes, and failure handling.
 
-### Standalone scenario setup and cleanup
+## Manual setup and cleanup
 
-To deploy one or more faults for a manual troubleshooting session or demo,
-without running an evaluation:
+Deploy faults without running an evaluation:
 
 ```bash
-make setup-scenario SCENARIO=stuck_rollout
-make setup-scenario SCENARIO=stuck_rollout,exhausted_quota
-make setup-scenario TAG=alert
-make setup-scenario TAG=core PREVIEW=1       # list matches without changing the cluster
-make cleanup-scenario SCENARIO=stuck_rollout,exhausted_quota
-make cleanup-scenario TAG=alert PREVIEW=1
+make setup-scenario SCENARIO=blocked_deployment PREVIEW=1
+make setup-scenario SCENARIO=blocked_deployment
+# Investigate the fault, then remove it:
+make cleanup-scenario SCENARIO=blocked_deployment
 ```
 
-The `TAG` and `SCENARIO` filters use the same matching rules as the evaluation
-targets. Setup leaves the selected faults running. Cleanup runs each selected
-scenario's `cleanup.sh`, then the group's `cleanup.sh` once when present.
-Both commands require at least one filter. They validate all scenario names and
-the final match before changing the cluster.
+Both targets require `SCENARIO`, `TAG`, or both. Use commas to select several
+scenarios. Setup leaves faults running; cleanup removes scenario resources
+and shared group resources where present.
 
-### Requirements
+## Results
 
-- OpenShift cluster accessible via `oc login` (5.x for OLS Agentic, 4.x+ for OLS Classic)
-- `OPENAI_API_KEY` exported (judge LLM)
-- Python 3.13+
+Logs and generated reports are saved under `evals/results/` (ignored by Git).
+Copy reports worth keeping to `evals/reports/` to track them in Git.
+See [report generation](evals/README.md#reports) for commands and scoring rules.
 
-### Results and reports
-
-Eval runs produce logs and reports under `evals/results/` (gitignored). Reports worth keeping can be promoted to `evals/reports/` (tracked in git).
+Run `make help` for all targets and options.
