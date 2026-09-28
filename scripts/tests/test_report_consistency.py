@@ -94,3 +94,20 @@ def test_score_medals_use_displayed_precision(report_module):
     assert scenario.count("🥇") == 2
     overview = mod.generate_overview_table(["scenario"], names, runs, {name: [] for name in names})
     assert "| Avg score | **0.99** 🥇 | **0.99** 🥇 | 0.98 |" in overview
+
+
+def test_report_includes_saved_yaml_and_header_link(report_module, tmp_path):
+    kind = Path(report_module.__file__).stem.removeprefix("generate-report-")
+    content = "# Saved config, including a ``` fence\nagents:\n  default:\n    repeat: 7\n"
+    (tmp_path / f"system-ols-{kind}.yaml").write_text(content)
+    report = report_module.generate_report(tmp_path)
+    assert "[System config](#system-config)" in report.splitlines()[2]
+    assert '<a id="system-config"></a>' in report
+    assert "````yaml\n" + content + "````" in report
+    assert report.index("## Appendix: System config") > report.index("# Scenarios")
+
+
+def test_report_does_not_use_current_yaml_for_old_sessions(report_module, tmp_path):
+    report = report_module.generate_report(tmp_path)
+    assert "The original YAML was not saved for this session." in report
+    assert "```yaml" not in report

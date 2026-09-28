@@ -175,6 +175,9 @@ def test_preview_summary_matches_real_run(request, mode):
     assert "setup_mode: run" in preview.stdout
     assert "parallel:   false" in preview.stdout
     assert "scenarios:  1\n  crashlooping_pod_alert" in preview.stdout
+    snapshots = list((root / "evals/results").glob(f"*/system-ols-{mode}.yaml"))
+    assert len(snapshots) == 1
+    assert snapshots[0].read_text() == config_path.read_text()
 
 
 @pytest.mark.parametrize("setup_mode", ["run", "scenario", "skip"])

@@ -212,6 +212,7 @@ def format_report_metadata(
     repeat_count: int,
     judge: str,
     parallel_runs: bool = False,
+    config_link: bool = False,
 ) -> str:
     """Format the report type, dimensions, timestamp, and optional judge."""
     stats = (
@@ -225,4 +226,26 @@ def format_report_metadata(
     parts.extend((f"**{report_type}**", stats))
     if judge:
         parts.append(f"Judge: {judge}")
+    if config_link:
+        parts.append("[System config](#system-config)")
     return " | ".join(parts)
+
+
+def system_config_appendix(eval_dir: Path, filename: str) -> str:
+    """Include the saved input YAML without substituting the current config."""
+    lines = ["", '<a id="system-config"></a>', "## Appendix: System config", ""]
+    path = eval_dir / filename
+    if path.is_file():
+        content = path.read_text()
+        # Keep YAML comments containing Markdown fences inside the code block.
+        fence = "```"
+        while fence in content:
+            fence += "`"
+        lines.extend([
+            f"Saved input file: `{filename}`. Run mode can override agent, repeat, and parallel settings.",
+            "", f"{fence}yaml", content.rstrip("\n"), fence,
+        ])
+    else:
+        lines.append("The original YAML was not saved for this session.")
+    lines.extend(["", "[Back to top](#evaluation-summary)", ""])
+    return "\n".join(lines)

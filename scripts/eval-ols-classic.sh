@@ -43,6 +43,8 @@ bash "$SCRIPT_DIR/preflight.sh" --require-ols
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
 mkdir -p "$EVAL_DIR"
+cp "$SYSTEM_CONFIG" "$EVAL_DIR/system-ols-classic.yaml"
+SYSTEM_CONFIG="$EVAL_DIR/system-ols-classic.yaml"
 
 PARALLEL_RUNS="$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print('yes' if c.get('agents',{}).get('default',{}).get('parallel',False) else 'no')")"
 if [ "$SETUP_MODE" = "run" ]; then PARALLEL_RUNS=no; fi

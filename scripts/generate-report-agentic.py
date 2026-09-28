@@ -45,6 +45,7 @@ from report_common import (  # noqa: E402
     scenario_tokens,
     winner_cell,
     is_best_score,
+    system_config_appendix,
 )
 
 METRIC_LABELS = {
@@ -874,6 +875,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         repeat,
         judge,
         parallel_runs=parallel_runs == "yes",
+        config_link=True,
     ))
     lines.append("")
 
@@ -928,6 +930,8 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
             conversations, agent_names, agent_runs, agent_amended, agent_run_dirs_map
         )
     )
+
+    lines.append(system_config_appendix(eval_dir, "system-ols-agentic.yaml"))
 
     return "\n".join(lines)
 

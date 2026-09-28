@@ -69,6 +69,8 @@ bash "$SCRIPT_DIR/preflight.sh" --require-agentic --system-config "$SYSTEM_CONFI
 DATETIME="$(date +%Y%m%d_%H%M%S)"
 EVAL_DIR="results/${DATETIME}"
 mkdir -p "$EVAL_DIR"
+cp "$SYSTEM_CONFIG" "$EVAL_DIR/system-ols-agentic.yaml"
+SYSTEM_CONFIG="$EVAL_DIR/system-ols-agentic.yaml"
 
 if [ ${#AGENTS[@]} -eq 0 ]; then
   read -ra AGENTS <<< "$("$PYTHON" -c "import yaml; c=yaml.safe_load(open('$SYSTEM_CONFIG')); print(' '.join(c.get('agents',{}).get('default',{}).get('agent',[])))")"
