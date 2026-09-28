@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-OLS_NS="${OLS_NS:-openshift-lightspeed}"
 # Setup calls preflight before OLS Classic is installed, so it uses optional mode.
 MODE="optional"
 SYSTEM_CONFIG=""
@@ -55,11 +54,11 @@ if [ "$MODE" != "optional" ]; then
   fi
   printf '\033[0;32m  OK:\033[0m evaluation tools available\n'
 
-  if [ -z "${OPENAI_API_KEY:-}" ]; then
-    printf '\033[0;31mFAIL:\033[0m OPENAI_API_KEY not set (needed for judge LLM)\n'
+  if [ -z "${EVAL_OPENAI_API_KEY:-}" ]; then
+    printf '\033[0;31mFAIL:\033[0m EVAL_OPENAI_API_KEY not set (needed for judge LLM)\n'
     exit 1
   fi
-  printf '\033[0;32m  OK:\033[0m OPENAI_API_KEY set\n'
+  printf '\033[0;32m  OK:\033[0m EVAL_OPENAI_API_KEY set\n'
 fi
 
 # 4. Check the service required by this evaluation mode.
@@ -84,8 +83,8 @@ else
   printf '\033[0;32m  OK:\033[0m OpenShift Lightspeed is available\n'
 
   # Check whether the OLS Classic server is available.
-  if oc get deployment lightspeed-app-server -n "$OLS_NS" -o name >/dev/null 2>&1; then
-    avail="$(oc get deployment lightspeed-app-server -n "$OLS_NS" \
+  if oc get deployment lightspeed-app-server -n openshift-lightspeed -o name >/dev/null 2>&1; then
+    avail="$(oc get deployment lightspeed-app-server -n openshift-lightspeed \
       -o jsonpath='{.status.conditions[?(@.type=="Available")].status}' 2>/dev/null || true)"
     if [ "$avail" = "True" ]; then
       printf '\033[0;32m  OK:\033[0m lightspeed-app-server is Available\n'
@@ -98,10 +97,10 @@ else
     fi
   else
     if [ "$MODE" = "classic" ]; then
-      printf '\033[0;31mFAIL:\033[0m lightspeed-app-server deployment not found in %s (run make setup-ols-classic)\n' "$OLS_NS"
+      printf '\033[0;31mFAIL:\033[0m lightspeed-app-server deployment not found in openshift-lightspeed (run make setup-ols-classic)\n'
       exit 1
     fi
-    printf '\033[0;33mWARN:\033[0m lightspeed-app-server deployment not found in %s\n' "$OLS_NS"
+    printf '\033[0;33mWARN:\033[0m lightspeed-app-server deployment not found in openshift-lightspeed\n'
   fi
 fi
 

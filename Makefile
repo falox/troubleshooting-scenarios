@@ -225,7 +225,7 @@ setup-venv:
 
 setup-ols-classic: setup-venv
 	@bash $(SCRIPTS_DIR)/preflight.sh
-	@bash $(SCRIPTS_DIR)/setup-ols.sh
+	@bash $(SCRIPTS_DIR)/setup-ols-classic.sh
 
 eval-ols-agentic:
 ifeq ($(PREVIEW),1)

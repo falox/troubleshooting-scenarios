@@ -100,14 +100,14 @@ def test_preflight_checks_the_selected_service(tmp_path, mode):
         env={
             **os.environ,
             "PATH": f"{tmp_path / 'bin'}:{os.environ['PATH']}",
-            "OPENAI_API_KEY": "test-key",
+            "EVAL_OPENAI_API_KEY": "test-key",
             "PREFLIGHT_LOG": str(log),
         },
         capture_output=True, text=True,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     for message in ("oc available", "logged in as test-user", "evaluation tools available",
-                    "OPENAI_API_KEY set", "Preflight complete"):
+                    "EVAL_OPENAI_API_KEY set", "Preflight complete"):
         assert message in result.stdout
     calls = log.read_text()
     if mode == "agentic":
@@ -479,7 +479,7 @@ def test_setup_dependencies(variant):
     )
     assert result.stdout.count("setup-venv.sh") == 1
     assert ("sync-agent-crs.py" in result.stdout) == (variant == "agentic")
-    assert ("setup-ols.sh" in result.stdout) == (variant == "classic")
+    assert ("setup-ols-classic.sh" in result.stdout) == (variant == "classic")
 
 
 @pytest.mark.parametrize("agent", [None, *SYSTEM_CONFIG["agents"]["default"]["agent"], "invalid"])
@@ -533,7 +533,7 @@ def test_ci_agent_provisioning(workspace, agent):
     env = {
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
-        "OPENAI_API_KEY": "test-key",
+        "EVAL_OPENAI_API_KEY": "test-key",
         "GOOGLE_APPLICATION_CREDENTIALS": str(credentials),
         "VERTEX_PROJECT_ID": "test-project",
         "ARTIFACT_DIR": str(workspace / "artifacts"),

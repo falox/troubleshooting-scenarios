@@ -10,7 +10,7 @@
 #   RHOAI_PROVISION           - Set to "true" to enable RHOAI provisioning
 #   HUGGING_FACE_HUB_TOKEN    - Download Llama 3.1 8B from HuggingFace
 #   VLLM_API_KEY              - API key for the vLLM endpoint
-#   OPENAI_API_KEY (optional) - For judge LLM if using evaluation framework
+#   EVAL_OPENAI_API_KEY (optional) - For judge LLM if using evaluation framework
 
 set -eou pipefail
 

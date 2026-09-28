@@ -49,8 +49,8 @@ present. Both commands require `TAG`, `SCENARIO`, or both. They validate the
 filters before changing the cluster.
 
 Before a real evaluation, both runners check cluster access, evaluation tools,
-and `OPENAI_API_KEY`. OLS Agentic checks that the Agent CRD is present and that
-the Agent CRs match
+and `EVAL_OPENAI_API_KEY`. OLS Agentic checks that the Agent CRD is present and
+that the Agent CRs match
 `system-ols-agentic.yaml`. OLS Classic checks its operator CRD and server
 deployment. If the Agent CRs are missing or stale, run `make setup-ols-agentic`.
 

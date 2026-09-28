@@ -17,7 +17,7 @@ the flag is unset or `false`, the script skips RHOAI provisioning.
 | `RHOAI_PROVISION` | Set to `true` to enable RHOAI provisioning |
 | `HUGGING_FACE_HUB_TOKEN` | HuggingFace token to download Llama 3.1 8B model weights. Works with any HuggingFace-hosted model. Larger models may require scaling GPU nodes (more GPUs, higher VRAM) |
 | `VLLM_API_KEY` | Arbitrary value — we define it ourselves. The same value is set as the vLLM endpoint secret and can be used for authenticating requests |
-| `OPENAI_API_KEY` (optional) | For judge LLM if using the evaluation framework |
+| `EVAL_OPENAI_API_KEY` (optional) | For judge LLM if using the evaluation framework |
 
 ## Cluster prerequisites
 

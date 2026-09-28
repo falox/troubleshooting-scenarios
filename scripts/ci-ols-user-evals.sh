@@ -1,13 +1,11 @@
 #!/bin/bash
-# CI job: run OLS evaluation scenarios for a specific LLM provider.
+# CI job: run OLS evaluation scenarios.
 #
 # Input environment variables:
 #   EVAL_SUITES             - Space-separated suites to run (default: kiali-ossm kubevirt netobserv)
-#   OPENAI_API_KEY          - Required for judge LLM (always OpenAI)
-#   OLS_DEFAULT_PROVIDER    - LLM provider: openai, google, or anthropic (default: openai)
-#   OLS_DEFAULT_MODEL       - Model override (optional, has defaults per provider)
-#   GCP_SERVICE_ACCOUNT_JSON - Path to GCP service account JSON (for google/anthropic)
-#   GCP_PROJECT_ID          - GCP project ID (auto-extracted from SA JSON if not set)
+#   EVAL_OPENAI_API_KEY     - Required for judge LLM (always OpenAI)
+#   EVAL_VERTEX_CREDENTIALS - Path to GCP service account JSON (for google/anthropic)
+#   EVAL_VERTEX_PROJECT_ID  - GCP project ID (for google/anthropic)
 #
 # Usage:
 #   scripts/ci-ols-user-evals.sh --artifact-dir "${ARTIFACT_DIR}"
@@ -26,41 +24,18 @@ done
 
 # ── Validate inputs ──────────────────────────────────────────────────
 
-: "${OPENAI_API_KEY:?OPENAI_API_KEY must be set (needed for judge LLM)}"
+: "${EVAL_OPENAI_API_KEY:?EVAL_OPENAI_API_KEY must be set (needed for judge LLM)}"
 
 # Default to all three suites if not specified
 SUITES="${EVAL_SUITES:-kiali-ossm kubevirt netobserv}"
 
-# ── Auto-extract GCP project ID from SA JSON if needed ───────────────
-
-if [ -n "${GCP_SERVICE_ACCOUNT_JSON:-}" ] && [ -f "${GCP_SERVICE_ACCOUNT_JSON}" ] && [ -z "${GCP_PROJECT_ID:-}" ]; then
-  if command -v jq &>/dev/null; then
-    GCP_PROJECT_ID="$(jq -r '.project_id // empty' "$GCP_SERVICE_ACCOUNT_JSON")"
-  elif command -v python3 &>/dev/null; then
-    GCP_PROJECT_ID="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('project_id',''))" "$GCP_SERVICE_ACCOUNT_JSON")"
-  fi
-  if [ -n "$GCP_PROJECT_ID" ]; then
-    export GCP_PROJECT_ID
-    echo "==> Auto-detected GCP_PROJECT_ID: ${GCP_PROJECT_ID}"
+if [ -n "${EVAL_VERTEX_CREDENTIALS:-}" ] || [ -n "${EVAL_VERTEX_PROJECT_ID:-}" ]; then
+  if [ ! -f "${EVAL_VERTEX_CREDENTIALS:-}" ] || [ -z "${EVAL_VERTEX_PROJECT_ID:-}" ]; then
+    echo "ERROR: Vertex requires EVAL_VERTEX_CREDENTIALS (existing file) and EVAL_VERTEX_PROJECT_ID" >&2
+    exit 1
   fi
 fi
 
-# ── Determine provider and model for result tracking ─────────────────
-
-PROVIDER="${OLS_DEFAULT_PROVIDER:-openai}"
-if [ -z "${OLS_DEFAULT_MODEL:-}" ]; then
-  case "$PROVIDER" in
-    openai)    MODEL="gpt-5.4" ;;
-    google)    MODEL="gemini-2.5-pro" ;;
-    anthropic) MODEL="claude-opus-4-6" ;;
-    *)         MODEL="" ;;
-  esac
-else
-  MODEL="${OLS_DEFAULT_MODEL}"
-fi
-
-echo "==> Provider: ${PROVIDER}"
-echo "==> Model: ${MODEL}"
 echo "==> Suites: ${SUITES}"
 
 # ── Run evaluations for each suite ───────────────────────────────────
@@ -81,39 +56,23 @@ run_suite() {
 
   echo ""
   echo "=========================================="
-  echo "Running eval: SUITE=${SUITE}, PROVIDER=${PROVIDER}"
+  echo "Running eval: SUITE=${SUITE}"
   echo "=========================================="
 
   cd "$SUITE_DIR"
-
-  # For non-openai providers, hide OPENAI_API_KEY during setup so setup-ols.sh
-  # only creates the GCP provider(s) in OLSConfig, avoiding multi-provider issues.
-  local SAVED_OPENAI_KEY="$OPENAI_API_KEY"
-  if [ "$PROVIDER" != "openai" ]; then
-    echo "==> Unsetting OPENAI_API_KEY during setup (provider: ${PROVIDER})"
-    unset OPENAI_API_KEY
-  fi
 
   echo "==> Running make setup..."
   if ! make setup; then
     echo "ERROR: make setup failed for ${SUITE}"
     echo "==> Running cleanup..."
     make cleanup || true
-    # Restore OPENAI_API_KEY before returning
-    export OPENAI_API_KEY="$SAVED_OPENAI_KEY"
     return 1
   fi
 
-  # Restore OPENAI_API_KEY for the judge LLM
-  export OPENAI_API_KEY="$SAVED_OPENAI_KEY"
-
   echo "==> Running evaluations..."
-  local -a EVAL_ARGS=("OLS_PROVIDER=${PROVIDER}")
-  [ -n "$MODEL" ] && EVAL_ARGS+=("OLS_MODEL=${MODEL}")
-
   # Run evals and capture exit status
   local EVAL_STATUS=0
-  if ! make evals "${EVAL_ARGS[@]}"; then
+  if ! make evals; then
     echo "ERROR: make evals failed for ${SUITE}"
     EVAL_STATUS=1
   fi
@@ -152,11 +111,11 @@ run_suite() {
 
   # Return the evaluation status
   if [ $EVAL_STATUS -ne 0 ]; then
-    echo "==> OLS evaluation failed for ${SUITE} / ${PROVIDER}"
+    echo "==> OLS evaluation failed for ${SUITE}"
     return 1
   fi
 
-  echo "==> OLS evaluation complete for ${SUITE} / ${PROVIDER}"
+  echo "==> OLS evaluation complete for ${SUITE}"
 }
 
 # Run each suite and track results
@@ -167,14 +126,14 @@ for SUITE in $SUITES; do
   if run_suite "$SUITE"; then
     PASSED_SUITES+=("$SUITE")
   else
-    echo "ERROR: Evaluation failed for SUITE=${SUITE}, PROVIDER=${PROVIDER}"
+    echo "ERROR: Evaluation failed for SUITE=${SUITE}"
     FAILED_SUITES+=("$SUITE")
   fi
 done
 
 echo ""
 echo "=========================================="
-echo "OLS Evaluation Summary for ${PROVIDER}"
+echo "OLS Evaluation Summary"
 echo "=========================================="
 echo "Passed (${#PASSED_SUITES[@]}): ${PASSED_SUITES[*]:-none}"
 echo "Failed (${#FAILED_SUITES[@]}): ${FAILED_SUITES[*]:-none}"
@@ -185,4 +144,4 @@ if [ ${#FAILED_SUITES[@]} -gt 0 ]; then
   exit 1
 fi
 
-echo "==> All OLS evaluations complete for provider: ${PROVIDER}"
+echo "==> All OLS evaluations complete."

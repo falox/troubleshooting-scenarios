@@ -27,11 +27,21 @@ To add a scenario, follow the guidelines in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Scenarios include eval definitions for OpenShift Lightspeed (OLS). The [lightspeed-evaluation](https://github.com/lightspeed-core/lightspeed-evaluation) framework orchestrates each run: deploy the fault, query OLS, score the response with a judge LLM.
 
+Always export `EVAL_OPENAI_API_KEY`. Also export `EVAL_VERTEX_CREDENTIALS` and `EVAL_VERTEX_PROJECT_ID` if an active agent or judge in `evals/system-ols-*.yaml` uses Google or Anthropic.
+
+| Variable | OLS Agentic | OLS Classic | Value |
+|----------|-------------|-------------|-------|
+| `EVAL_OPENAI_API_KEY` | Required | Required | OpenAI API key |
+| `EVAL_VERTEX_CREDENTIALS` | Optional | Optional | Path to a GCP service account JSON file |
+| `EVAL_VERTEX_PROJECT_ID` | Optional | Optional | GCP project ID |
+
 ### OLS Agentic
 
 Each scenario folder contains an `evals-ols-agentic.yaml` with the eval definitions. Configure which models to test and how many repeats per scenario in `evals/system-ols-agentic.yaml`. Running `make setup-ols-agentic` automatically syncs the Agent CRs on the cluster with the agents defined in the system config. Before a real evaluation, `make eval-ols-agentic` checks that these Agent CRs are present and match the system config; if they do not, it stops and asks you to run `make setup-ols-agentic`.
 
 ```bash
+export EVAL_OPENAI_API_KEY="<openai-api-key>"
+
 make setup-ols-agentic
 make eval-ols-agentic                                          # run all scenarios
 make eval-ols-agentic SCENARIO=stuck_rollout                   # one scenario
@@ -42,9 +52,13 @@ make eval-ols-agentic TAG=alert PREVIEW=1                      # preview matched
 
 ### OLS Classic
 
-Each scenario folder that supports OLS Classic contains an `evals-ols-classic.yaml` with the eval definitions. Configure the OLS model and provider in `evals/system-ols-classic.yaml`.
+Each scenario folder that supports OLS Classic contains an `evals-ols-classic.yaml` with the eval definitions. Choose the agents to run in the `agents.default.agent` list in `evals/system-ols-classic.yaml`. Setup reads the `provider` and `model` of each active agent and judge, then registers those models in OLS. The first active agent sets the OLS default model and must use OpenAI. The current list includes Google and Anthropic; remove those agents from the list for an OpenAI-only run. Setup uses the `openshift-lightspeed` namespace.
 
 ```bash
+export EVAL_OPENAI_API_KEY="<openai-api-key>"
+export EVAL_VERTEX_CREDENTIALS="/path/to/service-account.json"
+export EVAL_VERTEX_PROJECT_ID="<gcp-project-id>"
+
 make setup-ols-classic
 make eval-ols-classic                                          # run all scenarios
 make eval-ols-classic SCENARIO=crashlooping_pod_alert          # one scenario
@@ -78,7 +92,11 @@ the final match before changing the cluster.
 ### Requirements
 
 - OpenShift cluster accessible via `oc login` (5.x for OLS Agentic, 4.x+ for OLS Classic)
-- `OPENAI_API_KEY` exported (judge LLM)
+- `EVAL_OPENAI_API_KEY` exported (OpenAI API key, always required because the judge model uses it)
+- The current OLS Classic agent list uses Google and Anthropic. Set `EVAL_VERTEX_CREDENTIALS`
+  to a service account JSON file and `EVAL_VERTEX_PROJECT_ID` to the GCP
+  project ID. Evaluation providers and models are set in
+  `evals/system-ols-classic.yaml`
 - Python 3.13+
 
 ### Results and reports
