@@ -2,7 +2,7 @@ logging:
   source_level: ERROR
 
 core:
-  max_threads: 10
+  max_threads: 24
   fail_on_invalid_data: true
   skip_on_failure: false
   cache_enabled: false
@@ -19,6 +19,11 @@ llm_pool:
 judge_panel:
   judges: [judge]
 
+metrics_metadata:
+  turn_level:
+    "custom:answer_correctness":
+      threshold: 0.75
+
 agents:
   enabled: true
   default:
@@ -33,7 +38,7 @@ agents:
       # - anthropic-sonnet-5
       - anthropic-opus-4-6
       # - anthropic-opus-5-5
-    repeat: 10
+    repeat: 3
     parallel: true
     agent_config:
       timeout: 600

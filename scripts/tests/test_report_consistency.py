@@ -1,6 +1,7 @@
 """Check the shared scoring rules in both report generators."""
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -111,3 +112,64 @@ def test_report_does_not_use_current_yaml_for_old_sessions(report_module, tmp_pa
     report = report_module.generate_report(tmp_path)
     assert "The original YAML was not saved for this session." in report
     assert "```yaml" not in report
+
+
+def test_scenario_names_use_directory_paths(report_module, tmp_path):
+    filename = "evals-ols-classic.yaml"
+    for directory, cid in (
+        ("kiali-ossm/check_mesh_status", "check_mesh_status"),
+        ("crashlooping_pod_alert", "crashlooping_pod"),
+        ("first", "shared_id"),
+        ("second", "shared_id"),
+    ):
+        path = tmp_path / directory / filename
+        path.parent.mkdir(parents=True)
+        path.write_text(f"- conversation_group_id: {cid}\n")
+    (tmp_path / "first/evals-ols-agentic.yaml").write_text(
+        "- conversation_group_id: check_mesh_status\n"
+    )
+
+    assert report_module.load_scenario_names(filename, tmp_path) == {
+        "check_mesh_status": "kiali-ossm/check_mesh_status",
+        "crashlooping_pod": "crashlooping_pod_alert",
+    }
+
+
+def test_directory_labels_keep_scores_and_links(
+    report_module, tmp_path, monkeypatch, capsys,
+):
+    mod = report_module
+    names = {"mesh_check": "kiali-ossm/check_mesh_status"}
+    monkeypatch.setattr(mod, "load_scenario_names", lambda filename: names)
+    results = [metric(mod, "PASS", 0.9, "mesh_check"), metric(mod, "FAIL", 0.2, "old_id")]
+    for run in (1, 2):
+        run_dir = tmp_path / f"agent/run_{run}"
+        run_dir.mkdir(parents=True)
+        (run_dir / "evaluation_summary.json").write_text(json.dumps({"results": results}))
+
+    report = mod.generate_report(tmp_path)
+
+    assert report.count("| [kiali-ossm/check_mesh_status](#mesh_check) |") == 3
+    assert '<a id="mesh_check"></a>\n\n## kiali-ossm/check_mesh_status' in report
+    assert '<a id="agent--mesh_check"></a>' in report
+    assert "[🟢 2/2](#agent--mesh_check) (0.90)" in report
+    assert "50% (2/4)" in report
+    assert report.count("| [old_id](#old_id) |") == 3
+    assert "## old_id\n" in report
+
+    mod.print_correctness_table(
+        ["mesh_check", "old_id"], ["agent"], {"agent": [results]}, scenario_names=names,
+    )
+    output = capsys.readouterr().out
+    assert "kiali-ossm/check_mesh_status" in output
+    assert "old_id" in output
+    assert "50% (" in output
+    # The longer directory label must fit in the CLI table.
+    rows = [line for line in output.splitlines() if line.startswith("|")]
+    assert len({line.index("|", 1) for line in rows}) == 1
+
+    if hasattr(mod, "generate_phase_breakdown_table"):
+        phases = mod.generate_phase_breakdown_table(
+            ["mesh_check"], ["agent"], {"agent": [[]]}, scenario_names=names,
+        )
+        assert "| [kiali-ossm/check_mesh_status](#mesh_check) |" in phases

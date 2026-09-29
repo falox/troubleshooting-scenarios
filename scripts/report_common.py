@@ -117,6 +117,23 @@ def collect_conversations(agent_runs: dict[str, list]) -> list[str]:
     return conversations
 
 
+def load_scenario_names(
+    evals_filename: str, scenarios_dir: Path | None = None,
+) -> dict[str, str]:
+    """Map unique conversation IDs to paths relative to evals/scenarios."""
+    if scenarios_dir is None:
+        scenarios_dir = Path(__file__).resolve().parent.parent / "evals" / "scenarios"
+    candidates: dict[str, set[str]] = {}
+    for path in sorted(scenarios_dir.rglob(evals_filename)):
+        entries = yaml.safe_load(path.read_text()) or []
+        name = path.parent.relative_to(scenarios_dir).as_posix()
+        for entry in entries:
+            cid = entry["conversation_group_id"]
+            candidates.setdefault(cid, set()).add(name)
+    # Keep the original ID when more than one directory matches.
+    return {cid: next(iter(names)) for cid, names in candidates.items() if len(names) == 1}
+
+
 def anchor_id(agent: str, conversation_id: str) -> str:
     return f"{agent}--{conversation_id}"
 

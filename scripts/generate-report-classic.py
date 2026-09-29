@@ -32,6 +32,7 @@ from report_common import (  # noqa: E402
     performance_result,
     anchor_id,
     collect_conversations,
+    load_scenario_names,
     discover_agents,
     extract_judge_model,
     find_run_dirs,
@@ -289,7 +290,9 @@ def generate_summary_table(
     conversations: list[str],
     agent_names: list[str],
     agent_runs: dict[str, list],
+    scenario_names: dict[str, str] | None = None,
 ) -> str:
+    scenario_names = scenario_names or {}
     header = "| Scenario | " + " | ".join(agent_names) + " |"
     separator = "|---|" + "|".join("---" for _ in agent_names) + "|"
     lines = [header, separator]
@@ -302,7 +305,7 @@ def generate_summary_table(
             cell = score_cell(agent_runs[a], cid, a)
             cell = winner_cell(cell, is_best_score(avg_scores[a], best))
             cells.append(cell)
-        lines.append(f"| [{cid}](#{anchor}) | {' | '.join(cells)} |")
+        lines.append(f"| [{scenario_names.get(cid, cid)}](#{anchor}) | {' | '.join(cells)} |")
     scores = {a: overall_score(agent_runs[a], conversations) for a in agent_names}
     best_pct = max(
         (p / t if t > 0 else -1 for p, t in scores.values()),
@@ -336,7 +339,9 @@ def generate_duration_table(
     conversations: list[str],
     agent_names: list[str],
     agent_runs: dict[str, list],
+    scenario_names: dict[str, str] | None = None,
 ) -> str:
+    scenario_names = scenario_names or {}
     header = "| Scenario | " + " | ".join(agent_names) + " |"
     separator = "|---|" + "|".join("---" for _ in agent_names) + "|"
     lines = [header, separator]
@@ -353,7 +358,7 @@ def generate_duration_table(
                 text = f"[{format_duration(d)}](#{anc})"
                 cells.append(winner_cell(text, best is not None and d == best))
         cid_anchor = cid.lower().replace(" ", "-")
-        lines.append(f"| [{cid}](#{cid_anchor}) | {' | '.join(cells)} |")
+        lines.append(f"| [{scenario_names.get(cid, cid)}](#{cid_anchor}) | {' | '.join(cells)} |")
 
     mean_latencies = {a: mean_latency(agent_runs[a], conversations) for a in agent_names}
     best_mean = min((d for d in mean_latencies.values() if d is not None), default=None)
@@ -374,7 +379,9 @@ def generate_tokens_table(
     conversations: list[str],
     agent_names: list[str],
     agent_amended: dict[str, list],
+    scenario_names: dict[str, str] | None = None,
 ) -> str:
+    scenario_names = scenario_names or {}
     header = "| Scenario | " + " | ".join(agent_names) + " |"
     separator = "|---|" + "|".join("---" for _ in agent_names) + "|"
     lines = [header, separator]
@@ -385,7 +392,7 @@ def generate_tokens_table(
             anc = anchor_id(a, cid)
             cells.append(f"[{format_token_pair(inp, out)}](#{anc})")
         cid_anchor = cid.lower().replace(" ", "-")
-        lines.append(f"| [{cid}](#{cid_anchor}) | {' | '.join(cells)} |")
+        lines.append(f"| [{scenario_names.get(cid, cid)}](#{cid_anchor}) | {' | '.join(cells)} |")
 
     avg_tok = {a: mean_tokens(agent_amended[a], conversations) for a in agent_names}
     cells = [format_token_pair(*avg_tok[a]) for a in agent_names]
@@ -399,11 +406,17 @@ def generate_scenario_details(
     agent_names: list[str],
     agent_runs: dict[str, list],
     agent_amended: dict[str, list],
+    scenario_names: dict[str, str] | None = None,
 ) -> str:
+    scenario_names = scenario_names or {}
     lines = []
 
     for cid in conversations:
-        lines.append(f"## {cid}")
+        name = scenario_names.get(cid, cid)
+        if name != cid:
+            anchor = cid.lower().replace(" ", "-")
+            lines.extend([f'<a id="{anchor}"></a>', ""])
+        lines.append(f"## {name}")
         lines.append("")
 
         description = None
@@ -527,6 +540,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         agent_amended[agent] = amended
 
     conversations = collect_conversations(agent_runs)
+    scenario_names = load_scenario_names("evals-ols-classic.yaml")
     repeat = max((len(find_run_dirs(eval_dir, a)) for a in agent_names), default=1)
 
     timestamp_str = ""
@@ -572,28 +586,28 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
     lines.append("")
     lines.append(CORRECTNESS_LEGEND)
     lines.append("")
-    lines.append(generate_summary_table(conversations, agent_names, agent_runs))
+    lines.append(generate_summary_table(conversations, agent_names, agent_runs, scenario_names))
     lines.append("")
 
     lines.append("## Duration")
     lines.append("")
     lines.append("Average duration across all repeats of a scenario per agent.")
     lines.append("")
-    lines.append(generate_duration_table(conversations, agent_names, agent_runs))
+    lines.append(generate_duration_table(conversations, agent_names, agent_runs, scenario_names))
     lines.append("")
 
     lines.append("## Cost")
     lines.append("")
     lines.append("Average input/output token usage per evaluation.")
     lines.append("")
-    lines.append(generate_tokens_table(conversations, agent_names, agent_amended))
+    lines.append(generate_tokens_table(conversations, agent_names, agent_amended, scenario_names))
     lines.append("")
 
     lines.append("# Scenarios")
     lines.append("")
     lines.append(
         generate_scenario_details(
-            conversations, agent_names, agent_runs, agent_amended
+            conversations, agent_names, agent_runs, agent_amended, scenario_names
         )
     )
 
@@ -635,7 +649,9 @@ def print_correctness_table(
     agent_names: list[str],
     agent_runs: dict[str, list],
     agent_amended: dict[str, list] | None = None,
+    scenario_names: dict[str, str] | None = None,
 ) -> None:
+    scenario_names = scenario_names or {}
     agent_amended = agent_amended or {}
     grid: list[list[tuple[int, int]]] = []
     for cid in conversations:
@@ -664,7 +680,7 @@ def print_correctness_table(
     footer_labels = ["Pass rate", "Avg score", "Avg duration", "Avg tokens"]
     scenario_w = max(
         [len("Scenario"), *(len(label) for label in footer_labels)]
-        + [len(c) for c in conversations]
+        + [len(scenario_names.get(c, c)) for c in conversations]
     )
     col_widths = []
     for index, (agent, total) in enumerate(zip(agent_names, totals, strict=True)):
@@ -690,7 +706,7 @@ def print_correctness_table(
     print(header)
     print(sep)
     for cid, row in zip(conversations, grid):
-        cells = [f"{cid:<{scenario_w}}"]
+        cells = [f"{scenario_names.get(cid, cid):<{scenario_w}}"]
         for (p, t), w in zip(row, col_widths):
             plain = f"{p}/{t}"
             colored = _colorize(p, t)
@@ -756,9 +772,10 @@ def main():
         agent_runs[agent] = [load_run_summary(rd) for rd in run_dirs]
         agent_amended[agent] = [load_amended_entries(rd) for rd in run_dirs]
     conversations = collect_conversations(agent_runs)
+    scenario_names = load_scenario_names("evals-ols-classic.yaml")
 
     print()
-    print_correctness_table(conversations, agent_names, agent_runs, agent_amended)
+    print_correctness_table(conversations, agent_names, agent_runs, agent_amended, scenario_names)
     print()
     print(f"Report written to {output}")
 
