@@ -168,6 +168,15 @@ validate_netobserv_ready() {
   ready_status="$(${OC} get flowcollector cluster -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)"
   if [ "${ready_status}" != "True" ]; then
     errormsg "FlowCollector/cluster Ready=${ready_status:-<missing>}"
+    echo ""
+    echo "==> FlowCollector conditions:"
+    ${OC} get flowcollector cluster -o jsonpath='{.status.conditions}' 2>/dev/null | python3 -m json.tool 2>/dev/null || ${OC} get flowcollector cluster -o yaml | grep -A50 "^status:"
+    echo ""
+    echo "==> Pods in ${NETOBSERV_NAMESPACE} namespace:"
+    ${OC} get pods -n "${NETOBSERV_NAMESPACE}" -o wide 2>/dev/null || echo "No pods found"
+    echo ""
+    echo "==> Recent events in ${NETOBSERV_NAMESPACE}:"
+    ${OC} get events -n "${NETOBSERV_NAMESPACE}" --sort-by='.lastTimestamp' 2>/dev/null | tail -10 || echo "No events found"
     exit 1
   fi
 
