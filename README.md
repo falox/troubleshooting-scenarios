@@ -69,7 +69,13 @@ Each scenario folder that supports OLS Agentic contains an
 test and how many repeats to run per scenario in
 [`evals/system-ols-agentic.yaml`](evals/system-ols-agentic.yaml).
 The cluster needs the Lightspeed Agentic operator. Running
-`make setup-ols-agentic` syncs the Agent CRs on the cluster with the agents
+`make setup-ols-agentic` creates the OpenAI credentials and provider using
+`EVAL_OPENAI_API_KEY`. When `EVAL_VERTEX_CREDENTIALS` and
+`EVAL_VERTEX_PROJECT_ID` are set, it also creates the Google and Anthropic
+Vertex providers. Both use region `global`; there is no region variable.
+These are the same credential variables used by Classic setup.
+
+It then syncs the Agent CRs on the cluster with the agents
 defined in the system config; it does not install the operator. Before a real
 evaluation, `make eval-ols-agentic` checks that these Agent CRs are present and
 match the system config. If they do not, it stops and asks you to run

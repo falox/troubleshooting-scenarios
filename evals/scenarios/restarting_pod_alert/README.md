@@ -29,7 +29,7 @@ The worker emits flushed JSONL events for completed reports and periodic progres
 - Permission to apply `cluster-monitoring-config` in `openshift-monitoring`; setup invokes `scripts/enable-uwm.sh` to enable User Workload Monitoring using the same lifecycle as the other alert scenarios.
 - Cluster nodes supporting at least one of the published Linux architectures
   (`amd64` or `arm64`).
-- Exclusive ownership of `data-processing`; setup refuses to reuse an existing namespace and cleanup deletes the entire namespace.
+- A fresh `data-processing` namespace; setup refuses to reuse an existing namespace. Cleanup deletes it only when its UID matches the local ownership record from setup.
 
 Setup enables User Workload Monitoring through `scripts/enable-uwm.sh`, then relies on OpenShift reconciliation and the bounded alert waiter for the monitoring components to become usable. It builds and pushes both releases as `amd64`/`arm64` multi-architecture images and deploys them by digest. The registry port-forward is loopback-bound on Linux; on macOS it is exposed on the host so Podman's VM can reach it through `host.containers.internal`. A private temporary authentication file is used, and the forwarded registry address is never used by cluster pods.
 
@@ -55,6 +55,14 @@ The scenario lifecycle is:
 7. Wait for `DataProcessingPodRestarting` at critical severity.
 8. Leave the affected release running for the evaluation.
 9. Delete the dedicated namespace with `cleanup.sh` after evidence collection.
+
+Setup saves the namespace UID as soon as creation succeeds, so cleanup can
+remove a partial setup too. Each evaluation run uses its own record directory.
+Standalone setup and cleanup use `evals/results/.scenario-state/`. Keep these
+records until cleanup is done. If an evaluation cannot finish cleanup, it prints
+the record directory; retry with `SCENARIO_STATE_DIR=<directory> bash cleanup.sh`.
+Cleanup skips namespaces with no matching record, including existing namespaces
+and namespaces that were deleted and recreated by someone else.
 
 The read-only `verify_fixture.py` helper is local qualification tooling. It only reads OpenShift state and logs; it is not copied into the image and is not an AgenticRun stage.
 

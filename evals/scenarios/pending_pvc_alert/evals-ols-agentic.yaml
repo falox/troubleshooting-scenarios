@@ -1,4 +1,4 @@
-- conversation_group_id: pending_pvc
+- conversation_group_id: pending_pvc_alert
   description: |
     Alert fires for a PVC stuck in Pending.
     RCA: the PVC references StorageClass 'standard-v2' which does not
@@ -10,7 +10,7 @@
     - agentic
     - core
     - alert
-    - difficulty_medium
+    - difficulty_hard
 
 
   turns:

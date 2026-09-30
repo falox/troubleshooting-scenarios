@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../../scripts" && pwd)"
+# shellcheck source=scripts/scenario-namespace.sh
+source "$SCRIPTS_DIR/scenario-namespace.sh"
 FIXTURE_DIR="$SCENARIO_DIR/fixtures"
 IMAGE_DIR="$SCENARIO_DIR/image"
 VERIFY="$SCENARIO_DIR/verify_fixture.py"
@@ -126,7 +128,7 @@ then
   exit 1
 fi
 
-oc_request create -f "$FIXTURE_DIR/namespace.yaml"
+scenario_create_namespace "$NS" "$FIXTURE_DIR/namespace.yaml" oc_request
 
 echo "Starting registry port-forward on $PUSH_REGISTRY..."
 oc port-forward \

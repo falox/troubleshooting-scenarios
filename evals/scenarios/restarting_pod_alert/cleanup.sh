@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../../scripts" && pwd)"
+# shellcheck source=scripts/scenario-namespace.sh
+source "$SCRIPTS_DIR/scenario-namespace.sh"
 NS="data-processing"
 DELETE_TIMEOUT="${DELETE_TIMEOUT:-180}"
 REQUEST_TIMEOUT="${REQUEST_TIMEOUT:-60}"
@@ -22,20 +24,12 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 CURRENT_CONTEXT="$(timeout --foreground "$REQUEST_TIMEOUT" oc config current-context)"
 echo "Current OpenShift context: $CURRENT_CONTEXT"
 
-if timeout --foreground "$REQUEST_TIMEOUT" oc get namespace "$NS" >/dev/null 2>"$GET_ERROR"; then
-  namespace_present=true
+if scenario_namespace_owned "$NS" timeout --foreground "$REQUEST_TIMEOUT" oc; then
+  :
 else
-  namespace_present=false
-  if ! grep -qiE 'notfound|not found' "$GET_ERROR"; then
-    echo "ERROR: could not determine whether namespace/$NS exists" >&2
-    cat "$GET_ERROR" >&2
-    exit 1
-  fi
-fi
-
-if [ "$namespace_present" != true ]; then
-  echo "Cleanup complete: namespace/$NS was already absent"
-  exit 0
+  status=$?
+  if [ "$status" -eq 1 ]; then exit 0; fi
+  exit "$status"
 fi
 
 echo "Deleting the dedicated namespace/$NS and all scenario resources..."
@@ -48,6 +42,7 @@ for _ in $(seq 1 90); do
     continue
   fi
   if grep -qiE 'notfound|not found' "$GET_ERROR"; then
+    rm -f "$SCENARIO_STATE_DIR/$NS.uid"
     echo "Cleanup complete: namespace/$NS removed"
     exit 0
   fi

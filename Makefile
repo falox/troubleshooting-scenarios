@@ -213,6 +213,7 @@ else
 endif
 
 setup-ols-agentic: setup-venv
+	@bash $(SCRIPTS_DIR)/setup-ols-agentic.sh
 	@venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py $(EVALS_DIR)/system-ols-agentic.yaml
 	@echo ""
 	@echo "NOTE: Install lightspeed-agentic-operator manually by following:"
@@ -282,7 +283,7 @@ help: ## Show available targets
 	@echo ""
 	@echo "Setup:"
 	@echo "  setup-scenario       Deploy selected scenario(s) in the cluster"
-	@echo "  setup-ols-agentic    Install venv (OLS agentic operator is manual for now)"
+	@echo "  setup-ols-agentic    Install venv, configure providers, and sync Agent CRs (operator is manual)"
 	@echo "  setup-ols-classic    Install venv and OLS classic"
 	@echo ""
 	@echo "Evals:"

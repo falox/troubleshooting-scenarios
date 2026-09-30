@@ -27,6 +27,7 @@ def workspace(tmp_path):
     scripts.mkdir()
     for name in (
         "eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py",
+        "setup-ols-agentic.sh",
         "show-eval-summary.py", "show-eval-summary.sh",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
@@ -64,6 +65,258 @@ def classic_workspace(workspace):
         '    f.write("report\\n")\n'
     )
     return workspace
+
+
+@pytest.fixture
+def namespace_workspace(classic_workspace):
+    root = classic_workspace
+    for name in ("scenario-namespace.sh", "check-prerequisites.sh"):
+        shutil.copy(ROOT / "scripts" / name, root / "scripts" / name)
+    executable(root / "scripts/enable-uwm.sh", "#!/bin/bash\nexit 0\n")
+    executable(root / "scripts/run-agentic-evals.sh", "#!/bin/bash\nexit 0\n")
+    shutil.copy(
+        root / "scripts/generate-report-classic.py",
+        root / "scripts/generate-report-agentic.py",
+    )
+    for name in ("restarting_pod_alert", "batch_submission_timeouts"):
+        shutil.copytree(ROOT / "evals/scenarios" / name, root / "evals/scenarios" / name)
+    # Stop setup after namespace creation, without builds or a cluster.
+    executable(root / "bin/podman", "#!/bin/bash\nexit 23\n")
+    executable(root / "bin/curl", "#!/bin/bash\necho 401\n")
+    executable(root / "bin/python3", "#!/bin/bash\nexit 0\n")
+    executable(root / "bin/oc", f"#!{sys.executable}\n" + '''
+import os
+from pathlib import Path
+import sys
+import yaml
+
+args = sys.argv[1:]
+state = Path(os.environ["NAMESPACE_STATE"])
+with open(os.environ["OC_LOG"], "a") as log:
+    log.write(" ".join(args) + "\\n")
+if args[:1] == ["whoami"]:
+    print("test-token")
+elif args[:2] == ["config", "current-context"]:
+    print("test-context")
+elif args[:2] == ["get", "namespace"]:
+    if os.environ.get("NAMESPACE_GET_FAIL"):
+        sys.exit(19)
+    if state.exists():
+        if "jsonpath={.metadata.uid}" in args:
+            print(state.read_text(), end="")
+        elif "jsonpath={.status.phase}" in args:
+            print("Active")
+    elif "--ignore-not-found" not in args:
+        print("Error from server (NotFound)", file=sys.stderr)
+        sys.exit(1)
+elif args[:1] == ["create"]:
+    assert yaml.safe_load(Path(args[args.index("-f") + 1]).read_text())["kind"] == "Namespace"
+    if state.exists() or os.environ.get("NAMESPACE_CREATE_FAIL"):
+        print("Error from server (AlreadyExists)", file=sys.stderr)
+        sys.exit(33)
+    state.write_text("created-uid")
+    print("created-uid", end="")
+elif args[:2] == ["delete", "namespace"]:
+    state.unlink(missing_ok=True)
+elif args[:2] == ["registry", "login"]:
+    Path(next(arg[5:] for arg in args if arg.startswith("--to="))).write_text("{}")
+''')
+    return root
+
+
+@pytest.mark.parametrize("service", ["agentic", "classic"])
+@pytest.mark.parametrize("setup_mode", ["scenario", "run"])
+@pytest.mark.parametrize("scenario_name,namespace", [
+    ("restarting_pod_alert", "data-processing"),
+    ("batch_submission_timeouts", "data-pipeline"),
+])
+@pytest.mark.parametrize("existing", [True, False])
+def test_failed_setup_only_cleans_its_namespace(
+    namespace_workspace, service, setup_mode, scenario_name, namespace, existing
+):
+    root = namespace_workspace
+    state = root / "namespace"
+    if existing:
+        state.write_text("existing-uid")
+    # An earlier standalone setup must not give this run permission to delete.
+    previous_state = root / "evals/results/.scenario-state"
+    previous_state.mkdir(parents=True)
+    (previous_state / f"{namespace}.uid").write_text("existing-uid")
+    config = root / f"evals/system-ols-{service}.yaml"
+    config.write_text(yaml.safe_dump({
+        "agents": {"default": {"agent": ["test-agent"], "repeat": 2}},
+    }))
+    result = subprocess.run(
+        ["bash", str(root / f"scripts/eval-ols-{service}.sh"),
+         "--system-config", config.name, "--setup-mode", setup_mode,
+         "--scenarios", f"scenarios/{scenario_name}"],
+        cwd=root / "evals",
+        env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+             "NAMESPACE_STATE": str(state), "OC_LOG": str(root / "oc.log"),
+             "EVENT_LOG": str(root / "events")},
+        capture_output=True, text=True, timeout=20,
+    )
+    assert result.returncode != 0, result.stdout + result.stderr
+    calls = (root / "oc.log").read_text()
+    if existing:
+        assert state.read_text() == "existing-uid"
+        assert "delete namespace" not in calls
+    else:
+        assert not state.exists(), result.stdout + result.stderr
+        assert calls.count(f"delete namespace {namespace}") == (2 if setup_mode == "run" else 1)
+    assert not list((root / "evals/results").glob("*/.scenario-state.*"))
+
+
+@pytest.mark.parametrize("scenario_name,namespace", [
+    ("restarting_pod_alert", "data-processing"),
+    ("batch_submission_timeouts", "data-pipeline"),
+])
+@pytest.mark.parametrize("namespace_uid,read_error", [
+    ("created-uid", False), ("replacement-uid", False), (None, False),
+    ("created-uid", True),
+])
+def test_standalone_cleanup_checks_namespace_identity(
+    namespace_workspace, scenario_name, namespace, namespace_uid, read_error
+):
+    root = namespace_workspace
+    state = root / "namespace"
+    env = {**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+           "NAMESPACE_STATE": str(state), "OC_LOG": str(root / "oc.log")}
+    scenario = root / "evals/scenarios" / scenario_name
+    create = subprocess.run(
+        ["bash", "-c", 'source "$1"; scenario_create_namespace "$2" "$3" oc',
+         "bash", str(root / "scripts/scenario-namespace.sh"), namespace,
+         str(scenario / "fixtures/namespace.yaml")],
+        env=env, capture_output=True, text=True,
+    )
+    assert create.returncode == 0, create.stdout + create.stderr
+    if namespace_uid is None:
+        state.unlink()
+    else:
+        state.write_text(namespace_uid)
+    if read_error:
+        env["NAMESPACE_GET_FAIL"] = "1"
+    cleanup = subprocess.run(
+        ["bash", str(scenario / "cleanup.sh")], env=env,
+        capture_output=True, text=True, timeout=10,
+    )
+    assert cleanup.returncode == (2 if read_error else 0), cleanup.stdout + cleanup.stderr
+    should_delete = namespace_uid == "created-uid" and not read_error
+    assert (f"delete namespace {namespace}" in (root / "oc.log").read_text()) == should_delete
+    if namespace_uid and not should_delete:
+        assert state.read_text() == namespace_uid
+    else:
+        assert not state.exists()
+        assert not (root / f"evals/results/.scenario-state/{namespace}.uid").exists()
+
+
+def test_failed_namespace_create_does_not_record_ownership(namespace_workspace):
+    root = namespace_workspace
+    result = subprocess.run(
+        ["bash", "-c", 'source "$1"; scenario_create_namespace data-processing "$2" oc',
+         "bash", str(root / "scripts/scenario-namespace.sh"),
+         str(root / "evals/scenarios/restarting_pod_alert/fixtures/namespace.yaml")],
+        env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+             "NAMESPACE_STATE": str(root / "namespace"), "OC_LOG": str(root / "oc.log"),
+             "NAMESPACE_CREATE_FAIL": "1"},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 33, result.stdout + result.stderr
+    assert not list((root / "evals/results/.scenario-state").iterdir())
+
+
+@pytest.mark.parametrize("single_agent", [True, False])
+@pytest.mark.parametrize("eval_status,output_kind", [
+    (0, "results"), (42, "results"), (42, "logs"), (42, "empty"), (0, "empty"),
+])
+def test_evaluator_saves_output_and_returns_its_status(workspace, single_agent, eval_status, output_kind):
+    root = workspace
+    shutil.copy(ROOT / "scripts/run-agentic-evals.sh", root / "scripts/run-agentic-evals.sh")
+    executable(root / "venv/bin/lightspeed-eval", f"#!{sys.executable}\n" + '''
+import os
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+output = Path(args[args.index("--output-dir") + 1])
+Path(os.environ["TEMP_OUTPUT_PATH"]).write_text(str(output))
+kind = os.environ["OUTPUT_KIND"]
+if kind != "empty":
+    (output / "startup.log").write_text("startup evidence")
+if kind == "results":
+    run = output / "eval_123/test-agent/run_1"
+    run.mkdir(parents=True)
+    (run / "result.json").write_text("partial result")
+    (run / "eval.log").write_text("run evidence")
+    (output / "eval_123/eval_report.json").write_text("partial report")
+sys.exit(int(os.environ["EVAL_STATUS"]))
+''')
+    output = root / "output"
+    # Copying a new scenario must keep output already saved for another one.
+    destination = output / "test-agent" / ("run_3" if single_agent else "run_1")
+    destination.mkdir(parents=True)
+    (destination / "earlier.json").write_text("earlier result")
+    result = subprocess.run(
+        ["bash", str(root / "scripts/run-agentic-evals.sh"),
+         "--system-config", str(root / "evals/system-ols-agentic.yaml"),
+         "--evals", "evals.yaml", "--eval-dir", str(output),
+         *(["--agent", "test-agent", "--run-index", "3"] if single_agent else [])],
+        env={**os.environ, "EVAL_OPENAI_API_KEY": "test-key", "EVAL_STATUS": str(eval_status),
+             "OUTPUT_KIND": output_kind, "TEMP_OUTPUT_PATH": str(root / "temp-output")},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == eval_status, result.stdout + result.stderr
+    assert (destination / "earlier.json").read_text() == "earlier result"
+    if output_kind == "results":
+        assert (destination / "result.json").read_text() == "partial result"
+        assert (destination / "eval.log").read_text() == "run evidence"
+        assert (output / "eval_report.json").read_text() == "partial report"
+    if eval_status:
+        saved = list((output / "failed-evals").iterdir())
+        assert len(saved) == 1
+        if output_kind != "empty":
+            assert (saved[0] / "startup.log").read_text() == "startup evidence"
+    else:
+        assert not (output / "failed-evals").exists()
+    assert not Path((root / "temp-output").read_text()).exists()
+
+
+@pytest.mark.parametrize("blocked_path", ["failed-evals", "test-agent"])
+def test_evaluator_copy_failure_keeps_original_status_and_output(workspace, blocked_path):
+    root = workspace
+    shutil.copy(ROOT / "scripts/run-agentic-evals.sh", root / "scripts/run-agentic-evals.sh")
+    executable(root / "venv/bin/lightspeed-eval", '''#!/bin/bash
+while [ "$1" != --output-dir ]; do shift; done
+output="$2"
+echo "$output" > "$TEMP_OUTPUT_PATH"
+mkdir -p "$output/eval_123/test-agent/run_1"
+echo evidence > "$output/eval_123/test-agent/run_1/eval.log"
+exit 42
+''')
+    output = root / "output"
+    output.mkdir()
+    (output / blocked_path).write_text("cannot copy here")
+    result = subprocess.run(
+        ["bash", str(root / "scripts/run-agentic-evals.sh"),
+         "--system-config", str(root / "evals/system-ols-agentic.yaml"),
+         "--evals", "evals.yaml", "--eval-dir", str(output)],
+        env={**os.environ, "EVAL_OPENAI_API_KEY": "test-key",
+             "TEMP_OUTPUT_PATH": str(root / "temp-output")},
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 42, result.stdout + result.stderr
+    temporary_output = Path((root / "temp-output").read_text().strip())
+    if blocked_path == "failed-evals":
+        try:
+            assert (temporary_output / "eval_123/test-agent/run_1/eval.log").read_text() == "evidence\n"
+            assert f"files remain in {temporary_output}" in result.stderr
+        finally:
+            shutil.rmtree(temporary_output, ignore_errors=True)
+    else:
+        saved = list((output / "failed-evals").glob("*/eval_123/test-agent/run_1/eval.log"))
+        assert len(saved) == 1
+        assert saved[0].read_text() == "evidence\n"
+        assert not temporary_output.exists()
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
@@ -557,8 +810,8 @@ def test_ci_agent_provisioning(workspace, agent):
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "EVAL_OPENAI_API_KEY": "test-key",
-        "GOOGLE_APPLICATION_CREDENTIALS": str(credentials),
-        "VERTEX_PROJECT_ID": "test-project",
+        "EVAL_VERTEX_CREDENTIALS": str(credentials),
+        "EVAL_VERTEX_PROJECT_ID": "test-project",
         "ARTIFACT_DIR": str(workspace / "artifacts"),
         "MAKE_LOG": str(workspace / "make.log"),
         "CR_LOG": str(workspace / "cr.log"),
@@ -584,7 +837,13 @@ def test_ci_agent_provisioning(workspace, agent):
     provider, model = config["description"].split("|", 1)
     resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
     providers = [r for r in resources if r["kind"] == "LLMProvider"]
-    assert [r["metadata"]["name"] for r in providers] == [provider]
+    assert [r["metadata"]["name"] for r in providers] == [
+        "openai", "vertex-google", "vertex-anthropic",
+    ]
+    for resource in providers[1:]:
+        vertex = resource["spec"]["googleCloudVertex"]
+        assert vertex["region"] == "global"
+        assert vertex["projectID"] == "test-project"
     agent_cr = next(
         r for r in resources
         if r["kind"] == "Agent" and r["metadata"]["name"] == config["agent_ref"]

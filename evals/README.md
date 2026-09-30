@@ -134,6 +134,7 @@ Scenarios with several linked causes, used to compare model results across runs.
 |----------|---------|------------|--------|-----------|-------|
 | `failing_api_alert_cross_namespace` | Payment API returning 503s (100% error rate) | Reporting service in `shared-services` leaks DB connections, exhausting the shared PostgreSQL pool used by `payments` | `Analysis` | `payments`<br>`shared-services` | `PaymentErrorRateHigh`<br>`DatabaseConnectionsHigh` |
 | `failing_api_alert_cross_namespace_remediation` | (remediation variant of above) | Reporting service in `shared-services` leaks DB connections, exhausting the shared PostgreSQL pool used by `payments` | `Analysis`<br>`Execution`<br>`Verification` | `payments`<br>`shared-services` | `PaymentErrorRateHigh`<br>`DatabaseConnectionsHigh` |
+| `pending_pvc_alert` | PVC stuck in Pending, pods cannot start | PVC references a StorageClass (`standard-v2`) that does not exist | `Analysis` | `cache-tier` | `CacheTierPersistentVolumeClaimPending` |
 
 ### Difficulty level: Medium
 
@@ -150,7 +151,6 @@ Scenarios that need several reasoning steps, domain knowledge, or checks against
 | `batch_submission_timeouts` | Batch processor reports intermittent submission timeouts | Requests to the intake service time out during a repeated narrow UTC interval | `Analysis` | `data-pipeline` | |
 | `blocked_dns` | App logs DNS resolution failures after security hardening | Default-deny egress NetworkPolicy blocks DNS; needs egress rule for port 5353 to openshift-dns | `Analysis` | `search-indexer` | |
 | `excessive_permissions` | ServiceAccount bound to cluster-admin (analysis-only) | Nginx webapp SA has full admin rights but makes no API calls; propose least-privilege | `Analysis` | `fleet-dashboard` | |
-| `pending_pvc_alert` | PVC stuck in Pending, pods cannot start | PVC references a StorageClass (`standard-v2`) that does not exist | `Analysis` | `cache-tier` | `CacheTierPersistentVolumeClaimPending` |
 | `red_herring` | App crash-looping with decoy | Real crash-loop from missing DATABASE_URL plus intentionally not-Ready canary deployment | `Analysis` | `payment-gateway` | |
 | `refused_connections` | Gateway requests fail with connection refused errors | Production gateway uses staging database and cache endpoints that reject connections | `Analysis` | `ingress-layer` | |
 | `oversized_requests` | (analysis-only capacity review) | Deployment resource requests vastly exceed actual observed usage | `Analysis` | `report-engine` | |

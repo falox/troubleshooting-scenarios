@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../../scripts" && pwd)"
+# shellcheck source=scripts/scenario-namespace.sh
+source "$SCRIPTS_DIR/scenario-namespace.sh"
 NS="data-pipeline"
 DELETE_TIMEOUT="${DELETE_TIMEOUT:-180}"
 
@@ -13,9 +15,12 @@ if ! [[ "$DELETE_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
-if ! oc get namespace "$NS" >/dev/null 2>&1; then
-  echo "Cleanup complete: namespace/$NS was already absent"
-  exit 0
+if scenario_namespace_owned "$NS" oc; then
+  :
+else
+  status=$?
+  if [ "$status" -eq 1 ]; then exit 0; fi
+  exit "$status"
 fi
 
 echo "Deleting namespace/$NS..."
@@ -23,6 +28,7 @@ oc delete namespace "$NS" --ignore-not-found --wait=true --timeout="${DELETE_TIM
 
 for _ in $(seq 1 90); do
   if ! oc get namespace "$NS" >/dev/null 2>&1; then
+    rm -f "$SCENARIO_STATE_DIR/$NS.uid"
     echo "Cleanup complete: namespace/$NS removed"
     exit 0
   fi
