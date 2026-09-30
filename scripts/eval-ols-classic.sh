@@ -170,11 +170,15 @@ run_scenario() {
   local progress="$2"
   shift 2
   local scenario_status=0
+  local scenario_state_dir=""
 
   echo ""
   if [ "$SETUP_MODE" != "skip" ]; then
     echo "==> Setup: $scenario"
-    if [ -x "$scenario/setup.sh" ]; then bash "$scenario/setup.sh" || scenario_status=$?; fi
+    scenario_state_dir="$(mktemp -d "$(cd "$EVAL_DIR" && pwd)/.scenario-state.XXXXXX")" || return $?
+    if [ -x "$scenario/setup.sh" ]; then
+      SCENARIO_STATE_DIR="$scenario_state_dir" bash "$scenario/setup.sh" || scenario_status=$?
+    fi
   else
     echo "==> Setup skipped: $scenario (SETUP_MODE=skip)"
   fi
@@ -189,7 +193,13 @@ run_scenario() {
   fi
   if [ "$SETUP_MODE" != "skip" ]; then
     echo "==> Cleanup: $scenario"
-    if [ -x "$scenario/cleanup.sh" ]; then bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"; fi
+    if [ -x "$scenario/cleanup.sh" ]; then
+      SCENARIO_STATE_DIR="$scenario_state_dir" bash "$scenario/cleanup.sh" || echo "WARNING: cleanup failed (non-fatal)"
+    fi
+    # Keep ownership records if cleanup failed, so it can be retried safely.
+    if ! rmdir "$scenario_state_dir" 2>/dev/null; then
+      echo "==> Namespace ownership records: $scenario_state_dir"
+    fi
   else
     echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
   fi

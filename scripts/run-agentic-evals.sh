@@ -51,6 +51,8 @@ if [ ${#TAGS[@]} -gt 0 ]; then
 fi
 
 RUNTIME_CONFIG="$SYSTEM_CONFIG"
+# Invoked by the EXIT trap.
+# shellcheck disable=SC2329
 cleanup_runtime() {
   if [ "$RUNTIME_CONFIG" != "$SYSTEM_CONFIG" ]; then
     rm -f "$RUNTIME_CONFIG"
@@ -82,11 +84,31 @@ else
   echo "==> Eval: evals=$(basename "$EVALS")"
 fi
 
+eval_status=0
 OPENAI_API_KEY="$EVAL_OPENAI_API_KEY" "${VENV_DIR}/bin/lightspeed-eval" \
   --system-config "$RUNTIME_CONFIG" \
   --output-dir "$TMPDIR_EVAL" \
   --eval-data "$EVALS" \
-  "${TAG_FLAGS[@]}"
+  "${TAG_FLAGS[@]}" || eval_status=$?
+
+# Keep all output from a failed evaluation, including logs written before the
+# agent/run directories exist. Leave the temporary files if saving fails.
+if [ "$eval_status" -ne 0 ]; then
+  if mkdir -p "$EVAL_DIR/failed-evals" &&
+      failed_dir="$(mktemp -d "$EVAL_DIR/failed-evals/output.XXXXXX")" &&
+      cp -a "$TMPDIR_EVAL"/. "$failed_dir"/; then
+    echo "==> Partial evaluation output: $failed_dir"
+  else
+    echo "ERROR: could not save output; files remain in $TMPDIR_EVAL" >&2
+    trap cleanup_runtime EXIT
+    exit "$eval_status"
+  fi
+fi
+
+copy_run_output() {
+  mkdir -p "$2" && cp -a "$1"/. "$2"/
+}
+copy_status=0
 
 # Move output from the orchestrator's eval_* structure to the target eval-dir.
 # Orchestrator creates: $TMPDIR_EVAL/eval_{ts}/{agent}/run_{N}/
@@ -94,7 +116,7 @@ OPENAI_API_KEY="$EVAL_OPENAI_API_KEY" "${VENV_DIR}/bin/lightspeed-eval" \
 eval_subdir="$(find "$TMPDIR_EVAL" -maxdepth 1 -name 'eval_*' -type d | head -1)"
 if [ -z "$eval_subdir" ]; then
   echo "WARNING: No eval output produced (filter may have matched nothing)"
-  exit 0
+  exit "$eval_status"
 fi
 
 if [ -n "$AGENT" ] && [ -n "$RUN_INDEX" ]; then
@@ -102,8 +124,7 @@ if [ -n "$AGENT" ] && [ -n "$RUN_INDEX" ]; then
   src="$eval_subdir/$AGENT/run_1"
   dest="$EVAL_DIR/$AGENT/run_${RUN_INDEX}"
   if [ -d "$src" ]; then
-    mkdir -p "$dest"
-    cp -a "$src"/. "$dest"/
+    copy_run_output "$src" "$dest" || copy_status=$?
   fi
 else
   # Multi-agent mode: copy the whole agent/run structure
@@ -114,13 +135,15 @@ else
       [ -d "$run_dir" ] || continue
       run_name="$(basename "$run_dir")"
       dest="$EVAL_DIR/$agent_name/$run_name"
-      mkdir -p "$dest"
-      cp -a "$run_dir"/. "$dest"/
+      copy_run_output "$run_dir" "$dest" || copy_status=$?
     done
   done
 fi
 
 # Copy eval_report.json if present (from multi-agent orchestrator runs)
 if [ -f "$eval_subdir/eval_report.json" ]; then
-  cp "$eval_subdir/eval_report.json" "$EVAL_DIR/"
+  cp "$eval_subdir/eval_report.json" "$EVAL_DIR/" || copy_status=$?
 fi
+
+if [ "$eval_status" -ne 0 ]; then exit "$eval_status"; fi
+exit "$copy_status"

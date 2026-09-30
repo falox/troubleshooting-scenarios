@@ -3,6 +3,8 @@ set -euo pipefail
 
 SCENARIO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPTS_DIR="$(cd "$SCENARIO_DIR/../../../scripts" && pwd)"
+# shellcheck source=scripts/scenario-namespace.sh
+source "$SCRIPTS_DIR/scenario-namespace.sh"
 FIXTURE_DIR="$SCENARIO_DIR/fixtures"
 IMAGE_DIR="$SCENARIO_DIR/image"
 NS="data-pipeline"
@@ -76,7 +78,7 @@ if oc get namespace "$NS" >/dev/null 2>&1; then
   exit 1
 fi
 
-oc create -f "$FIXTURE_DIR/namespace.yaml"
+scenario_create_namespace "$NS" "$FIXTURE_DIR/namespace.yaml" oc
 
 podman manifest rm "$LOCAL_MANIFEST" >/dev/null 2>&1 ||
   podman image rm "$LOCAL_MANIFEST" >/dev/null 2>&1 || true
