@@ -93,18 +93,18 @@ fi
 
 # 5. LLM credentials
 echo "==> Creating credentials secrets..."
-oc create secret generic credentials-openai \
+oc create secret generic creds-classic-openai \
   --namespace openshift-lightspeed \
   --from-literal=apitoken="${EVAL_OPENAI_API_KEY}" \
   --type=Opaque \
   --dry-run=client -o yaml | oc apply -f -
 if $has_gcp; then
-  oc create secret generic credentials-gcp-google \
+  oc create secret generic creds-classic-vertex-google \
     --namespace openshift-lightspeed \
     --from-file=apitoken="${EVAL_VERTEX_CREDENTIALS}" \
     --type=Opaque \
     --dry-run=client -o yaml | oc apply -f -
-  oc create secret generic credentials-gcp-anthropic \
+  oc create secret generic creds-classic-vertex-anthropic \
     --namespace openshift-lightspeed \
     --from-file=apitoken="${EVAL_VERTEX_CREDENTIALS}" \
     --type=Opaque \

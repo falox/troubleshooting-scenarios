@@ -84,7 +84,7 @@ def main(config_path: str) -> None:
         {
             "name": "openai",
             "type": "openai",
-            "credentialsSecretRef": {"name": "credentials-openai"},
+            "credentialsSecretRef": {"name": "creds-classic-openai"},
             "url": "https://api.openai.com/v1",
             "models": [{"name": model} for model in models["openai"]],
         }
@@ -93,7 +93,7 @@ def main(config_path: str) -> None:
         providers.append({
             "name": "google",
             "type": "google_vertex",
-            "credentialsSecretRef": {"name": "credentials-gcp-google"},
+            "credentialsSecretRef": {"name": "creds-classic-vertex-google"},
             "credentialKey": "apitoken",
             "googleVertexConfig": {"projectID": project_id, "location": "global"},
             "models": [{"name": model} for model in models["google"]],
@@ -102,7 +102,7 @@ def main(config_path: str) -> None:
         providers.append({
             "name": "anthropic",
             "type": "google_vertex_anthropic",
-            "credentialsSecretRef": {"name": "credentials-gcp-anthropic"},
+            "credentialsSecretRef": {"name": "creds-classic-vertex-anthropic"},
             "credentialKey": "apitoken",
             "googleVertexAnthropicConfig": {"projectID": project_id, "location": "global"},
             "models": [{"name": model} for model in models["anthropic"]],

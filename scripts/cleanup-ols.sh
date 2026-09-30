@@ -4,7 +4,7 @@ set -euo pipefail
 echo "==> Removing OLS from openshift-lightspeed..."
 
 oc delete olsconfig cluster --ignore-not-found 2>/dev/null || true
-oc delete secret credentials-openai -n openshift-lightspeed --ignore-not-found 2>/dev/null || true
+oc delete secret creds-classic-openai -n openshift-lightspeed --ignore-not-found 2>/dev/null || true
 
 # Remove Subscription + CSV
 CSV=$(oc get subscription lightspeed-operator -n openshift-lightspeed \

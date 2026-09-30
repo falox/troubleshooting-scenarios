@@ -27,6 +27,7 @@ def workspace(tmp_path):
     scripts.mkdir()
     for name in (
         "eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py",
+        "setup-ols-agentic.sh",
         "show-eval-summary.py", "show-eval-summary.sh",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
@@ -557,8 +558,8 @@ def test_ci_agent_provisioning(workspace, agent):
         **os.environ,
         "PATH": f"{bin_dir}:{os.environ['PATH']}",
         "EVAL_OPENAI_API_KEY": "test-key",
-        "GOOGLE_APPLICATION_CREDENTIALS": str(credentials),
-        "VERTEX_PROJECT_ID": "test-project",
+        "EVAL_VERTEX_CREDENTIALS": str(credentials),
+        "EVAL_VERTEX_PROJECT_ID": "test-project",
         "ARTIFACT_DIR": str(workspace / "artifacts"),
         "MAKE_LOG": str(workspace / "make.log"),
         "CR_LOG": str(workspace / "cr.log"),
@@ -584,7 +585,13 @@ def test_ci_agent_provisioning(workspace, agent):
     provider, model = config["description"].split("|", 1)
     resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
     providers = [r for r in resources if r["kind"] == "LLMProvider"]
-    assert [r["metadata"]["name"] for r in providers] == [provider]
+    assert [r["metadata"]["name"] for r in providers] == [
+        "openai", "vertex-google", "vertex-anthropic",
+    ]
+    for resource in providers[1:]:
+        vertex = resource["spec"]["googleCloudVertex"]
+        assert vertex["region"] == "global"
+        assert vertex["projectID"] == "test-project"
     agent_cr = next(
         r for r in resources
         if r["kind"] == "Agent" and r["metadata"]["name"] == config["agent_ref"]
