@@ -69,7 +69,6 @@ _ALL_OLS_AGENTIC := \
 	exhausted_quota \
 	exhausted_quota_alert \
 	exhausted_quota_alert_remediation \
-	failed_job \
 	failed_replicaset \
 	failed_start \
 	failing_api_alert \
@@ -112,7 +111,6 @@ _ALL_OLS_AGENTIC := \
 _ALL_OLS_CLASSIC := \
 	batch_submission_timeouts \
 	crashlooping_pod_alert \
-	failed_job \
 	failing_api_alert_cross_namespace \
 	kiali-ossm/check_bookinfo_services \
 	kiali-ossm/check_istio_objects_status \
@@ -306,9 +304,9 @@ help: ## Show available targets
 	@echo ""
 	@echo "Examples:"
 	@echo "  make setup-scenario TAG=core"
-	@echo "  make setup-scenario SCENARIO=blocked_deployment,failed_job"
+	@echo "  make setup-scenario SCENARIO=blocked_deployment,refused_service"
 	@echo "  make setup-scenario TAG=alert PREVIEW=1"
-	@echo "  make cleanup-scenario SCENARIO=blocked_deployment,failed_job"
+	@echo "  make cleanup-scenario SCENARIO=blocked_deployment,refused_service"
 	@echo "  make cleanup-scenario TAG=alert PREVIEW=1"
 	@echo "  make eval-ols-agentic TAG=core SETUP_MODE=scenario"
 	@echo "  make eval-ols-agentic TAG=core PREVIEW=1"
