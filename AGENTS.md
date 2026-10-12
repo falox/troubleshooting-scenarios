@@ -69,7 +69,7 @@ Paths below are relative to the session directory:
 | `<agent>/run_N/*amended*.yaml` | Actual responses and recorded turn data. Agentic output also includes run status, phase results, and sandbox references. |
 | `eval_report.json` | Framework report, when produced. Read it with the run files and progress data. |
 | `logs/AGENTICRUN-PHASE.log` | Agentic sandbox container logs for `analysis`, `execution`, or `verification`. Duplicate filenames get `-1`, `-2`, etc. |
-| `watch-logs.log` | Agentic watcher status and errors, including the mapping from pod names to log paths. |
+| `capture-logs.log` | Agentic watcher status and errors, including the mapping from pod names to log paths. |
 | `failed-evals/output.*/` | Partial framework output saved after an evaluation failure, including files produced before agent/run directories existed. |
 
 To investigate a result:
@@ -86,7 +86,7 @@ To investigate a result:
 4. For Agentic runs, read `openshift_agentic_run_status` and
    `openshift_agentic_run_results` in the amended YAML. When present,
    `openshift_agentic_run_status.steps.<phase>.sandbox.claimName` gives the
-   sandbox name. Search for it in `watch-logs.log` to find the matching log file,
+   sandbox name. Search for it in `capture-logs.log` to find the matching log file,
    then read the phase logs for tool calls and errors.
 5. If normal output is missing, inspect progress details, watcher diagnostics,
    and `failed-evals/`. Older sessions may lack snapshots or sandbox logs. The
@@ -98,9 +98,9 @@ To investigate a result:
    regeneration and scoring rules.
 
 Automatic sandbox capture applies to `make eval-ols-agentic`. For manual
-capture, start `./scripts/watch-logs --output-dir <directory>` before creating
-AgenticRuns. Both use `watch_logs()` in `scripts/sandbox_logs.py`. Capture
-errors are separate from the evaluation exit status; check `watch-logs.log`
+capture, start `./scripts/capture-logs --output-dir <directory>` before creating
+AgenticRuns. Both use `capture_logs()` in `scripts/sandbox_logs.py`. Capture
+errors are separate from the evaluation exit status; check `capture-logs.log`
 when logs are missing.
 
 ## Architecture: labs/payments-api-failure (Database Connection Exhaustion)

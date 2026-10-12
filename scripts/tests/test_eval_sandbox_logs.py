@@ -145,7 +145,7 @@ def run_capture(root, make=False, **extra_env):
         cwd = root / "evals"
     result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=20)
     session = next((root / "evals/results").iterdir())
-    assert not list(session.glob(".watch-logs-ready.*"))
+    assert not list(session.glob(".capture-logs-ready.*"))
     assert {path.name.replace("started-", "") for path in root.glob("started-*")} == {
         path.name.replace("stopped-", "") for path in root.glob("stopped-*")
     }
@@ -162,7 +162,7 @@ def test_make_agentic_saves_sandbox_logs(capture_workspace):
     assert result.returncode == 0, result.stdout + result.stderr
     assert [path.name for path in (session / "logs").iterdir()] == ["eval-new-analysis.log"]
     assert (session / "logs/eval-new-analysis.log").read_text() == "sandbox evidence\n"
-    assert "Stopped." in (session / "watch-logs.log").read_text()
+    assert "Stopped." in (session / "capture-logs.log").read_text()
 
 
 @pytest.mark.parametrize("extra_env,exit_code", [
@@ -183,5 +183,5 @@ def test_log_capture_startup_failure_keeps_eval_output(capture_workspace, eval_s
     assert result.returncode == int(eval_status), result.stdout + result.stderr
     assert "WARNING: sandbox log capture did not start" in result.stderr
     message = "Cannot verify oc login" if failure == "LOGIN_FAIL" else "Cannot start the watch"
-    assert message in (session / "watch-logs.log").read_text()
+    assert message in (session / "capture-logs.log").read_text()
     assert not list((session / "logs").iterdir())

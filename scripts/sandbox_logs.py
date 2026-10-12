@@ -197,7 +197,7 @@ def interrupt(*_):
     raise KeyboardInterrupt
 
 
-def watch_logs(directory, on_ready=None):
+def capture_logs(directory, on_ready=None):
     """Capture new sandbox pod logs until interrupted.
 
     Call on_ready after the initial pod list, before watching new events.

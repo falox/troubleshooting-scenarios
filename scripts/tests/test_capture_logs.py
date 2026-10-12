@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "watch-logs"
+SCRIPT = Path(__file__).resolve().parents[1] / "capture-logs"
 SPEC = importlib.util.spec_from_file_location("sandbox_logs", SCRIPT.with_name("sandbox_logs.py"))
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -153,7 +153,7 @@ class LogTests(unittest.TestCase):
                 patch.object(MODULE.Watcher, "run") as watch,
                 patch.object(MODULE, "report") as report,
             ):
-                self.assertEqual(MODULE.watch_logs(output), 1)
+                self.assertEqual(MODULE.capture_logs(output), 1)
                 self.assertEqual(command.call_args.args[0], ["oc", "whoami", "--request-timeout=10s"])
                 watch.assert_not_called()
                 self.assertIn("oc login", report.call_args.args[0])

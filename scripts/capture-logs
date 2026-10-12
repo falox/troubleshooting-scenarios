@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from sandbox_logs import watch_logs
+from sandbox_logs import capture_logs
 
 
 def main():
@@ -22,14 +22,14 @@ The output directory is created if needed.
 Press Ctrl+C to stop the watch and all active log streams.
 
 Example:
-  ./watch-logs --output-dir ./logs""",
+  ./capture-logs --output-dir ./logs""",
     )
     parser.add_argument(
         "-o", "--output-dir", type=Path, default=Path.cwd(), metavar="DIRECTORY",
         help="directory for log files (default: current directory)",
     )
     args = parser.parse_args()
-    return watch_logs(args.output_dir)
+    return capture_logs(args.output_dir)
 
 
 if __name__ == "__main__":

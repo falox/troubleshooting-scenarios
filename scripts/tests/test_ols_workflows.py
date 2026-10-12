@@ -48,7 +48,7 @@ def workspace(tmp_path):
     # Most workflow tests use a small watcher with no cluster access.
     (scripts / "sandbox_logs.py").write_text(
         "from pathlib import Path\nimport signal\nimport sys\n"
-        "def watch_logs(directory, on_ready=None):\n"
+        "def capture_logs(directory, on_ready=None):\n"
         "    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
         "    Path(directory).mkdir(parents=True, exist_ok=True)\n"
         "    if on_ready is not None: on_ready()\n"
@@ -489,8 +489,8 @@ def test_preview_summary_matches_real_run(request, mode):
     assert snapshots[0].read_text() == config_path.read_text()
     session = snapshots[0].parent
     assert (session / "logs").is_dir() == (mode == "agentic")
-    assert (session / "watch-logs.log").is_file() == (mode == "agentic")
-    assert not list(session.glob(".watch-logs-ready.*"))
+    assert (session / "capture-logs.log").is_file() == (mode == "agentic")
+    assert not list(session.glob(".capture-logs-ready.*"))
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])

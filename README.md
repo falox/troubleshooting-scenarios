@@ -151,7 +151,7 @@ and shared group resources where present.
 Logs and generated reports are saved under `evals/results/` (ignored by Git).
 Agentic evaluations also save sandbox pod logs to
 `evals/results/<session>/logs/AGENTICRUN-PHASE.log`, with watcher diagnostics in
-`evals/results/<session>/watch-logs.log`. Capture starts automatically before
+`evals/results/<session>/capture-logs.log`. Capture starts automatically before
 the first scenario and stops when the session ends. Existing result files are
 kept. See [sandbox logs](evals/README.md#sandbox-logs) for details and manual use.
 

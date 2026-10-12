@@ -99,7 +99,7 @@ Existing files are kept; another pod for the same run and phase gets a numbered
 file, such as `eval-51a465db-analysis-1.log`.
 
 Watcher status and errors are saved in
-`evals/results/<session>/watch-logs.log`. If capture cannot start, the runner
+`evals/results/<session>/capture-logs.log`. If capture cannot start, the runner
 prints a warning and continues. Capture failures do not change the evaluation
 exit status. The pod watch reconnects after connection failures, but a failed
 log stream is not retried. Pods deleted during a connection gap and logs from
@@ -109,15 +109,15 @@ For manual capture, run the standalone command from the repository root before
 starting AgenticRuns:
 
 ```bash
-./scripts/watch-logs
-./scripts/watch-logs --output-dir ./logs
-./scripts/watch-logs --help
+./scripts/capture-logs
+./scripts/capture-logs --output-dir ./logs
+./scripts/capture-logs --help
 ```
 
 It checks `oc` login before startup. The output directory defaults to the
 current directory and is created if needed. Press Ctrl+C to stop capture.
 Both the standalone command and the Agentic runner use the shared
-`watch_logs()` function in [scripts/sandbox_logs.py](../scripts/sandbox_logs.py).
+`capture_logs()` function in [scripts/sandbox_logs.py](../scripts/sandbox_logs.py).
 
 ## Reports
 

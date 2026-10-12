@@ -118,7 +118,7 @@ stop_log_watch() {
     kill -TERM "$LOG_WATCH_PID" 2>/dev/null || true
     wait "$LOG_WATCH_PID" || watch_status=$?
     if [ "$watch_status" -ne 0 ]; then
-      echo "WARNING: sandbox log capture failed (exit $watch_status); see $EVAL_DIR/watch-logs.log." >&2
+      echo "WARNING: sandbox log capture failed (exit $watch_status); see $EVAL_DIR/capture-logs.log." >&2
     fi
     LOG_WATCH_PID=""
   fi
@@ -131,9 +131,9 @@ start_log_watch() {
     exec "$PYTHON" -c '
 import sys
 sys.path.insert(0, sys.argv[1])
-from sandbox_logs import watch_logs
-sys.exit(watch_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True)))
-' "$SCRIPT_DIR" "$EVAL_DIR/logs" 2> "$EVAL_DIR/watch-logs.log"
+from sandbox_logs import capture_logs
+sys.exit(capture_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True)))
+' "$SCRIPT_DIR" "$EVAL_DIR/logs" 2> "$EVAL_DIR/capture-logs.log"
   }
   LOG_WATCH_PID=$SANDBOX_LOGS_PID
   ready_fd=${SANDBOX_LOGS[0]}
@@ -147,7 +147,7 @@ sys.exit(watch_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True)))
   fi
   exec {ready_fd}<&- || true
   exec {command_fd}>&- || true
-  echo "WARNING: sandbox log capture did not start; see $EVAL_DIR/watch-logs.log." >&2
+  echo "WARNING: sandbox log capture did not start; see $EVAL_DIR/capture-logs.log." >&2
   stop_log_watch
 }
 
