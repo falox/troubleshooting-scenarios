@@ -134,7 +134,11 @@ class Watcher:
                     elif event["type"] == "ERROR":
                         report(f"Watch ended: {event['object'].get('message', 'API error')}")
                         break
-                if process.poll() is not None and process.returncode:
+                try:
+                    process.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    pass
+                if process.returncode:
                     errors.seek(0)
                     report(f"Watch failed: {errors.read().strip()}")
             finally:

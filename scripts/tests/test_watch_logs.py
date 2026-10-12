@@ -1,6 +1,7 @@
 """Check pod selection, log names, and child process cleanup."""
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -33,6 +34,43 @@ def pod(name, uid, run="test-run", step="analysis", state="running"):
 
 
 class LogTests(unittest.TestCase):
+    def test_watch_reports_failure_after_stdout_closes(self):
+        process = Mock(stdout=io.StringIO(""), returncode=None)
+
+        def wait(timeout):
+            self.assertEqual(timeout, 3)
+            process.returncode = 1
+
+        process.wait.side_effect = wait
+        with (
+            patch.object(MODULE.subprocess, "Popen", return_value=process) as popen,
+            patch.object(MODULE, "report") as report,
+            patch.object(MODULE.Watcher, "terminate"),
+        ):
+            def start(*args, **kwargs):
+                kwargs["stderr"].write("Connection lost")
+                kwargs["stderr"].flush()
+                return process
+
+            popen.side_effect = start
+            MODULE.Watcher(Path.cwd()).watch("123")
+        report.assert_called_once_with("Watch failed: Connection lost")
+        process.wait.assert_called_once_with(timeout=3)
+
+    def test_watch_wait_timeout_still_cleans_up(self):
+        process = Mock(stdout=io.StringIO(""), returncode=None)
+        process.wait.side_effect = subprocess.TimeoutExpired("oc", 3)
+        with (
+            patch.object(MODULE.subprocess, "Popen", return_value=process),
+            patch.object(MODULE, "report") as report,
+            patch.object(MODULE.Watcher, "terminate") as terminate,
+        ):
+            MODULE.Watcher(Path.cwd()).watch("123")
+        process.wait.assert_called_once_with(timeout=3)
+        report.assert_not_called()
+        terminate.assert_called_once_with(process)
+        self.assertTrue(process.stdout.closed)
+
     def test_owner_and_annotation_names(self):
         sample = pod("sandbox", "uid", step="verification")
         self.assertEqual(MODULE.log_stem(sample), "test-run-verification")

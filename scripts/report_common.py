@@ -1,6 +1,7 @@
 """Shared helpers for the Classic and Agentic evaluation reports."""
 
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -258,7 +259,9 @@ def format_report_metadata(
 
 def format_report_note(note: str) -> str:
     """Format the note as italic text inside a block quote."""
-    return "> Note: _" + note.replace("\n", "\n> ") + "_"
+    paragraphs = re.split(r"\n(?:[ \t]*\n)+", note)
+    text = "\n\n".join(f"_{paragraph}_" for paragraph in paragraphs)
+    return "> Note: " + text.replace("\n", "\n> ")
 
 
 def system_config_appendix(eval_dir: Path, filename: str) -> str:

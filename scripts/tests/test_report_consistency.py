@@ -99,7 +99,9 @@ def test_score_medals_use_displayed_precision(report_module):
 
 @pytest.mark.parametrize("note,expected", [
     ("test logs", "> Note: _test logs_"),
-    ("first line\n\nlast line", "> Note: _first line\n> \n> last line_"),
+    ("first line\nlast line", "> Note: _first line\n> last line_"),
+    ("first line\n\nlast line", "> Note: _first line_\n> \n> _last line_"),
+    ("first line\n \t\n\nlast line", "> Note: _first line_\n> \n> _last line_"),
 ])
 def test_report_formats_note_as_italic_block_quote(report_module, tmp_path, note, expected):
     (tmp_path / "progress.json").write_text(json.dumps({
