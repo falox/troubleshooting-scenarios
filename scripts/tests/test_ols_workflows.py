@@ -45,6 +45,16 @@ def workspace(tmp_path):
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     executable(scripts / "preflight.sh", "#!/bin/bash\nexit 0\n")
+    # Most workflow tests use a small watcher with no cluster access.
+    (scripts / "sandbox_logs.py").write_text(
+        "from pathlib import Path\nimport signal\nimport sys\n"
+        "def watch_logs(directory, on_ready=None):\n"
+        "    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
+        "    Path(directory).mkdir(parents=True, exist_ok=True)\n"
+        "    if on_ready is not None: on_ready()\n"
+        "    signal.pause()\n"
+        "    return 0\n"
+    )
     evals = tmp_path / "evals"
     evals.mkdir()
     shutil.copy(ROOT / "Makefile", tmp_path / "Makefile")
@@ -477,6 +487,10 @@ def test_preview_summary_matches_real_run(request, mode):
     snapshots = list((root / "evals/results").glob(f"*/system-ols-{mode}.yaml"))
     assert len(snapshots) == 1
     assert snapshots[0].read_text() == config_path.read_text()
+    session = snapshots[0].parent
+    assert (session / "logs").is_dir() == (mode == "agentic")
+    assert (session / "watch-logs.log").is_file() == (mode == "agentic")
+    assert not list(session.glob(".watch-logs-ready.*"))
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])

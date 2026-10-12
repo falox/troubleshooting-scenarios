@@ -82,6 +82,43 @@ status if setup or evaluation failed.
 If Classic group setup fails, the runner skips that group's scenarios and
 continues with other groups. Group cleanup runs after the full scenario loop.
 
+## Sandbox logs
+
+`make eval-ols-agentic` automatically captures logs from the `agent` container
+of new sandbox pods in `openshift-lightspeed` during the session. The watcher
+starts before the first scenario and skips pods already present at startup.
+It stops at the end of the session, including on failure, Ctrl+C, or termination.
+This capture applies to Agentic evaluations; Classic and preview runs do not
+start a watcher.
+
+Sandbox logs are saved in `evals/results/<session>/logs/` alongside all existing
+evaluation output. Filenames use the AgenticRun name and phase, for example
+`eval-51a465db-analysis.log`. Phases are `analysis`, `execution`, and
+`verification`. If the run name or phase is missing, the filename is `POD.log`.
+Existing files are kept; another pod for the same run and phase gets a numbered
+file, such as `eval-51a465db-analysis-1.log`.
+
+Watcher status and errors are saved in
+`evals/results/<session>/watch-logs.log`. If capture cannot start, the runner
+prints a warning and continues. Capture failures do not change the evaluation
+exit status. The pod watch reconnects after connection failures, but a failed
+log stream is not retried. Pods deleted during a connection gap and logs from
+earlier container restarts cannot be recovered.
+
+For manual capture, run the standalone command from the repository root before
+starting AgenticRuns:
+
+```bash
+./scripts/watch-logs
+./scripts/watch-logs --output-dir ./logs
+./scripts/watch-logs --help
+```
+
+It checks `oc` login before startup. The output directory defaults to the
+current directory and is created if needed. Press Ctrl+C to stop capture.
+Both the standalone command and the Agentic runner use the shared
+`watch_logs()` function in [scripts/sandbox_logs.py](../scripts/sandbox_logs.py).
+
 ## Reports
 
 Runners save Markdown reports to `evals/results/<session>/report.md`,

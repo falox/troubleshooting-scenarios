@@ -1,7 +1,6 @@
 """Check pod selection, log names, and child process cleanup."""
 
 import importlib.util
-from importlib.machinery import SourceFileLoader
 import json
 import os
 import subprocess
@@ -14,9 +13,7 @@ from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "watch-logs"
-SPEC = importlib.util.spec_from_file_location(
-    "watch_logs", SCRIPT, loader=SourceFileLoader("watch_logs", str(SCRIPT))
-)
+SPEC = importlib.util.spec_from_file_location("sandbox_logs", SCRIPT.with_name("sandbox_logs.py"))
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
@@ -81,6 +78,24 @@ class LogTests(unittest.TestCase):
         self.assertEqual([call.args[0] for call in watcher.watch.call_args_list], ["123", "456"])
         watcher.follow.assert_called_once_with(new)
 
+    def test_readiness_is_signaled_after_initial_pods_are_recorded(self):
+        ready = Mock()
+        watcher = MODULE.Watcher(Path.cwd(), on_ready=ready)
+        watcher.list_pods = Mock(return_value={
+            "metadata": {"resourceVersion": "123"}, "items": [pod("old", "old-uid")],
+        })
+
+        def watch(version):
+            self.assertEqual(version, "123")
+            self.assertIn("old-uid", watcher.seen)
+            ready.assert_called_once_with()
+            raise KeyboardInterrupt
+
+        watcher.watch = watch
+        with patch.object(MODULE, "report"):
+            with self.assertRaises(KeyboardInterrupt):
+                watcher.run()
+
     def test_cli_watches_new_pods_and_stops_children(self):
         self.check_cli()
 
@@ -93,7 +108,6 @@ class LogTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "logs"
             with (
-                patch.object(sys, "argv", [str(SCRIPT), "-o", str(output)]),
                 patch.object(MODULE.shutil, "which", return_value="/usr/bin/oc"),
                 patch.object(MODULE.subprocess, "run", side_effect=subprocess.CalledProcessError(
                     1, "oc", stderr="You must be logged in to the server"
@@ -101,7 +115,7 @@ class LogTests(unittest.TestCase):
                 patch.object(MODULE.Watcher, "run") as watch,
                 patch.object(MODULE, "report") as report,
             ):
-                self.assertEqual(MODULE.main(), 1)
+                self.assertEqual(MODULE.watch_logs(output), 1)
                 self.assertEqual(command.call_args.args[0], ["oc", "whoami", "--request-timeout=10s"])
                 watch.assert_not_called()
                 self.assertIn("oc login", report.call_args.args[0])
