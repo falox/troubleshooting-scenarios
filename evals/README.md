@@ -29,6 +29,7 @@ Run Make commands from the repository root.
 | `SCENARIO=a,b` | Select named scenarios supported by the eval mode. |
 | `TAG=core,alert` | Select scenarios with at least one of these tags. |
 | `PREVIEW=1` | Show the selection without running setup, evaluation, or cleanup. |
+| `NOTE="..."` | Add an optional memo before the first table in the Markdown report. |
 | `SETUP_MODE=scenario` | Control when resources are set up and removed; see below. |
 
 Both eval targets and the manual `setup-scenario` and `cleanup-scenario` targets
@@ -85,6 +86,15 @@ continues with other groups. Group cleanup runs after the full scenario loop.
 
 Runners save Markdown reports to `evals/results/<session>/report.md`,
 in the same directory as the session results and system config.
+Use `NOTE` to describe the purpose of a run. It works for both eval targets:
+
+```bash
+make eval-ols-agentic TAG=investigation NOTE="testing alerts investigation without the skill"
+```
+
+The note is saved in `progress.json` and appears before the first report table,
+including when you regenerate the report. Without `NOTE`, no memo is added.
+
 Before setup starts, runners also copy the selected `evals-ols-*.yaml` files
 to `<session>/scenarios/`, keeping scenario and group subdirectories.
 Evaluations use these saved copies, so later edits to the source files do not

@@ -583,6 +583,10 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         lines.append(progress_line)
         lines.append("")
 
+    if note := (progress or {}).get("note", ""):
+        lines.append(note)
+        lines.append("")
+
     lines.append(generate_overview_table(
         conversations, agent_names, agent_runs, agent_amended
     ))

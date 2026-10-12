@@ -88,6 +88,8 @@ def update_progress(args: argparse.Namespace) -> None:
             "repeat": args.repeat, "items": items,
             "started_at": datetime.now(timezone.utc).isoformat(),
         }
+        if args.note.strip():
+            progress["note"] = args.note.strip()
     else:
         progress = load_progress(Path(args.eval_dir))
         if progress is None:
@@ -133,6 +135,7 @@ def main() -> None:
     parser.add_argument("--run-index", type=int)
     parser.add_argument("--exit-code", type=int, default=0)
     parser.add_argument("--detail", default="")
+    parser.add_argument("--note", default="")
     parser.add_argument("--finished", action="store_true")
     update_progress(parser.parse_args())
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
   exit 1
 }
 
@@ -10,12 +10,14 @@ SYSTEM_CONFIG=""
 SCENARIOS=()
 AGENTS=()
 SETUP_MODE="scenario"
+NOTE="${NOTE:-}"
 TAGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --system-config) SYSTEM_CONFIG="$2"; shift 2 ;;
     --setup-mode)    SETUP_MODE="$2"; shift 2 ;;
+    --note)          NOTE="$2"; shift 2 ;;
     --scenarios)     shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do SCENARIOS+=("$1"); shift; done ;;
     --agents)        shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do AGENTS+=("$1"); shift; done ;;
     --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;

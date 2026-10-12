@@ -983,6 +983,44 @@ def test_live_report_contains_partial_results_and_normal_final_report(live_repor
     assert not list(session.glob(".report.md.*"))
 
 
+@pytest.mark.parametrize("note", [
+    "",
+    "   ",
+    "Budget $5; $HOME; ${HOME}; $(HOME); $$",
+    "Make expression: $(shell touch memo-ran)",
+    'Testing alerts without the skill.\nOwner\'s memo: "baseline"; `touch memo-ran`; $(touch memo-ran)',
+])
+def test_make_eval_note_survives_report_updates_and_regeneration(live_report_workspace, note):
+    root, service, env = live_report_workspace
+    (root / "evals/scenarios/first").rename(root / "evals/scenarios/crashlooping_pod_alert")
+    result = subprocess.run(
+        ["make", f"eval-ols-{service}", "SCENARIO=crashlooping_pod_alert",
+         "SETUP_MODE=skip", f"NOTE={note}"],
+        cwd=root, env=env, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    session = next((root / "evals/results").iterdir())
+    progress = json.loads((session / "progress.json").read_text())
+    assert progress.get("note", "") == note.strip()
+    initial = (root / "snapshots/crashlooping_pod_alert-1.md").read_text()
+    final = (session / "report.md").read_text()
+    if note.strip():
+        for report in (initial, final):
+            assert report.count(note.strip()) == 1
+            first_table = next(line for line in report.splitlines() if line.startswith("|"))
+            assert report.index(note.strip()) < report.index(first_table)
+    else:
+        assert "note" not in progress
+    regenerated = subprocess.run(
+        [sys.executable, str(root / f"scripts/generate-report-{service}.py"),
+         str(session), "--output", str(session / "rebuilt.md")],
+        env=env, capture_output=True, text=True, timeout=10,
+    )
+    assert regenerated.returncode == 0, regenerated.stdout + regenerated.stderr
+    assert (session / "rebuilt.md").read_text() == final
+    assert not list(root.rglob("memo-ran"))
+
+
 def test_live_report_records_technical_errors_and_continues(live_report_workspace):
     result, session = run_live_report(live_report_workspace, EVAL_STATUS="42")
     assert result.returncode == 42, result.stdout + result.stderr
