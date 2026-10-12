@@ -16,6 +16,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Show an evaluation summary")
     parser.add_argument("--system-config", required=True)
     parser.add_argument("--setup-mode", choices=("run", "scenario", "skip"), required=True)
+    parser.add_argument("--note", default=os.environ.get("NOTE", ""))
     parser.add_argument("--agents", nargs="+")
     parser.add_argument("--scenarios", nargs="*", required=True)
     args = parser.parse_args()
@@ -47,6 +48,8 @@ def main() -> None:
         pass
 
     print(f"config:     {config_path}")
+    if args.note.strip():
+        print(f"note:       {args.note.strip()}")
     print(f"setup_mode: {args.setup_mode}")
     print(f"repeats:    {repeat}")
     print(f"parallel:   {str(parallel).lower()}")

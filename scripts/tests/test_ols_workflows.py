@@ -561,7 +561,8 @@ def test_preview_works_without_python_yaml(request, mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
     executable(root / "bin/python3", "#!/bin/bash\nexit 1\n")
     result = subprocess.run(
-        ["make", f"eval-ols-{mode}", "SCENARIO=crashlooping_pod_alert", "PREVIEW=1"],
+        ["make", f"eval-ols-{mode}", "SCENARIO=crashlooping_pod_alert", "PREVIEW=1",
+         "NOTE=Preview memo"],
         cwd=root,
         env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}"},
         capture_output=True, text=True,
@@ -571,6 +572,7 @@ def test_preview_works_without_python_yaml(request, mode):
     assert "repeats:    (Python 3 and PyYAML needed for details)" in result.stdout
     assert "agents:     (Python 3 and PyYAML needed for details)" in result.stdout
     assert "scenarios:  1\n  crashlooping_pod_alert" in result.stdout
+    assert "note:       Preview memo" in result.stdout
 
 
 @pytest.mark.parametrize("mode", ["run", "scenario"])
@@ -1002,6 +1004,10 @@ def test_make_eval_note_survives_report_updates_and_regeneration(live_report_wor
     session = next((root / "evals/results").iterdir())
     progress = json.loads((session / "progress.json").read_text())
     assert progress.get("note", "") == note.strip()
+    if note.strip():
+        assert f"note:       {note.strip()}" in result.stdout
+    else:
+        assert "note:       " not in result.stdout
     initial = (root / "snapshots/crashlooping_pod_alert-1.md").read_text()
     final = (session / "report.md").read_text()
     if note.strip():

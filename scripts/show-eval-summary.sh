@@ -18,6 +18,7 @@ fi
 
 # Preview still works without Python or PyYAML. Config values need PyYAML.
 SETUP_MODE=""
+NOTE="${NOTE:-}"
 AGENTS=()
 SCENARIOS=()
 AGENTS_GIVEN=0
@@ -26,6 +27,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --system-config) shift 2 ;;
     --setup-mode) SETUP_MODE="$2"; shift 2 ;;
+    --note) NOTE="$2"; shift 2 ;;
     --agents)
       AGENTS_GIVEN=1
       shift
@@ -39,6 +41,9 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [[ "$NOTE" =~ [^[:space:]] ]]; then
+  printf 'note:       %s\n' "$NOTE"
+fi
 echo "setup_mode: $SETUP_MODE"
 echo "repeats:    (Python 3 and PyYAML needed for details)"
 echo "parallel:   (Python 3 and PyYAML needed for details)"

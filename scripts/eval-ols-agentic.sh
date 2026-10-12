@@ -103,6 +103,7 @@ bash "$SCRIPT_DIR/show-eval-summary.sh" \
   --python "$PYTHON" \
   --system-config "$SYSTEM_CONFIG" \
   --setup-mode "$SETUP_MODE" \
+  --note "$NOTE" \
   "${SUMMARY_AGENT_ARGS[@]}" \
   --scenarios "${SCENARIOS[@]}"
 
