@@ -1045,10 +1045,13 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
     config_path = workspace / "evals/system-ols-agentic.yaml"
     system_config = yaml.safe_load(config_path.read_text())
     if active_subset:
-        system_config["agents"]["default"]["agent"] = (
-            system_config["agents"]["default"]["agent"][:1]
-        )
-        config_path.write_text(yaml.safe_dump(system_config))
+        system_config["agents"]["default"]["agent"] = ["openai-gpt-6-luna"]
+    else:
+        system_config["agents"]["default"]["agent"] = [
+            name for name, config in system_config["agents"].items()
+            if isinstance(config, dict) and "agent_ref" in config
+        ]
+    config_path.write_text(yaml.safe_dump(system_config))
     bin_dir = workspace / "bin"
     executable(
         bin_dir / "git",
@@ -1102,6 +1105,7 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
         "EVAL_VERTEX_CREDENTIALS": str(credentials),
         "EVAL_VERTEX_PROJECT_ID": "test-project",
         "ARTIFACT_DIR": str(workspace / "artifacts"),
+        "SYSTEM_CONFIG": str(config_path),
         "MAKE_LOG": str(workspace / "make.log"),
         "CR_LOG": str(workspace / "cr.log"),
         "CR_STATE": str(workspace / "cr-state.json"),
@@ -1116,9 +1120,10 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
     assert result.returncode == 0, result.stdout + result.stderr
     resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
     providers = [r for r in resources if r["kind"] == "LLMProvider"]
-    assert [r["metadata"]["name"] for r in providers] == [
+    expected_providers = ["openai"] if active_subset else [
         "openai", "vertex-google", "vertex-anthropic",
     ]
+    assert [r["metadata"]["name"] for r in providers] == expected_providers
     for resource in providers[1:]:
         vertex = resource["spec"]["googleCloudVertex"]
         assert vertex["region"] == "global"
@@ -1140,3 +1145,65 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
     assert commands == [
         "setup-ols-agentic", "eval-ols-agentic TAG=core", "cleanup-ols-agentic",
     ]
+
+
+@pytest.mark.parametrize("provider", ["openai", "vertex-google", "vertex-anthropic"])
+@pytest.mark.parametrize("judge_provider", ["openai", "google", "anthropic"])
+@pytest.mark.parametrize("credentials_present", [False, True])
+def test_agentic_setup_uses_selected_config(workspace, provider, judge_provider, credentials_present):
+    config_path = workspace / "custom-system.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "judge_panel": {"judges": ["judge"]},
+        "llm_pool": {"models": {
+            "judge": {"provider": judge_provider, "model": "judge-model"},
+            "unused": {"provider": "google", "model": "unused-model"},
+        }},
+        "agents": {
+            "enabled": True,
+            "default": {"agent": ["selected"]},
+            "selected": {"description": f"{provider}|test-model", "agent_ref": "selected"},
+        },
+    }))
+    executable(workspace / "scripts/setup-venv.sh", "#!/bin/bash\nexit 0\n")
+    executable(workspace / "bin/oc", f"#!{sys.executable}\n" + '''
+import json
+import os
+import sys
+import yaml
+
+with open(os.environ["OC_LOG"], "a") as log:
+    log.write(" ".join(sys.argv[1:]) + "\\n")
+if sys.argv[1] == "apply":
+    with open(os.environ["CR_LOG"], "a") as log:
+        for resource in yaml.safe_load_all(sys.stdin):
+            if resource:
+                log.write(json.dumps(resource) + "\\n")
+''')
+    credentials = workspace / "credentials.json"
+    credentials.write_text("{}")
+    env = {
+        **os.environ,
+        "PATH": f"{workspace / 'bin'}:{os.environ['PATH']}",
+        "EVAL_OPENAI_API_KEY": "test-key",
+        "EVAL_VERTEX_CREDENTIALS": str(credentials) if credentials_present else "",
+        "EVAL_VERTEX_PROJECT_ID": "test-project" if credentials_present else "",
+        "OC_LOG": str(workspace / "oc.log"),
+        "CR_LOG": str(workspace / "cr.log"),
+    }
+    result = subprocess.run(
+        ["make", "setup-ols-agentic", f"SYSTEM_CONFIG_AGENTIC={config_path}"],
+        cwd=workspace, env=env, capture_output=True, text=True,
+    )
+    judge_cr_provider = {"google": "vertex-google", "anthropic": "vertex-anthropic"}.get(
+        judge_provider, judge_provider,
+    )
+    expected_providers = list(dict.fromkeys([judge_cr_provider, provider]))
+    if any(name != "openai" for name in expected_providers) and not credentials_present:
+        assert result.returncode != 0
+        assert "EVAL_VERTEX_CREDENTIALS" in result.stderr
+        assert not (workspace / "oc.log").exists()
+        return
+    assert result.returncode == 0, result.stdout + result.stderr
+    resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
+    assert [r["metadata"]["name"] for r in resources if r["kind"] == "LLMProvider"] == expected_providers
+    assert [r["metadata"]["name"] for r in resources if r["kind"] == "Agent"] == ["selected"]

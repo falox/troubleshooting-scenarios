@@ -209,7 +209,7 @@ endif
 
 setup-ols-agentic: setup-venv
 	@echo "==> Using config: $(SYSTEM_CONFIG_AGENTIC)"
-	@bash $(SCRIPTS_DIR)/setup-ols-agentic.sh
+	@SYSTEM_CONFIG_AGENTIC="$(SYSTEM_CONFIG_AGENTIC)" bash $(SCRIPTS_DIR)/setup-ols-agentic.sh
 	@venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py "$(SYSTEM_CONFIG_AGENTIC)"
 	@echo ""
 	@echo "NOTE: Install lightspeed-agentic-operator manually by following:"

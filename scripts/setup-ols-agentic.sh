@@ -1,15 +1,35 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# The evaluator always uses OpenAI for the judge, even when OLS uses another provider.
-if [ -z "${EVAL_OPENAI_API_KEY:-}" ]; then
-  printf '\033[0;31mERROR:\033[0m EVAL_OPENAI_API_KEY not set (needed for judge LLM)\n'
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="${VENV_DIR:-${SCRIPT_DIR}/../venv}"
+PYTHON="${VENV_DIR}/bin/python3"
+if [ ! -x "$PYTHON" ]; then
+  echo "ERROR: Evaluation venv not found. Run make setup-venv first." >&2
   exit 1
 fi
+SYSTEM_CONFIG_AGENTIC="${SYSTEM_CONFIG_AGENTIC:-${SCRIPT_DIR}/../evals/system-ols-agentic.yaml}"
+providers="$("$PYTHON" "$SCRIPT_DIR/sync-agent-crs.py" "$SYSTEM_CONFIG_AGENTIC" --list-providers)"
 
 has_gcp=false
+while IFS= read -r provider; do
+  case "$provider" in
+    openai)
+      if [ -z "${EVAL_OPENAI_API_KEY:-}" ]; then
+        echo "ERROR: EVAL_OPENAI_API_KEY is needed for OpenAI agents or judges" >&2
+        exit 1
+      fi
+      ;;
+    "") ;;
+    vertex-google|vertex-anthropic) has_gcp=true ;;
+    *)
+      echo "ERROR: Unsupported agent provider: $provider" >&2
+      exit 1
+      ;;
+  esac
+done <<< "$providers"
 
-if [ -n "${EVAL_VERTEX_CREDENTIALS:-}" ] || [ -n "${EVAL_VERTEX_PROJECT_ID:-}" ]; then
+if $has_gcp; then
   if [ ! -f "${EVAL_VERTEX_CREDENTIALS:-}" ]; then
     echo "ERROR: EVAL_VERTEX_CREDENTIALS must point to an existing file" >&2
     exit 1
@@ -91,9 +111,12 @@ EOF
     echo "    Vertex AI provider configured: ${MODEL_PROVIDER}"
 }
 
-setup_openai_secret
-setup_openai_provider
-if $has_gcp; then
-    setup_vertex vertex-google
-    setup_vertex vertex-anthropic
-fi
+while IFS= read -r provider; do
+    case "$provider" in
+        openai)
+            setup_openai_secret
+            setup_openai_provider
+            ;;
+        vertex-google|vertex-anthropic) setup_vertex "$provider" ;;
+    esac
+done <<< "$providers"
