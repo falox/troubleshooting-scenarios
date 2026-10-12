@@ -248,6 +248,11 @@ def format_report_metadata(
     return " | ".join(parts)
 
 
+def format_report_note(note: str) -> str:
+    """Format the note as italic text inside a block quote."""
+    return "> Note: _" + note.replace("\n", "\n> ") + "_"
+
+
 def system_config_appendix(eval_dir: Path, filename: str) -> str:
     """Include the saved input YAML without substituting the current config."""
     lines = ["", '<a id="system-config"></a>', "## Appendix: System config", ""]

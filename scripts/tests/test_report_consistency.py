@@ -97,6 +97,19 @@ def test_score_medals_use_displayed_precision(report_module):
     assert "| Avg score | **0.99** 🥇 | **0.99** 🥇 | 0.98 |" in overview
 
 
+@pytest.mark.parametrize("note,expected", [
+    ("test logs", "> Note: _test logs_"),
+    ("first line\n\nlast line", "> Note: _first line\n> \n> last line_"),
+])
+def test_report_formats_note_as_italic_block_quote(report_module, tmp_path, note, expected):
+    (tmp_path / "progress.json").write_text(json.dumps({
+        "state": "completed", "scenarios": [], "items": [], "note": note,
+    }))
+    report = report_module.generate_report(tmp_path)
+    assert report.count(expected) == 1
+    assert report.index(expected) < report.index("| Pass rate")
+
+
 def test_report_includes_saved_yaml_and_header_link(report_module, tmp_path):
     kind = Path(report_module.__file__).stem.removeprefix("generate-report-")
     content = "# Saved config, including a ``` fence\nagents:\n  default:\n    repeat: 7\n"

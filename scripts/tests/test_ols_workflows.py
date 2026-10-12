@@ -1026,9 +1026,11 @@ def test_make_eval_note_survives_report_updates_and_regeneration(live_report_wor
     final = (session / "report.md").read_text()
     if note.strip():
         for report in (initial, final):
-            assert report.count(note.strip()) == 1
+            for line in note.strip().splitlines():
+                assert report.count(line) == 1
+            assert "> Note: _" in report
             first_table = next(line for line in report.splitlines() if line.startswith("|"))
-            assert report.index(note.strip()) < report.index(first_table)
+            assert report.index(note.strip().splitlines()[0]) < report.index(first_table)
     else:
         assert "note" not in progress
     regenerated = subprocess.run(

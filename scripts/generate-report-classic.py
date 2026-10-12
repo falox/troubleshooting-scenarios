@@ -38,6 +38,7 @@ from report_common import (  # noqa: E402
     find_run_dirs,
     format_duration,
     format_report_metadata,
+    format_report_note,
     format_timestamp,
     format_token_pair,
     mean_tokens,
@@ -584,7 +585,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         lines.append("")
 
     if note := (progress or {}).get("note", ""):
-        lines.append(note)
+        lines.append(format_report_note(note))
         lines.append("")
 
     lines.append(generate_overview_table(
