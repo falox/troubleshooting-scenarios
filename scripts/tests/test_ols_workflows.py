@@ -922,18 +922,21 @@ Path(os.environ["SNAPSHOT_DIR"], f"{scenario}-{index}.md").write_text(report.rea
 if scenario == "second" and os.environ.get("INTERRUPT"):
     os.kill(os.getppid(), int(os.environ["INTERRUPT"]))
     sys.exit(0)
-output = session / agent / f"run_{index}"
-output.mkdir(parents=True, exist_ok=True)
-summary = output / f"{scenario}_summary.json"
-if scenario == "second" and os.environ.get("BROKEN_RESULT"):
-    summary.write_text("{")
-else:
-    summary.write_text(json.dumps({"results": [{
-        "conversation_group_id": scenario,
-        "metric_identifier": os.environ["METRIC"],
-        "result": "PASS" if scenario != "second" else "FAIL",
-        "score": 1.0 if scenario != "second" else 0.2,
-    }]}))
+# The fixture config requests two repeats when no single run is selected.
+indices = [index] if "--run-index" in args else ["1", "2"]
+for index in indices:
+    output = session / agent / f"run_{index}"
+    output.mkdir(parents=True, exist_ok=True)
+    summary = output / f"{scenario}_summary.json"
+    if scenario == "second" and os.environ.get("BROKEN_RESULT"):
+        summary.write_text("{")
+    else:
+        summary.write_text(json.dumps({"results": [{
+            "conversation_group_id": scenario,
+            "metric_identifier": os.environ["METRIC"],
+            "result": "PASS" if scenario != "second" else "FAIL",
+            "score": 1.0 if scenario != "second" else 0.2,
+        }]}))
 if scenario == "second":
     sys.exit(int(os.environ.get("EVAL_STATUS", "0")))
 ''')
@@ -991,8 +994,7 @@ def test_live_report_contains_partial_results_and_normal_final_report(live_repor
     assert "Partial results:" not in report
     assert "## Progress" not in report
     assert "[🔴" in report  # A low score is separate from an execution error.
-    repeats = 2 if mode == "run" else 1
-    assert f"3 scenarios, 1 agent, {repeats} repeat" in report
+    assert "3 scenarios, 1 agent, 2 repeats" in report
     progress = json.loads((session / "progress.json").read_text())
     assert progress["state"] == "completed"
     assert all(item["state"] == "completed" for item in progress["items"])

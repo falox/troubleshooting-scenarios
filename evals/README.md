@@ -142,9 +142,10 @@ repeat. You can open the file during `make eval-ols-agentic` or
 `make eval-ols-classic` to see partial results.
 The CLI prints the results table after each scenario. With `SETUP_MODE=run`,
 it prints the table after all agents and repeats for that scenario finish.
-CLI cells are yellow when the Markdown correctness table shows ❌, meaning
-at least one evaluation error or failed completion check (when output is not
-a terminal, these cells use `*` instead of color).
+CLI cells are yellow when the Markdown correctness table shows ⚠️, meaning
+at least one technical error, including a setup failure or missing results
+after the session ends (when output is not a terminal, these cells use `*`
+instead of color).
 
 Partial reports add one line, such as `Partial results: scenario 2/47.`
 The count shows scenarios whose agents and repeats have all finished.
@@ -175,8 +176,22 @@ Both report types use the same scoring rules:
   `system-ols-*.yaml`. Scenarios can override it with `turn_metrics_metadata`;
   the Agentic `failing_api_alert` case requires 0.80. Remediation cases use
   status checks without a correctness score.
-- Technical errors count as failed runs with score 0 in averages.
-- ❌ marks a technical error in at least one run. Otherwise, 🟢 means all runs
+- PASS, FAIL, and ERROR rates use all planned runs as the denominator, including
+  runs with no results. FAIL means a failed quality check without a technical
+  error. ERROR includes setup failures, evaluation errors, failed completion
+  checks, and missing results after the session ends. Runs still pending in a
+  live session stay in the denominator but do not count as errors.
+- Avg score uses available correctness scores, including scores below the
+  threshold. It shows `(scored runs / planned runs)`. No zero is added for a
+  missing score. A real judge score is kept even if the run has a technical
+  error. Completion status alone does not provide a correctness score.
+- Saved progress and scenario definitions provide the planned runs. For older
+  sessions without a saved plan, reports use the saved repeat setting and
+  available results. Percentages are rounded and may not sum to exactly 100%.
+- In the CLI summary, nonzero FAIL and ERROR rates are red. The Markdown
+  overview and Correctness tables show the same counts. Token usage appears
+  under Tokens.
+- ⚠️ marks a technical error in at least one run. Otherwise, 🟢 means all runs
   passed and 🔴 means none passed. Mixed results have no icon.
 - Score medals compare values rounded to two decimal places.
 - Model columns follow `agents.default.agent` in the matching

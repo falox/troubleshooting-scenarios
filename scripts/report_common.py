@@ -10,7 +10,7 @@ MEDAL = "🥇"
 STATUS_METRIC = "custom:openshift_agentic_run_status"
 CORRECTNESS_LEGEND = (
     "Legend: 🟢 100% pass rate · 🔴 0% pass rate · "
-    "❌ Technical failure in at least one run (evaluation error or failed completion check)."
+    "⚠️ Error in 1+ run (including setup errors or missing results)"
 )
 
 
@@ -29,23 +29,27 @@ def has_technical_failure(results: list[dict], conversation_id: str) -> bool:
 def performance_result(
     results: list[dict], conversation_id: str, metric_ids: tuple[str, ...]
 ) -> tuple[str | None, float | None]:
-    """Choose the first available metric; technical failures count as zero."""
+    """Classify the run and keep any available correctness score."""
+    selected = next((
+        metric
+        for metric_id in metric_ids
+        for metric in results
+        if metric["conversation_group_id"] == conversation_id
+        and metric["metric_identifier"] == metric_id
+        and metric.get("result") is not None
+    ), None)
+    score = None
+    if (selected and selected["metric_identifier"] != STATUS_METRIC
+            and selected["result"] in {"PASS", "FAIL"}):
+        score = selected.get("score")
     if has_technical_failure(results, conversation_id):
-        return "ERROR", 0.0
-    for metric_id in metric_ids:
-        for metric in results:
-            if (
-                metric["conversation_group_id"] == conversation_id
-                and metric["metric_identifier"] == metric_id
-                and metric.get("result") is not None
-            ):
-                return metric["result"], metric.get("score")
-    return None, None
+        return "ERROR", score
+    return (selected["result"], score) if selected else (None, None)
 
 
 def correctness_icon(passed: int, total: int, technical_failure: bool) -> str:
     if technical_failure:
-        return "❌"
+        return "⚠️"
     return "🟢" if passed == total else ("🔴" if passed == 0 else "")
 
 
@@ -65,6 +69,10 @@ def discover_agents(eval_dir: Path, system_config: Path | None = None) -> list[s
     for child in sorted(eval_dir.iterdir()):
         if child.is_dir() and any(child.glob("run_*")):
             agents.append(child.name)
+    progress_path = eval_dir / "progress.json"
+    if progress_path.is_file():
+        planned = json.loads(progress_path.read_text()).get("agents", [])
+        agents = list(dict.fromkeys([*planned, *agents]))
     if system_config is None or not system_config.is_file():
         return agents
     config = yaml.safe_load(system_config.read_text()) or {}
@@ -271,3 +279,128 @@ def system_config_appendix(eval_dir: Path, filename: str) -> str:
         lines.append("The original YAML was not saved for this session.")
     lines.extend(["", "[Back to top](#evaluation-summary)", ""])
     return "\n".join(lines)
+
+
+SCORING_LEGEND = (
+    "PASS: passed / planned runs.\n"
+    "FAIL: failed quality checks without technical errors / planned runs.\n"
+    "ERROR: technical errors, including setup errors and missing results / planned runs.\n"
+    "Avg score: mean of available correctness scores (scored / planned runs).\n"
+    "Pending runs stay in the denominator but do not count as errors."
+)
+
+
+class PlannedRuns(list):
+    """Run results with the state of each missing planned result."""
+
+    def __init__(self, runs, missing):
+        super().__init__(runs)
+        self.missing = missing
+
+
+def prepare_planned_runs(
+    eval_dir: Path,
+    filename: str,
+    agent_names: list[str],
+    agent_runs: dict[str, list],
+    agent_amended: dict[str, list],
+) -> tuple[list[str], dict[str, str], int]:
+    """Use saved session data to include all planned scenarios and repeats.
+
+    Results and amended entries keep their original run numbers. No metric is
+    created for a missing result. Old sessions use the available run data when
+    the saved plan is not present.
+    """
+    progress_path = eval_dir / "progress.json"
+    progress = json.loads(progress_path.read_text()) if progress_path.is_file() else {}
+    config_path = eval_dir / filename.replace("evals-", "system-")
+    config = (yaml.safe_load(config_path.read_text()) or {}) if config_path.is_file() else {}
+    observed = collect_conversations(agent_runs)
+    conversations = []
+    names = load_scenario_names(filename, eval_dir / "scenarios")
+    scenario_for = {}
+    for scenario in progress.get("scenarios", []):
+        path = eval_dir / scenario / filename
+        entries = (yaml.safe_load(path.read_text()) or []) if path.is_file() else []
+        ids = [entry["conversation_group_id"] for entry in entries]
+        if not ids:
+            ids = [scenario.removeprefix("scenarios/")]
+        for cid in ids:
+            scenario_for[cid] = scenario
+            names[cid] = scenario.removeprefix("scenarios/")
+            if cid not in conversations:
+                conversations.append(cid)
+    conversations.extend(cid for cid in observed if cid not in conversations)
+    repeat = progress.get("repeat", config.get("agents", {}).get("default", {}).get("repeat", 0))
+    repeat = max(int(repeat or 0), max((
+        int(rd.name.split("_")[1])
+        for agent in agent_names for rd in find_run_dirs(eval_dir, agent)
+    ), default=0))
+    for agent in agent_names:
+        dirs = find_run_dirs(eval_dir, agent)
+        runs = [None] * repeat
+        amended = [[] for _ in range(repeat)]
+        for rd, results, entries in zip(dirs, agent_runs[agent], agent_amended[agent]):
+            index = int(rd.name.split("_")[1]) - 1
+            runs[index] = results
+            amended[index] = entries
+        missing = {}
+        for cid in conversations:
+            for index in range(repeat):
+                item = next((item for item in progress.get("items", [])
+                             if item["scenario"] == scenario_for.get(cid)
+                             and item.get("agent", agent) == agent
+                             and item.get("run_index", index + 1) == index + 1), {})
+                # A live report must not call unfinished work an error.
+                pending = (progress.get("state") == "running"
+                           and item.get("state", "pending") in {"pending", "running"})
+                missing[index, cid] = "PENDING" if pending else "ERROR"
+        agent_runs[agent] = PlannedRuns(runs, missing)
+        agent_amended[agent] = amended
+    return conversations, names, repeat
+
+
+def report_stats(runs, conversations, get_result):
+    """Count outcomes against planned runs and average available scores."""
+    counts = {"PASS": 0, "FAIL": 0, "ERROR": 0, "PENDING": 0}
+    scores = []
+    for index, results in enumerate(runs):
+        for cid in conversations:
+            result, score = get_result(results or [], cid)
+            if result is None:
+                result = getattr(runs, "missing", {}).get((index, cid), "ERROR")
+            counts[result] += 1
+            if score is not None:
+                scores.append(score)
+    return {
+        **counts, "total": len(runs) * len(conversations), "scored": len(scores),
+        "mean": sum(scores) / len(scores) if scores else None,
+    }
+
+
+def average_score_cell(stats: dict) -> str:
+    value = f"{stats['mean']:.2f}" if stats["mean"] is not None else "N/A"
+    return f"{value} ({stats['scored']}/{stats['total']})"
+
+
+def summary_rows(conversations, agent_names, agent_runs, get_result, bold=False):
+    """Build the same scoring rows for both Markdown summary tables."""
+    stats = {a: report_stats(agent_runs[a], conversations, get_result) for a in agent_names}
+    best_pass = max((s["PASS"] / s["total"] for s in stats.values() if s["total"]), default=None)
+    best_mean = max((s["mean"] for s in stats.values() if s["mean"] is not None), default=None)
+    lines = []
+    for outcome in ("PASS", "FAIL", "ERROR"):
+        cells = []
+        for s in stats.values():
+            winner = (outcome == "PASS" and bool(s["total"])
+                      and s["PASS"] / s["total"] == best_pass)
+            cells.append(overall_score_cell(s[outcome], s["total"], winner))
+        label = outcome
+        if bold:
+            label = f"**{label}**"
+        lines.append(f"| {label} | {' | '.join(cells)} |")
+    cells = [winner_cell(average_score_cell(s), is_best_score(s["mean"], best_mean))
+             for s in stats.values()]
+    label = "**Avg score**" if bold else "Avg score"
+    lines.append(f"| {label} | {' | '.join(cells)} |")
+    return lines

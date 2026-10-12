@@ -223,7 +223,7 @@ class TestGenerateReport:
                 timestamp=f"20260904_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "**Pass rate**" in report
+        assert "**PASS**" in report
         assert "75% (3/4)" in report
 
     def test_timestamp_in_header(self, tmp_path):
@@ -338,7 +338,7 @@ class TestGenerateReport:
                 amended_entries=[{"conversation_id": "s1"}],
             )
         report = mod.generate_report(tmp_path)
-        assert report.count("**100% (1/1)** 🥇") == 2
+        assert report.count("**100% (1/1)** 🥇") == 4
 
     def test_judge_in_header(self, tmp_path):
         config = {
@@ -386,7 +386,7 @@ class TestGenerateReport:
             )
         report = mod.generate_report(tmp_path)
         assert "| **Avg score** |" in report
-        assert "**0.90** 🥇" in report
+        assert "**0.90 (1/1)** 🥇" in report
 
     def test_legend_in_correctness(self, tmp_path):
         _write_run(
@@ -506,7 +506,7 @@ class TestPrintCorrectnessTable:
         out = capsys.readouterr().out
         assert "s1" in out
         assert "1/1" in out
-        assert "Pass rate" in out
+        assert "PASS" in out
 
     def test_multi_run_counts(self, tmp_path, capsys):
         _write_run(
