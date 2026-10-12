@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
   exit 1
 }
 
@@ -10,12 +10,14 @@ SYSTEM_CONFIG=""
 SCENARIOS=()
 AGENTS=()
 SETUP_MODE="scenario"
+NOTE="${NOTE:-}"
 TAGS=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --system-config) SYSTEM_CONFIG="$2"; shift 2 ;;
     --setup-mode)    SETUP_MODE="$2"; shift 2 ;;
+    --note)          NOTE="$2"; shift 2 ;;
     --scenarios)     shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do SCENARIOS+=("$1"); shift; done ;;
     --agents)        shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do AGENTS+=("$1"); shift; done ;;
     --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;
@@ -101,11 +103,53 @@ bash "$SCRIPT_DIR/show-eval-summary.sh" \
   --python "$PYTHON" \
   --system-config "$SYSTEM_CONFIG" \
   --setup-mode "$SETUP_MODE" \
+  --note "$NOTE" \
   "${SUMMARY_AGENT_ARGS[@]}" \
   --scenarios "${SCENARIOS[@]}"
 
 # shellcheck source=scripts/eval-report.sh
 source "$SCRIPT_DIR/eval-report.sh"
+
+LOG_WATCH_PID=""
+
+stop_log_watch() {
+  local watch_status=0
+  if [ -n "$LOG_WATCH_PID" ]; then
+    kill -TERM "$LOG_WATCH_PID" 2>/dev/null || true
+    wait "$LOG_WATCH_PID" || watch_status=$?
+    if [ "$watch_status" -ne 0 ]; then
+      echo "WARNING: sandbox log capture failed (exit $watch_status); see $EVAL_DIR/capture-logs.log." >&2
+    fi
+    LOG_WATCH_PID=""
+  fi
+}
+
+start_log_watch() {
+  local ready ready_fd command_fd
+  mkdir -p "$EVAL_DIR/logs"
+  coproc SANDBOX_LOGS {
+    exec "$PYTHON" -c '
+import sys
+sys.path.insert(0, sys.argv[1])
+from sandbox_logs import capture_logs
+sys.exit(capture_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True)))
+' "$SCRIPT_DIR" "$EVAL_DIR/logs" 2> "$EVAL_DIR/capture-logs.log"
+  }
+  LOG_WATCH_PID=$SANDBOX_LOGS_PID
+  ready_fd=${SANDBOX_LOGS[0]}
+  command_fd=${SANDBOX_LOGS[1]}
+  # The library signals readiness through the pipe after its initial pod list.
+  if IFS= read -r -t 30 -u "$ready_fd" ready && [ "$ready" = ready ]; then
+    exec {ready_fd}<&-
+    exec {command_fd}>&-
+    echo "==> Sandbox logs: $EVAL_DIR/logs"
+    return
+  fi
+  exec {ready_fd}<&- || true
+  exec {command_fd}>&- || true
+  echo "WARNING: sandbox log capture did not start; see $EVAL_DIR/capture-logs.log." >&2
+  stop_log_watch
+}
 
 # Invoked by the EXIT trap.
 # shellcheck disable=SC2329
@@ -113,6 +157,7 @@ finish_evaluation() {
   local status=$?
   local report_status=0
   trap - EXIT INT TERM
+  stop_log_watch
   report_finalize "$status" || report_status=$?
   if [ "$report_status" -ne 0 ]; then
     echo "ERROR: final report update failed; keeping the last report." >&2
@@ -125,6 +170,8 @@ report_init agentic
 trap finish_evaluation EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+start_log_watch
 
 run_scenario() {
   local scenario="$1"

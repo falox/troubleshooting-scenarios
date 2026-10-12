@@ -45,6 +45,16 @@ def workspace(tmp_path):
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     executable(scripts / "preflight.sh", "#!/bin/bash\nexit 0\n")
+    # Most workflow tests use a small watcher with no cluster access.
+    (scripts / "sandbox_logs.py").write_text(
+        "from pathlib import Path\nimport signal\nimport sys\n"
+        "def capture_logs(directory, on_ready=None):\n"
+        "    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
+        "    Path(directory).mkdir(parents=True, exist_ok=True)\n"
+        "    if on_ready is not None: on_ready()\n"
+        "    signal.pause()\n"
+        "    return 0\n"
+    )
     evals = tmp_path / "evals"
     evals.mkdir()
     shutil.copy(ROOT / "Makefile", tmp_path / "Makefile")
@@ -477,6 +487,10 @@ def test_preview_summary_matches_real_run(request, mode):
     snapshots = list((root / "evals/results").glob(f"*/system-ols-{mode}.yaml"))
     assert len(snapshots) == 1
     assert snapshots[0].read_text() == config_path.read_text()
+    session = snapshots[0].parent
+    assert (session / "logs").is_dir() == (mode == "agentic")
+    assert (session / "capture-logs.log").is_file() == (mode == "agentic")
+    assert not list(session.glob(".capture-logs-ready.*"))
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
@@ -561,7 +575,8 @@ def test_preview_works_without_python_yaml(request, mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
     executable(root / "bin/python3", "#!/bin/bash\nexit 1\n")
     result = subprocess.run(
-        ["make", f"eval-ols-{mode}", "SCENARIO=crashlooping_pod_alert", "PREVIEW=1"],
+        ["make", f"eval-ols-{mode}", "SCENARIO=crashlooping_pod_alert", "PREVIEW=1",
+         "NOTE=Preview memo"],
         cwd=root,
         env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}"},
         capture_output=True, text=True,
@@ -571,6 +586,7 @@ def test_preview_works_without_python_yaml(request, mode):
     assert "repeats:    (Python 3 and PyYAML needed for details)" in result.stdout
     assert "agents:     (Python 3 and PyYAML needed for details)" in result.stdout
     assert "scenarios:  1\n  crashlooping_pod_alert" in result.stdout
+    assert "note:       Preview memo" in result.stdout
 
 
 @pytest.mark.parametrize("mode", ["run", "scenario"])
@@ -906,18 +922,21 @@ Path(os.environ["SNAPSHOT_DIR"], f"{scenario}-{index}.md").write_text(report.rea
 if scenario == "second" and os.environ.get("INTERRUPT"):
     os.kill(os.getppid(), int(os.environ["INTERRUPT"]))
     sys.exit(0)
-output = session / agent / f"run_{index}"
-output.mkdir(parents=True, exist_ok=True)
-summary = output / f"{scenario}_summary.json"
-if scenario == "second" and os.environ.get("BROKEN_RESULT"):
-    summary.write_text("{")
-else:
-    summary.write_text(json.dumps({"results": [{
-        "conversation_group_id": scenario,
-        "metric_identifier": os.environ["METRIC"],
-        "result": "PASS" if scenario != "second" else "FAIL",
-        "score": 1.0 if scenario != "second" else 0.2,
-    }]}))
+# The fixture config requests two repeats when no single run is selected.
+indices = [index] if "--run-index" in args else ["1", "2"]
+for index in indices:
+    output = session / agent / f"run_{index}"
+    output.mkdir(parents=True, exist_ok=True)
+    summary = output / f"{scenario}_summary.json"
+    if scenario == "second" and os.environ.get("BROKEN_RESULT"):
+        summary.write_text("{")
+    else:
+        summary.write_text(json.dumps({"results": [{
+            "conversation_group_id": scenario,
+            "metric_identifier": os.environ["METRIC"],
+            "result": "PASS" if scenario != "second" else "FAIL",
+            "score": 1.0 if scenario != "second" else 0.2,
+        }]}))
 if scenario == "second":
     sys.exit(int(os.environ.get("EVAL_STATUS", "0")))
 ''')
@@ -975,12 +994,55 @@ def test_live_report_contains_partial_results_and_normal_final_report(live_repor
     assert "Partial results:" not in report
     assert "## Progress" not in report
     assert "[🔴" in report  # A low score is separate from an execution error.
-    repeats = 2 if mode == "run" else 1
-    assert f"3 scenarios, 1 agent, {repeats} repeat" in report
+    assert "3 scenarios, 1 agent, 2 repeats" in report
     progress = json.loads((session / "progress.json").read_text())
     assert progress["state"] == "completed"
     assert all(item["state"] == "completed" for item in progress["items"])
     assert not list(session.glob(".report.md.*"))
+
+
+@pytest.mark.parametrize("note", [
+    "",
+    "   ",
+    "Budget $5; $HOME; ${HOME}; $(HOME); $$",
+    "Make expression: $(shell touch memo-ran)",
+    'Testing alerts without the skill.\nOwner\'s memo: "baseline"; `touch memo-ran`; $(touch memo-ran)',
+])
+def test_make_eval_note_survives_report_updates_and_regeneration(live_report_workspace, note):
+    root, service, env = live_report_workspace
+    (root / "evals/scenarios/first").rename(root / "evals/scenarios/crashlooping_pod_alert")
+    result = subprocess.run(
+        ["make", f"eval-ols-{service}", "SCENARIO=crashlooping_pod_alert",
+         "SETUP_MODE=skip", f"NOTE={note}"],
+        cwd=root, env=env, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    session = next((root / "evals/results").iterdir())
+    progress = json.loads((session / "progress.json").read_text())
+    assert progress.get("note", "") == note.strip()
+    if note.strip():
+        assert f"note:       {note.strip()}" in result.stdout
+    else:
+        assert "note:       " not in result.stdout
+    initial = (root / "snapshots/crashlooping_pod_alert-1.md").read_text()
+    final = (session / "report.md").read_text()
+    if note.strip():
+        for report in (initial, final):
+            for line in note.strip().splitlines():
+                assert report.count(line) == 1
+            assert "> Note: _" in report
+            first_table = next(line for line in report.splitlines() if line.startswith("|"))
+            assert report.index(note.strip().splitlines()[0]) < report.index(first_table)
+    else:
+        assert "note" not in progress
+    regenerated = subprocess.run(
+        [sys.executable, str(root / f"scripts/generate-report-{service}.py"),
+         str(session), "--output", str(session / "rebuilt.md")],
+        env=env, capture_output=True, text=True, timeout=10,
+    )
+    assert regenerated.returncode == 0, regenerated.stdout + regenerated.stderr
+    assert (session / "rebuilt.md").read_text() == final
+    assert not list(root.rglob("memo-ran"))
 
 
 def test_live_report_records_technical_errors_and_continues(live_report_workspace):
@@ -1045,10 +1107,13 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
     config_path = workspace / "evals/system-ols-agentic.yaml"
     system_config = yaml.safe_load(config_path.read_text())
     if active_subset:
-        system_config["agents"]["default"]["agent"] = (
-            system_config["agents"]["default"]["agent"][:1]
-        )
-        config_path.write_text(yaml.safe_dump(system_config))
+        system_config["agents"]["default"]["agent"] = ["openai-gpt-6-luna"]
+    else:
+        system_config["agents"]["default"]["agent"] = [
+            name for name, config in system_config["agents"].items()
+            if isinstance(config, dict) and "agent_ref" in config
+        ]
+    config_path.write_text(yaml.safe_dump(system_config))
     bin_dir = workspace / "bin"
     executable(
         bin_dir / "git",
@@ -1102,6 +1167,7 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
         "EVAL_VERTEX_CREDENTIALS": str(credentials),
         "EVAL_VERTEX_PROJECT_ID": "test-project",
         "ARTIFACT_DIR": str(workspace / "artifacts"),
+        "SYSTEM_CONFIG": str(config_path),
         "MAKE_LOG": str(workspace / "make.log"),
         "CR_LOG": str(workspace / "cr.log"),
         "CR_STATE": str(workspace / "cr-state.json"),
@@ -1116,9 +1182,10 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
     assert result.returncode == 0, result.stdout + result.stderr
     resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
     providers = [r for r in resources if r["kind"] == "LLMProvider"]
-    assert [r["metadata"]["name"] for r in providers] == [
+    expected_providers = ["openai"] if active_subset else [
         "openai", "vertex-google", "vertex-anthropic",
     ]
+    assert [r["metadata"]["name"] for r in providers] == expected_providers
     for resource in providers[1:]:
         vertex = resource["spec"]["googleCloudVertex"]
         assert vertex["region"] == "global"
@@ -1140,3 +1207,65 @@ def test_ci_agent_provisioning(workspace, agent, active_subset):
     assert commands == [
         "setup-ols-agentic", "eval-ols-agentic TAG=core", "cleanup-ols-agentic",
     ]
+
+
+@pytest.mark.parametrize("provider", ["openai", "vertex-google", "vertex-anthropic"])
+@pytest.mark.parametrize("judge_provider", ["openai", "google", "anthropic"])
+@pytest.mark.parametrize("credentials_present", [False, True])
+def test_agentic_setup_uses_selected_config(workspace, provider, judge_provider, credentials_present):
+    config_path = workspace / "custom-system.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "judge_panel": {"judges": ["judge"]},
+        "llm_pool": {"models": {
+            "judge": {"provider": judge_provider, "model": "judge-model"},
+            "unused": {"provider": "google", "model": "unused-model"},
+        }},
+        "agents": {
+            "enabled": True,
+            "default": {"agent": ["selected"]},
+            "selected": {"description": f"{provider}|test-model", "agent_ref": "selected"},
+        },
+    }))
+    executable(workspace / "scripts/setup-venv.sh", "#!/bin/bash\nexit 0\n")
+    executable(workspace / "bin/oc", f"#!{sys.executable}\n" + '''
+import json
+import os
+import sys
+import yaml
+
+with open(os.environ["OC_LOG"], "a") as log:
+    log.write(" ".join(sys.argv[1:]) + "\\n")
+if sys.argv[1] == "apply":
+    with open(os.environ["CR_LOG"], "a") as log:
+        for resource in yaml.safe_load_all(sys.stdin):
+            if resource:
+                log.write(json.dumps(resource) + "\\n")
+''')
+    credentials = workspace / "credentials.json"
+    credentials.write_text("{}")
+    env = {
+        **os.environ,
+        "PATH": f"{workspace / 'bin'}:{os.environ['PATH']}",
+        "EVAL_OPENAI_API_KEY": "test-key",
+        "EVAL_VERTEX_CREDENTIALS": str(credentials) if credentials_present else "",
+        "EVAL_VERTEX_PROJECT_ID": "test-project" if credentials_present else "",
+        "OC_LOG": str(workspace / "oc.log"),
+        "CR_LOG": str(workspace / "cr.log"),
+    }
+    result = subprocess.run(
+        ["make", "setup-ols-agentic", f"SYSTEM_CONFIG_AGENTIC={config_path}"],
+        cwd=workspace, env=env, capture_output=True, text=True,
+    )
+    judge_cr_provider = {"google": "vertex-google", "anthropic": "vertex-anthropic"}.get(
+        judge_provider, judge_provider,
+    )
+    expected_providers = list(dict.fromkeys([judge_cr_provider, provider]))
+    if any(name != "openai" for name in expected_providers) and not credentials_present:
+        assert result.returncode != 0
+        assert "EVAL_VERTEX_CREDENTIALS" in result.stderr
+        assert not (workspace / "oc.log").exists()
+        return
+    assert result.returncode == 0, result.stdout + result.stderr
+    resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
+    assert [r["metadata"]["name"] for r in resources if r["kind"] == "LLMProvider"] == expected_providers
+    assert [r["metadata"]["name"] for r in resources if r["kind"] == "Agent"] == ["selected"]

@@ -50,6 +50,12 @@ SCRIPTS_DIR := scripts
 SCENARIOS_DIR := evals/scenarios
 EVALS_DIR := evals
 
+# Pass the note as environment data so quotes and shell characters stay literal.
+NOTE ?=
+# Keep dollar signs and Make expressions as text, including command-line values.
+override NOTE := $(value NOTE)
+export NOTE
+
 # System config files (can be overridden via environment variable)
 SYSTEM_CONFIG_AGENTIC ?= $(EVALS_DIR)/system-ols-agentic.yaml
 SYSTEM_CONFIG_CLASSIC ?= $(EVALS_DIR)/system-ols-classic.yaml
@@ -209,7 +215,7 @@ endif
 
 setup-ols-agentic: setup-venv
 	@echo "==> Using config: $(SYSTEM_CONFIG_AGENTIC)"
-	@bash $(SCRIPTS_DIR)/setup-ols-agentic.sh
+	@SYSTEM_CONFIG_AGENTIC="$(SYSTEM_CONFIG_AGENTIC)" bash $(SCRIPTS_DIR)/setup-ols-agentic.sh
 	@venv/bin/python3 $(SCRIPTS_DIR)/sync-agent-crs.py "$(SYSTEM_CONFIG_AGENTIC)"
 	@echo ""
 	@echo "NOTE: Install lightspeed-agentic-operator manually by following:"
@@ -296,6 +302,7 @@ help: ## Show available targets
 	@echo "  SCENARIO=...              Comma-separated scenarios (required unless TAG is set)"
 	@echo "  TAG=...                   Filter by tag (required unless SCENARIO is set)"
 	@echo "  PREVIEW=1                 List matched scenarios without running them"
+	@echo "  NOTE=...                  Optional memo before the first report table"
 	@echo "  SETUP_MODE=run|scenario|skip Setup/cleanup lifecycle (default: scenario)"
 	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
 	@echo "    scenario: per scenario - for read-only agents, parallel OK"

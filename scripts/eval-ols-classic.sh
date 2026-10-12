@@ -2,12 +2,13 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] --scenarios SCENARIO... [--tags TAG...]"
+  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] --scenarios SCENARIO... [--tags TAG...]"
   exit 1
 }
 
 SYSTEM_CONFIG=""
 SETUP_MODE="scenario"
+NOTE="${NOTE:-}"
 SCENARIOS=()
 TAGS=()
 
@@ -15,6 +16,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --system-config) SYSTEM_CONFIG="$2"; shift 2 ;;
     --setup-mode)    SETUP_MODE="$2"; shift 2 ;;
+    --note)          NOTE="$2"; shift 2 ;;
     --scenarios)     shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do SCENARIOS+=("$1"); shift; done ;;
     --tags)          shift; while [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; do TAGS+=("$1"); shift; done ;;
     *) echo "Unknown arg: $1"; usage ;;
@@ -68,6 +70,7 @@ bash "$SCRIPT_DIR/show-eval-summary.sh" \
   --python "$PYTHON" \
   --system-config "$SYSTEM_CONFIG" \
   --setup-mode "$SETUP_MODE" \
+  --note "$NOTE" \
   --scenarios "${SCENARIOS[@]}"
 
 pf_pid=""

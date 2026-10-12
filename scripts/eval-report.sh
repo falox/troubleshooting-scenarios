@@ -25,7 +25,7 @@ report_event() {
 report_init() {
   REPORT_GENERATOR="$SCRIPT_DIR/generate-report-$1.py"
   REPORT_FINISHED=0
-  report_event init quiet --setup-mode "$SETUP_MODE" --repeat "$REPEAT" \
+  report_event init quiet --setup-mode "$SETUP_MODE" --repeat "$REPEAT" --note="${NOTE:-}" \
     --agents "${AGENTS[@]}" --scenarios "${SCENARIOS[@]}"
 }
 

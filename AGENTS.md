@@ -49,6 +49,60 @@ make eval-ols-classic TAG=investigation # Run OLS classic investigation cases
 make cleanup-ols-classic # Remove venv + OLS classic
 ```
 
+## Reading and debugging eval results
+
+Each evaluation session has a directory under `evals/results/`, named
+`YYYYMMDD_HHMMSS`. Use the session named by the user. If none is given, list the
+session directories and check their saved config and progress to find the
+relevant run. Results are gitignored, so inspect them directly on disk.
+
+Paths below are relative to the session directory:
+
+| Path | What to read |
+|------|--------------|
+| `report.md` | Overview of scenarios, agents, scores, responses, and errors. Updated during the session. |
+| `progress.json` | Selected scenarios, agents, repeat count, setup mode, run states, failure details, and session exit code. |
+| `system-ols-agentic.yaml` or `system-ols-classic.yaml` | Config saved for this session: models, judges, repeats, parallel setting, and metric thresholds. |
+| `scenarios/<scenario>/evals-ols-*.yaml` | Saved eval definitions used by the session, including expected behavior and status checks. Group paths are kept. |
+| `<agent>/run_N/*_summary.json` | Metric results and scores for repeat N. Match entries by `conversation_group_id` and `turn_id`. |
+| `<agent>/run_N/*_detailed.csv` | Detailed metric output, including judge reasons when available. |
+| `<agent>/run_N/*amended*.yaml` | Actual responses and recorded turn data. Agentic output also includes run status, phase results, and sandbox references. |
+| `eval_report.json` | Framework report, when produced. Read it with the run files and progress data. |
+| `logs/AGENTICRUN-PHASE.log` | Agentic sandbox container logs for `analysis`, `execution`, or `verification`. Duplicate filenames get `-1`, `-2`, etc. |
+| `capture-logs.log` | Agentic watcher status and errors, including the mapping from pod names to log paths. |
+| `failed-evals/output.*/` | Partial framework output saved after an evaluation failure, including files produced before agent/run directories existed. |
+
+To investigate a result:
+
+1. Read `report.md` and `progress.json` first. Check the session exit code and
+   item details: a finished session can still contain failed evaluations.
+2. Identify the scenario, agent, repeat, and turn. A `run_N` directory can hold
+   output for several scenarios. Read all matching summary and amended files,
+   rather than choosing only the first file or the newest timestamp.
+3. Compare the actual response and metrics with the session's saved scenario
+   definition and system config. Source files under `evals/scenarios/` may have
+   changed since the run. Separate low judge scores from setup failures,
+   evaluation errors, and failed AgenticRun completion checks.
+4. For Agentic runs, read `openshift_agentic_run_status` and
+   `openshift_agentic_run_results` in the amended YAML. When present,
+   `openshift_agentic_run_status.steps.<phase>.sandbox.claimName` gives the
+   sandbox name. Search for it in `capture-logs.log` to find the matching log file,
+   then read the phase logs for tool calls and errors.
+5. If normal output is missing, inspect progress details, watcher diagnostics,
+   and `failed-evals/`. Older sessions may lack snapshots or sandbox logs. The
+   watcher skips pods present at startup, and a phase may never have started;
+   a missing log alone does not prove that the application failed.
+6. Report the evidence with file paths, scenario/turn IDs, agent, and repeat.
+   Keep generated output in `evals/results/`. Promote reports to `evals/reports/`
+   only when requested. See [the eval guide](evals/README.md) for report
+   regeneration and scoring rules.
+
+Automatic sandbox capture applies to `make eval-ols-agentic`. For manual
+capture, start `./scripts/capture-logs --output-dir <directory>` before creating
+AgenticRuns. Both use `capture_logs()` in `scripts/sandbox_logs.py`. Capture
+errors are separate from the evaluation exit status; check `capture-logs.log`
+when logs are missing.
+
 ## Architecture: labs/payments-api-failure (Database Connection Exhaustion)
 
 Services share a PostgreSQL database with `max_connections=20`. The fault: `reporting-service` v1.0.2 accumulates database connections without closing them, exhausting the shared pool and causing payments-api to return 503s.

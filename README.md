@@ -49,13 +49,14 @@ Run the commands below from the repository root. You need:
 
 - An OpenShift cluster and an active `oc login` session.
 - Python 3.11+ for the evaluation environment.
-- `EVAL_OPENAI_API_KEY` for the judge and OpenAI models.
-- `EVAL_VERTEX_CREDENTIALS` and `EVAL_VERTEX_PROJECT_ID` when active models use
-  Google or Anthropic. The credentials value is a service account JSON path.
+- `EVAL_OPENAI_API_KEY` when selected agents or judges use OpenAI.
+- `EVAL_VERTEX_CREDENTIALS` and `EVAL_VERTEX_PROJECT_ID` when selected agents
+  or judges use Google or Anthropic. The credentials value is a service account
+  JSON path.
 
 ```bash
 export EVAL_OPENAI_API_KEY="<openai-api-key>"
-# Also set these when using Google or Anthropic:
+# Set these when selected agents or judges use Google or Anthropic:
 export EVAL_VERTEX_CREDENTIALS="/path/to/service-account.json"
 export EVAL_VERTEX_PROJECT_ID="<gcp-project-id>"
 ```
@@ -69,11 +70,13 @@ Each scenario folder that supports OLS Agentic contains an
 test and how many repeats to run per scenario in
 [`evals/system-ols-agentic.yaml`](evals/system-ols-agentic.yaml).
 The cluster needs the Lightspeed Agentic operator. Running
-`make setup-ols-agentic` creates the OpenAI credentials and provider using
-`EVAL_OPENAI_API_KEY`. When `EVAL_VERTEX_CREDENTIALS` and
-`EVAL_VERTEX_PROJECT_ID` are set, it also creates the Google and Anthropic
-Vertex providers. Both use region `global`; there is no region variable.
-These are the same credential variables used by Classic setup.
+`make setup-ols-agentic` reads the config selected by `SYSTEM_CONFIG_AGENTIC`
+and creates only the credentials and providers used by active agents and
+selected judges. It requires `EVAL_OPENAI_API_KEY` for OpenAI, and
+`EVAL_VERTEX_CREDENTIALS` plus `EVAL_VERTEX_PROJECT_ID` for Google or Anthropic.
+Setup checks these credentials before creating cluster resources. The Google
+and Anthropic Vertex providers use region `global`; there is no region
+variable. These are the same credential variables used by Classic setup.
 
 It then syncs the Agent CRs on the cluster with the agents
 defined in the system config; it does not install the operator. Before a real
@@ -83,6 +86,7 @@ match the system config. If they do not, it stops and asks you to run
 
 ```bash
 make setup-ols-agentic
+make setup-ols-agentic SYSTEM_CONFIG_AGENTIC=evals/custom-system.yaml # custom config
 make eval-ols-agentic TAG=investigation                       # run investigation cases
 make eval-ols-agentic SCENARIO=stuck_rollout                  # one scenario
 make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota  # multiple
@@ -145,5 +149,11 @@ and shared group resources where present.
 ## Results
 
 Logs and generated reports are saved under `evals/results/` (ignored by Git).
+Agentic evaluations also save sandbox pod logs to
+`evals/results/<session>/logs/AGENTICRUN-PHASE.log`, with watcher diagnostics in
+`evals/results/<session>/capture-logs.log`. Capture starts automatically before
+the first scenario and stops when the session ends. Existing result files are
+kept. See [sandbox logs](evals/README.md#sandbox-logs) for details and manual use.
+
 Copy reports worth keeping to `evals/reports/` to track them in Git.
 See [report generation](evals/README.md#reports) for commands and scoring rules.

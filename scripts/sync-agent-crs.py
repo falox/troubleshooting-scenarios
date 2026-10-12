@@ -62,6 +62,39 @@ def extract_agents(system_yaml_path: str) -> list[dict]:
     return result
 
 
+def extract_providers(system_yaml_path: str, agents: list[dict]) -> list[str]:
+    """Read the providers used by selected judges and active agents."""
+    with open(system_yaml_path) as f:
+        config = yaml.safe_load(f)
+
+    judge_panel = config.get("judge_panel") or {}
+    llm_pool = config.get("llm_pool") or {}
+    if not isinstance(judge_panel, dict) or not isinstance(llm_pool, dict):
+        raise AgentConfigError(["judge_panel and llm_pool must be YAML mappings"])
+    judge_names = judge_panel.get("judges") or []
+    judge_models = llm_pool.get("models") or {}
+    if not isinstance(judge_names, list) or not judge_names:
+        raise AgentConfigError(["judge_panel.judges must be a non-empty list"])
+    if not isinstance(judge_models, dict):
+        raise AgentConfigError(["llm_pool.models must be a YAML mapping"])
+    providers = []
+    for name in judge_names:
+        if not isinstance(name, str):
+            raise AgentConfigError(["judge names must be strings"])
+        judge = judge_models.get(name) or {}
+        if not isinstance(judge, dict) or not isinstance(judge.get("provider"), str):
+            raise AgentConfigError([f"judge '{name}' needs a supported provider"])
+        provider = judge.get("provider")
+        provider = {"google": "vertex-google", "anthropic": "vertex-anthropic"}.get(
+            provider, provider,
+        )
+        if provider not in ("openai", "vertex-google", "vertex-anthropic"):
+            raise AgentConfigError([f"judge '{name}' needs a supported provider"])
+        providers.append(provider)
+    providers.extend(agent["provider"] for agent in agents)
+    return list(dict.fromkeys(providers))
+
+
 def generate_cr(agent: dict) -> dict:
     """Generate an Agent CR dict from agent info."""
     return {
@@ -188,6 +221,10 @@ def main():
     parser = argparse.ArgumentParser(description="Sync Agent CRs from system configuration")
     parser.add_argument("system_yaml", help="Path to system configuration YAML")
     parser.add_argument(
+        "--list-providers", action="store_true",
+        help="Print the providers used by active agents and judges without applying CRs",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true",
         help="Print CRs without applying",
     )
@@ -199,6 +236,10 @@ def main():
 
     try:
         agents = extract_agents(args.system_yaml)
+        if args.list_providers:
+            for provider in extract_providers(args.system_yaml, agents):
+                print(provider)
+            return
     except AgentConfigError as error:
         print(
             f"ERROR: Invalid agent configuration in {args.system_yaml}.",

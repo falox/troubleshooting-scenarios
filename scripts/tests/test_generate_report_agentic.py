@@ -194,8 +194,8 @@ class TestOutcomeDetails:
         report = mod.generate_report(tmp_path)
         assert f"````markdown\n## Outcome\n\n{error}\n````" in report
         assert report.count(error) == 1
-        assert "Completed**: ❌ ERROR" in report
-        assert "Correctness**: ❌ ERROR" in report
+        assert "Completed**: ⚠️ ERROR" in report
+        assert "Correctness**: ⚠️ ERROR" in report
 
     def test_csv_reason_matches_file_scenario_turn_and_metric(self, tmp_path):
         for stamp, reason in [("100000", "first error"), ("100100", "second error")]:
@@ -258,13 +258,13 @@ class TestScoreCellIcons:
         (["PASS", "PASS"], ["PASS", "PASS"], "🟢 2/2"),
         (["FAIL", "FAIL"], ["PASS", "PASS"], "🔴 0/2"),
         (["PASS", "FAIL"], ["PASS", "PASS"], "1/2"),
-        (["PASS", "FAIL"], ["PASS", "FAIL"], "❌ 1/2"),
-        (["FAIL", "FAIL"], ["FAIL", "PASS"], "❌ 0/2"),
-        (["PASS", "PASS"], ["PASS", "FAIL"], "❌ 1/2"),
-        (["PASS", "ERROR"], ["PASS", "ERROR"], "❌ 1/2"),
-        (["ERROR"], ["PASS"], "❌ 0.00"),
-        (["FAIL"], ["PASS"], "🔴 0.00"),
-        (["PASS"], ["PASS"], "🟢 1.00"),
+        (["PASS", "FAIL"], ["PASS", "FAIL"], "⚠️ 1/2"),
+        (["FAIL", "FAIL"], ["FAIL", "PASS"], "⚠️ 0/2"),
+        (["PASS", "PASS"], ["PASS", "FAIL"], "⚠️ 1/2"),
+        (["PASS", "ERROR"], ["PASS", "ERROR"], "⚠️ 1/2"),
+        (["ERROR"], ["PASS"], "⚠️ 0/1"),
+        (["FAIL"], ["PASS"], "🔴 0/1"),
+        (["PASS"], ["PASS"], "🟢 1/1"),
     ])
     def test_quality_and_technical_failures(self, quality, status, expected):
         runs = []
@@ -279,7 +279,7 @@ class TestScoreCellIcons:
 
     def test_quality_failure_without_status_is_not_a_technical_failure(self):
         assert mod.score_cell([[_make_result("s1", result="FAIL", score=0)]], "s1", "agent") == (
-            "[🔴 0.00](#agent--s1)"
+            "[🔴 0/1](#agent--s1) (0.00)"
         )
 
 
@@ -292,16 +292,17 @@ class TestScoreAverages:
         ("FAIL", "FAIL", 0.4),
         ("PASS", "ERROR", 1.0),
     ])
-    def test_technical_failures_count_as_zero(self, quality, status, score):
+    def test_technical_failures_keep_only_available_quality_scores(self, quality, status, score):
         runs = [
             [_make_result("s1", result=quality, score=score),
              _make_result("s1", metric=mod.STATUS_METRIC, result=status)],
             [_make_result("s1")],
             [_make_result("s1")],
         ]
-        assert mod.score_cell(runs, "s1", "agent").endswith(" (0.67)")
-        assert mod.scenario_mean_score(runs, "s1") == pytest.approx(2 / 3)
-        assert mod.mean_score(runs, ["s1"]) == pytest.approx(2 / 3)
+        expected = (score + 2) / 3 if quality != "ERROR" else 1.0
+        assert mod.score_cell(runs, "s1", "agent").endswith(f" ({expected:.2f})")
+        assert mod.scenario_mean_score(runs, "s1") == pytest.approx(expected)
+        assert mod.mean_score(runs, ["s1"]) == pytest.approx(expected)
 
     def test_quality_failure_keeps_its_score(self):
         runs = [[
@@ -309,26 +310,26 @@ class TestScoreAverages:
             _make_result("s1", metric=mod.STATUS_METRIC),
             _make_result("other", result="ERROR", score=None),
         ]]
-        assert mod.score_cell(runs, "s1", "agent") == "[🔴 0.40](#agent--s1)"
+        assert mod.score_cell(runs, "s1", "agent") == "[🔴 0/1](#agent--s1) (0.40)"
         assert mod.scenario_mean_score(runs, "s1") == 0.4
         assert mod.mean_score(runs, ["s1"]) == 0.4
 
     @pytest.mark.parametrize("metric", [mod.CORRECTNESS_METRIC, mod.STATUS_METRIC])
-    def test_all_errors_have_zero_average(self, metric):
+    def test_all_errors_have_no_average(self, metric):
         runs = [[_make_result("s1", metric=metric, result="ERROR", score=None)]] * 3
-        assert mod.score_cell(runs, "s1", "agent") == "[❌ 0/3](#agent--s1) (0.00)"
-        assert mod.scenario_mean_score(runs, "s1") == 0.0
-        assert mod.mean_score(runs, ["s1"]) == 0.0
+        assert mod.score_cell(runs, "s1", "agent") == "[⚠️ 0/3](#agent--s1)"
+        assert mod.scenario_mean_score(runs, "s1") is None
+        assert mod.mean_score(runs, ["s1"]) is None
 
-    def test_missing_results_are_not_reported_as_failures(self):
+    def test_missing_results_are_reported_as_errors(self):
         runs = [None, []]
-        assert mod.score_cell(runs, "s1", "agent") == "N/A"
+        assert mod.score_cell(runs, "s1", "agent") == "[⚠️ 0/2](#agent--s1)"
         assert mod.scenario_mean_score(runs, "s1") is None
         assert mod.mean_score(runs, ["s1"]) is None
 
 
 class TestGenerateReport:
-    def test_error_scores_affect_averages_and_best_score(self, tmp_path):
+    def test_available_scores_set_averages_and_best_score(self, tmp_path):
         for agent, scores in [("agent_a", [None, 1.0, 1.0]), ("agent_b", [0.8] * 3)]:
             for run, score in enumerate(scores, start=1):
                 _write_run(
@@ -337,11 +338,11 @@ class TestGenerateReport:
                     [{"conversation_id": "s1"}],
                 )
         report = mod.generate_report(tmp_path)
-        assert "| Avg score | 0.67 | **0.80** 🥇 |" in report
-        assert "| **Avg score** | 0.67 | **0.80** 🥇 |" in report
-        assert "| [s1](#s1) | [❌ 2/3](#agent_a--s1) (0.67) | **[🟢 3/3](#agent_b--s1) (0.80)** 🥇 |" in report
-        assert "Technical failures count as 0 in score averages." in report
-        assert "**Correctness**: ❌ ERROR (score: N/A)" in report
+        assert "| Avg score | **1.00 (2/3)** 🥇 | 0.80 (3/3) |" in report
+        assert "| **Avg score** | **1.00 (2/3)** 🥇 | 0.80 (3/3) |" in report
+        assert "| [s1](#s1) | **[⚠️ 2/3](#agent_a--s1) (1.00)** 🥇 | [🟢 3/3](#agent_b--s1) (0.80) |" in report
+        assert "mean of available correctness scores (scored / planned runs)." in report
+        assert "**Correctness**: ⚠️ ERROR (score: N/A)" in report
 
     def test_single_agent_single_run(self, tmp_path):
         _write_run(
@@ -410,7 +411,7 @@ class TestGenerateReport:
                 timestamp=f"20260830_10000{run}",
             )
         report = mod.generate_report(tmp_path)
-        assert "**Pass rate**" in report
+        assert "**PASS**" in report
         assert "75% (3/4)" in report
 
     def test_status_metric_fallback(self, tmp_path, capsys):
@@ -431,7 +432,7 @@ class TestGenerateReport:
         mod.print_correctness_table(conversations, ["gpt-5.4"], agent_runs)
 
         assert "100% (1/1)" in report
-        assert "🟢 1.00" in report
+        assert "🟢 1/1" in report
         assert "1/1" in capsys.readouterr().out
 
     def test_remediation_phase_breakdown(self, tmp_path):
@@ -462,11 +463,11 @@ class TestGenerateReport:
         assert "A = Analysis; E = Execution; V = Verification." in report
         assert "Each linked cell reports" not in report
         assert "| Scenario | gemini | gpt-5.4 |" in report
-        assert "[A ✅ 1/1<br>E ❌ 0/1<br>V ❌ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
         assert "| [analysis-only](#analysis-only) |" not in report.split("## Correctness breakdown by Phase")[1].split("## Time")[0]
         assert "**Analysis**: ✅ Completed" in report
-        assert "**Execution**: ❌ Failed" in report
-        assert "**Verification**: ❌ Failed" in report
+        assert "**Execution**: ⚠️ Failed" in report
+        assert "**Verification**: ⚠️ Failed" in report
 
     def test_remediation_phase_breakdown_counts_repeats(self, tmp_path):
         for run, verification_status in [(1, "True"), (2, "False"), (3, "True")]:
@@ -514,7 +515,7 @@ class TestGenerateReport:
 
         report = mod.generate_report(tmp_path)
 
-        assert "[A ✅ 1/1<br>E ⏳ 0/1<br>V ❌ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ✅ 1/1<br>E ⏳ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
 
     def test_remediation_phase_pass_rate_footer(self, tmp_path):
         statuses = {
@@ -548,7 +549,7 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         breakdown = report.split("## Correctness breakdown by Phase")[1].split("## Time")[0]
 
-        assert "| **Pass rate** | A **100% (2/2)** 🥇<br>E 50% (1/2)<br>V **50% (1/2)** 🥇 | A 50% (1/2)<br>E **100% (2/2)** 🥇<br>V 0% (0/2) |" in breakdown
+        assert "| **PASS** | A **100% (2/2)** 🥇<br>E 50% (1/2)<br>V **50% (1/2)** 🥇 | A 50% (1/2)<br>E **100% (2/2)** 🥇<br>V 0% (0/2) |" in breakdown
 
     def test_omits_phase_breakdown_without_remediation(self, tmp_path):
         _write_run(
@@ -642,7 +643,7 @@ class TestGenerateReport:
         assert "# Evaluation Summary" in report
         assert "remediation-scenario" in report
         # Phase breakdown should show Failed (no valid conditions)
-        assert "[A ❌ 0/1<br>E ❌ 0/1<br>V ❌ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ⚠️ 0/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
 
     def test_handles_null_conditions_in_analysis(self, tmp_path):
         """Regression test: conditions field as null should be normalized to []."""
@@ -760,7 +761,7 @@ class TestGenerateReport:
         # Should not crash in phase_status when iterating conditions
         report = mod.generate_report(tmp_path)
         assert "# Evaluation Summary" in report
-        assert "[A ❌ 0/1<br>E ❌ 0/1<br>V ❌ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ⚠️ 0/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
 
     def test_normalizes_non_dict_entries_in_stored_conditions(self, tmp_path):
         """Regression test: non-dict entries in conditions list should be filtered before storage."""
@@ -790,7 +791,7 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         assert "# Evaluation Summary" in report
         # Should process the two valid conditions
-        assert "[A ✅ 1/1<br>E ❌ 0/1<br>V ❌ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
 
     def test_no_rankings_section(self, tmp_path):
         _write_run(
@@ -865,7 +866,7 @@ class TestGenerateReport:
                 amended_entries=[{"conversation_id": "s1"}],
             )
         report = mod.generate_report(tmp_path)
-        assert report.count("**100% (1/1)**") == 2
+        assert report.count("**100% (1/1)**") == 4
 
     def test_judge_in_header(self, tmp_path):
         config = {
@@ -951,8 +952,8 @@ class TestGenerateReport:
             }],
         )
         report = mod.generate_report(tmp_path)
-        cost_section = report.split("## Cost")[1].split("# Scenarios")[0]
-        assert "—" in cost_section
+        tokens_section = report.split("## Tokens")[1].split("# Scenarios")[0]
+        assert "—" in tokens_section
 
     def test_tokens_in_scenario_detail(self, tmp_path):
         """Token usage appears in the per-run detail section after Duration."""
@@ -998,7 +999,7 @@ class TestPrintCorrectnessTable:
         out = capsys.readouterr().out
         assert "s1" in out
         assert "1/1" in out
-        assert "Pass rate" in out
+        assert "PASS" in out
 
     def test_multi_run_counts(self, tmp_path, capsys):
         _write_run(

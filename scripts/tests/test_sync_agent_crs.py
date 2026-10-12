@@ -66,6 +66,29 @@ def test_extract_agents(tmp_path):
     }
 
 
+def test_extract_providers_includes_all_selected_judges(tmp_path):
+    config = yaml.safe_load(SYSTEM_YAML)
+    config["judge_panel"] = {"judges": ["openai-judge", "anthropic-judge"]}
+    config["llm_pool"] = {"models": {
+        "openai-judge": {"provider": "openai"},
+        "anthropic-judge": {"provider": "anthropic"},
+        "unused": {"provider": "unsupported"},
+    }}
+    system_yaml = tmp_path / "system.yaml"
+    system_yaml.write_text(yaml.safe_dump(config))
+    agents = mod.extract_agents(str(system_yaml))
+    assert mod.extract_providers(str(system_yaml), agents) == [
+        "openai", "vertex-anthropic", "vertex-google",
+    ]
+
+
+def test_extract_providers_rejects_missing_judge(tmp_path):
+    system_yaml = tmp_path / "system.yaml"
+    system_yaml.write_text(yaml.safe_dump({"judge_panel": {"judges": ["missing"]}}))
+    with pytest.raises(mod.AgentConfigError, match="judge 'missing'"):
+        mod.extract_providers(str(system_yaml), [])
+
+
 def test_extract_agents_rejects_missing_provider(tmp_path):
     config = textwrap.dedent("""\
         agents:
