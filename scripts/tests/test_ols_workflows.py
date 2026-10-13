@@ -654,6 +654,7 @@ def test_scenario_cleanup(
     assert [event for event in recorded if event != "report"] == events[:-1]
     assert recorded[0] == recorded[-1] == "report"
     assert recorded.count("report") == 4
+    assert recorded[recorded.index("cleanup") - 1] == "report"
 
 
 @pytest.mark.parametrize("mode", ["run", "scenario"])
@@ -987,6 +988,15 @@ def run_live_report(workspace, mode="skip", **extra_env):
 @pytest.mark.parametrize("mode", ["skip", "scenario", "run"])
 def test_live_report_contains_partial_results_and_normal_final_report(live_report_workspace, mode):
     root, _, _ = live_report_workspace
+    for name in ("first", "second", "third"):
+        executable(
+            root / "evals/scenarios" / name / "cleanup.sh",
+            f'''#!/bin/bash
+session="${{SCENARIO_STATE_DIR%/.scenario-state.*}}"
+cp "$session/report.md" "$SNAPSHOT_DIR/cleanup-{name}.md"
+echo "cleanup:{name}"
+''',
+        )
     result, session = run_live_report(live_report_workspace, mode)
     assert result.returncode == 0, result.stdout + result.stderr
     tables = result.stdout.split("| Scenario")
@@ -1006,6 +1016,11 @@ def test_live_report_contains_partial_results_and_normal_final_report(live_repor
     assert "| Pending |" not in before_second
     assert "## Progress" not in before_second
     assert "[🟢" in before_second
+    if mode != "skip":
+        assert (root / "snapshots/cleanup-first.md").read_text() == before_second
+        for index, name in enumerate(("first", "second", "third"), start=1):
+            before_cleanup = result.stdout.split(f"cleanup:{name}", 1)[0]
+            assert before_cleanup.count("| Scenario") == index
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
     assert "## Progress" not in report

@@ -207,6 +207,7 @@ run_scenario() {
       "${TAG_FLAGS[@]}" || scenario_status=$?
     if [ "$scenario_status" -ne 0 ]; then failure_detail="Evaluation failed (exit $scenario_status)"; fi
   fi
+  report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   if [ "$SETUP_MODE" != "skip" ] && [ -n "$scenario_state_dir" ]; then
     echo "==> Cleanup: $scenario"
     if [ -x "$scenario/cleanup.sh" ]; then
@@ -219,7 +220,6 @@ run_scenario() {
   elif [ "$SETUP_MODE" = "skip" ]; then
     echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
   fi
-  report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   return "$scenario_status"
 }
 
