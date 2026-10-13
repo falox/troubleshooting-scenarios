@@ -85,7 +85,8 @@ else
 fi
 
 eval_status=0
-OPENAI_API_KEY="$EVAL_OPENAI_API_KEY" "${VENV_DIR}/bin/lightspeed-eval" \
+OPENAI_API_KEY="$EVAL_OPENAI_API_KEY" "${VENV_DIR}/bin/python3" \
+  "$SCRIPT_DIR/agentic-eval.py" "$EVAL_DIR/crs" "${VENV_DIR}/bin/lightspeed-eval" \
   --system-config "$RUNTIME_CONFIG" \
   --output-dir "$TMPDIR_EVAL" \
   --eval-data "$EVALS" \

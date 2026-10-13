@@ -1,7 +1,9 @@
 """Save AgenticRun and result CRs, and read them without cluster access."""
 
 import argparse
-from datetime import datetime
+from contextlib import contextmanager
+from datetime import datetime, timezone
+import fcntl
 import json
 from pathlib import Path
 import re
@@ -9,6 +11,8 @@ import subprocess
 import sys
 import threading
 from urllib.parse import urlencode
+
+import yaml
 
 from report_progress import write_atomic
 
@@ -20,6 +24,23 @@ RESULT_KINDS = {
     "VerificationResult": "verification", "EscalationResult": "escalation",
 }
 RESOURCES = "agenticruns,analysisresults,executionresults,verificationresults,escalationresults"
+STOPS_FILE = "eval-stops.json"
+
+
+@contextmanager
+def snapshot_lock(directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    with (directory / ".capture.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock, fcntl.LOCK_UN)
+
+
+def saved_stops(directory):
+    path = directory / STOPS_FILE
+    return json.loads(path.read_text()) if path.exists() else {}
 
 
 def run_owner(resource):
@@ -33,15 +54,21 @@ def run_owner(resource):
                 metadata.get("labels", {}).get(RUN_LABEL))
 
 
-def list_resources():
+def list_resources(namespace=NAMESPACE):
     result = subprocess.run(
-        ["oc", "get", RESOURCES, "-n", NAMESPACE, "-o", "json", "--request-timeout=10s"],
+        ["oc", "get", RESOURCES, "-n", namespace, "-o", "json", "--request-timeout=10s"],
         check=True, capture_output=True, text=True, timeout=30,
     )
     return json.loads(result.stdout).get("items", [])
 
 
 def save_resource(directory, resource):
+    with snapshot_lock(directory):
+        if run_owner(resource) not in saved_stops(directory):
+            _save_resource(directory, resource)
+
+
+def _save_resource(directory, resource, force=False):
     """Save the complete CR atomically; never save providers or agents."""
     kind = resource.get("kind")
     if kind != "AgenticRun" and kind not in RESULT_KINDS:
@@ -49,16 +76,51 @@ def save_resource(directory, resource):
     metadata = resource["metadata"]
     name = re.sub(r"[^A-Za-z0-9_.-]", "_", metadata["name"])
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"{kind.lower()}-{name}.json"
+    path = directory / f"{kind.lower()}-{name}.yaml"
     if path.exists():
-        previous = json.loads(path.read_text())
+        previous = yaml.safe_load(path.read_text())
         if previous.get("metadata", {}).get("uid") != metadata.get("uid"):
-            path = directory / f"{kind.lower()}-{name}-{metadata['uid']}.json"
-        elif int(previous["metadata"].get("resourceVersion", 0)) > int(metadata.get("resourceVersion", 0)):
+            path = directory / f"{kind.lower()}-{name}-{metadata['uid']}.yaml"
+    if path.exists():
+        previous = yaml.safe_load(path.read_text())
+        if not force and int(previous["metadata"].get("resourceVersion", 0)) > int(metadata.get("resourceVersion", 0)):
             return
-    content = json.dumps(resource, indent=2) + "\n"
+    content = yaml.safe_dump(resource, sort_keys=False, allow_unicode=True)
     if not path.exists() or path.read_text() != content:
         write_atomic(path, content)
+
+
+def freeze_run(directory, name, namespace=NAMESPACE):
+    """Take the final snapshot before framework or scenario cleanup."""
+    directory = Path(directory)
+    stopped_at = datetime.now(timezone.utc).isoformat()
+    with snapshot_lock(directory):
+        # Block watcher writes while collecting the final snapshot, including
+        # results created between the API read and the stop record.
+        resources = list_resources(namespace)
+        run = next((cr for cr in resources if cr.get("kind") == "AgenticRun"
+                    and cr["metadata"]["name"] == name), None)
+        if run is None:
+            raise ValueError(f"AgenticRun {name} was not found at eval stop")
+        uid = run_owner(run)
+        stops = saved_stops(directory)
+        if uid not in stops:
+            for resource in resources:
+                if run_owner(resource) == uid:
+                    _save_resource(directory, resource, force=True)
+            stops[uid] = {"name": name, "stopped_at": stopped_at}
+            write_atomic(directory / STOPS_FILE, json.dumps(stops, indent=2) + "\n")
+    return uid
+
+
+def record_eval_outcome(directory, uid, error):
+    """Keep the framework outcome even if the cluster run completes later."""
+    directory = Path(directory)
+    with snapshot_lock(directory):
+        stops = saved_stops(directory)
+        stops[uid]["error"] = error
+        stops[uid]["timed_out"] = bool(error and "Timeout after" in error)
+        write_atomic(directory / STOPS_FILE, json.dumps(stops, indent=2) + "\n")
 
 
 class CRCapture:
@@ -186,14 +248,23 @@ class SavedCRs:
 
     def __init__(self, session):
         self.session = Path(session)
-        self.resources = []
-        for path in sorted((self.session / "crs").glob("*.json")):
+        self.stops = saved_stops(self.session / "crs")
+        resources = {}
+        directory = self.session / "crs"
+        # Keep old sessions readable. Prefer YAML if both formats are present.
+        paths = sorted(directory.glob("*.json")) + sorted(directory.glob("*.yaml"))
+        for path in paths:
             try:
-                resource = json.loads(path.read_text())
-            except (OSError, ValueError):
+                resource = yaml.safe_load(path.read_text())
+            except (OSError, ValueError, yaml.YAMLError):
+                continue
+            if not isinstance(resource, dict):
                 continue
             if resource.get("kind") == "AgenticRun" or resource.get("kind") in RESULT_KINDS:
-                self.resources.append((path, resource))
+                metadata = resource.get("metadata", {})
+                key = (resource["kind"], metadata.get("uid") or str(path))
+                resources[key] = (path, resource)
+        self.resources = list(resources.values())
 
     def match(self, entry, agent, run_index, metrics):
         references = {ref.get("name")
@@ -224,12 +295,25 @@ class SavedCRs:
 
     def enrich(self, entries, agent, run_index, metrics):
         for entry in entries:
+            timeout_metrics = [metric for metric in metrics or []
+                               if metric.get("conversation_group_id") == entry["conversation_group_id"]
+                               and (not metric.get("turn_id") or not entry.get("turn_id")
+                                    or metric["turn_id"] == entry["turn_id"])
+                               and "Timeout after" in metric.get("reason", "")]
+            entry["eval_timed_out"] = bool(timeout_metrics)
+            entry["eval_stopped_at"] = next(
+                (metric.get("eval_stopped_at") for metric in timeout_metrics), None,
+            )
             match = self.match(entry, agent, run_index, metrics)
             if match is None:
                 continue
             path, run = match
             entry["agentic_run_status"] = run.get("status") or {}
             entry["agentic_run_cr"] = run
+            stop = self.stops.get(run_owner(run), {})
+            entry["crs_frozen"] = bool(stop)
+            entry["eval_timed_out"] = bool(stop.get("timed_out") or timeout_metrics)
+            entry["eval_stopped_at"] = stop.get("stopped_at") or entry["eval_stopped_at"]
             entry["cr_links"] = [("AgenticRun", str(path.relative_to(self.session)))]
             results = {}
             resources = sorted(self.resources, key=lambda item: item[1]["metadata"].get("creationTimestamp", ""))
@@ -244,6 +328,21 @@ class SavedCRs:
             entry["agent_output_tokens"] = usage.get("outputTokens")
             started = run["metadata"].get("creationTimestamp")
             finished = (run.get("status") or {}).get("terminalTime")
+            stopped = entry.get("eval_stopped_at")
+            if stopped and (not finished or datetime.fromisoformat(finished.replace("Z", "+00:00"))
+                            > datetime.fromisoformat(stopped.replace("Z", "+00:00"))):
+                finished = stopped
+                usage = {}
+                for phase_results in results.values():
+                    for result in phase_results:
+                        if any(c.get("type") == "Completed" and c.get("lastTransitionTime")
+                               and datetime.fromisoformat(c["lastTransitionTime"].replace("Z", "+00:00"))
+                               <= datetime.fromisoformat(stopped.replace("Z", "+00:00"))
+                               for c in result.get("conditions", [])):
+                            for key, value in result.get("tokenUsage", {}).items():
+                                usage[key] = usage.get(key, 0) + value
+                entry["agent_input_tokens"] = usage.get("inputTokens")
+                entry["agent_output_tokens"] = usage.get("outputTokens")
             if started and finished:
                 entry["analysis_duration"] = (
                     datetime.fromisoformat(finished.replace("Z", "+00:00"))

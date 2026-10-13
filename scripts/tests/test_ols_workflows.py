@@ -37,6 +37,10 @@ def executable(path, content):
 def workspace(tmp_path):
     scripts = tmp_path / "scripts"
     scripts.mkdir()
+    # Wrapper behavior is tested separately with the framework driver.
+    (scripts / "agentic-eval.py").write_text(
+        "import os, sys\nos.execv(sys.argv[2], sys.argv[2:])\n"
+    )
     for name in (
         "eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py",
         "setup-ols-agentic.sh",

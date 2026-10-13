@@ -129,23 +129,33 @@ Both the standalone command and the Agentic runner use the shared
 ## Reports
 
 Agentic sessions save full `AgenticRun`, `AnalysisResult`, `ExecutionResult`,
-`VerificationResult`, and `EscalationResult` CRs under `<session>/crs/` as JSON.
-Capture starts before evaluation and keeps updates and deletion events until
-the session ends. Existing runs are skipped. Agent and LLMProvider CRs are
-not saved. Capture errors appear in `capture-logs.log` and do not change the
-eval exit status.
+`VerificationResult`, and `EscalationResult` CRs under `<session>/crs/`, one YAML file per CR (`KIND-NAME.yaml`).
+Capture starts before evaluation and keeps updates and deletion events. At the
+end of each eval, the runner collects a final snapshot before cleanup and
+freezes that run's CR files. `crs/eval-stops.json` records the stop time and
+eval outcome. Later CR updates cannot replace that snapshot. Existing runs
+are skipped. Agent and LLMProvider CRs are
+not saved. Watch errors appear in `capture-logs.log`; final snapshot errors
+appear in the evaluator output. Capture errors do not replace the eval outcome.
 
 The phase breakdown reads these saved result CRs first. It checks the
 `Completed` condition's reason, since `Completed=True` also applies to a
 failed phase. Missing evidence is `Unknown`, and an active phase is `Running`.
-Older sessions use result statuses in amended YAML, then AgenticRun conditions.
+The reader also supports JSON CRs from older sessions. Without saved CRs, it
+uses result statuses in amended YAML, then AgenticRun conditions.
 The report can be regenerated without cluster access. CR links let you inspect
 the evidence. When available, duration covers the full AgenticRun, from its
 creation to its terminal time.
 
-Eval outcomes still use the saved metrics. An eval timeout remains an ERROR
-even if a phase completes later. Saved CRs show their latest captured state,
-which may include results written after that timeout.
+Eval outcomes still use the saved metrics. An eval timeout is a failed test
+and remains an ERROR even if the AgenticRun continues and completes later.
+The framework timeout covers the full run, across all phases; `timeout: 900`
+means 900 seconds (15 minutes). A phase still running when this timeout expires
+is shown as timed out, even if its result CR does not exist yet. The frozen
+parent CR records the active sandbox. Later completion is excluded from the
+phase breakdown.
+For recovered CRs from older sessions, the report uses the timeout result's
+timestamp as the stop time; it does not count phase completions after that time.
 
 To recover CRs for an older session while they still exist on the cluster:
 

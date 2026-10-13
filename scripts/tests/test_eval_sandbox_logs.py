@@ -177,7 +177,7 @@ def test_make_agentic_saves_sandbox_logs(capture_workspace):
     assert [path.name for path in (session / "logs").iterdir()] == ["eval-new-analysis.log"]
     assert (session / "logs/eval-new-analysis.log").read_text() == "sandbox evidence\n"
     assert "Stopped." in (session / "capture-logs.log").read_text()
-    saved = [json.loads(path.read_text()) for path in (session / "crs").glob("*.json")]
+    saved = [yaml.safe_load(path.read_text()) for path in (session / "crs").glob("*.yaml")]
     assert {cr["kind"] for cr in saved} == {
         "AgenticRun", "AnalysisResult", "ExecutionResult", "VerificationResult", "EscalationResult",
     }

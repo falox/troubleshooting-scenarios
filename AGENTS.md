@@ -69,7 +69,7 @@ Paths below are relative to the session directory:
 | `<agent>/run_N/*amended*.yaml` | Actual responses and recorded turn data. Agentic output also includes run status, phase results, and sandbox references. |
 | `eval_report.json` | Framework report, when produced. Read it with the run files and progress data. |
 | `logs/AGENTICRUN-PHASE.log` | Agentic sandbox container logs for `analysis`, `execution`, or `verification`. Duplicate filenames get `-1`, `-2`, etc. |
-| `crs/KIND-NAME.json` | Full AgenticRun and result CR snapshots. Check result conditions and reasons for each phase, and parent UIDs to match the run. Agent and LLMProvider CRs are not saved. |
+| `crs/KIND-NAME.yaml` | Full AgenticRun and result CR snapshots. Check result conditions and reasons for each phase, and parent UIDs to match the run. Agent and LLMProvider CRs are not saved. |
 | `capture-logs.log` | Agentic watcher status and errors, including the mapping from pod names to log paths. |
 | `failed-evals/output.*/` | Partial framework output saved after an evaluation failure, including files produced before agent/run directories existed. |
 
@@ -86,9 +86,10 @@ To investigate a result:
    evaluation errors, and failed AgenticRun completion checks.
 4. For Agentic runs, read saved CRs under `crs/` when available. A result
    condition with `Completed=True` means the phase ended; check `reason`
-   (`Succeeded`, `Failed`, or a timeout reason) for its outcome. CRs may have
-   completed after the eval timed out, so keep phase states separate from the
-   evaluation outcome. Otherwise, read `openshift_agentic_run_status` and
+   (`Succeeded`, `Failed`, or a timeout reason) for its outcome. CR snapshots
+   are frozen at eval stop, recorded in `crs/eval-stops.json`. A framework
+   timeout fails the eval even if the cluster run later completes. Otherwise,
+   read `openshift_agentic_run_status` and
    `openshift_agentic_run_results` in the amended YAML. When present,
    `openshift_agentic_run_status.steps.<phase>.sandbox.claimName` gives the
    sandbox name. Search for it in `capture-logs.log` to find the matching log file,

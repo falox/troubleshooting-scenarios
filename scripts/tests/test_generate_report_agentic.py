@@ -113,7 +113,8 @@ def test_result_cr_reason_overrides_parent_success(tmp_path, reason, expected):
     assert mod.phase_status(entries, "scenario", "Verified") == expected
 
 
-def test_saved_crs_recover_phases_without_changing_timeout_score(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("extension", ["json", "yaml"])
+def test_saved_crs_recover_phases_without_changing_timeout_score(tmp_path, monkeypatch, capsys, extension):
     reason = "Timeout after 600s for 'eval-recovered'"
     _write_run(tmp_path / "model/run_1", results=[_make_result(
         "scenario", metric=mod.STATUS_METRIC, result="ERROR", score=None, reason=reason,
@@ -130,22 +131,69 @@ def test_saved_crs_recover_phases_without_changing_timeout_score(tmp_path, monke
     parent = {"kind": "AgenticRun", "metadata": {
         "name": "eval-recovered", "uid": "recovered", "creationTimestamp": "2026-08-30T09:40:00Z",
     }, "status": {"terminalTime": "2026-08-30T10:05:00Z", "conditions": []}}
-    (directory / "run.json").write_text(json.dumps(parent))
-    for kind in ("AnalysisResult", "ExecutionResult", "VerificationResult"):
+    dump = json.dumps if extension == "json" else yaml.safe_dump
+    (directory / f"run.{extension}").write_text(dump(parent))
+    for kind, completed in [("AnalysisResult", "2026-08-30T09:41:00Z"),
+                            ("ExecutionResult", "2026-08-30T09:42:00Z"),
+                            ("VerificationResult", "2026-08-30T10:05:00Z")]:
         resource = {"kind": kind, "metadata": {
             "name": kind, "uid": kind, "labels": {"agentic.openshift.io/run": "recovered"},
-        }, "status": {"conditions": [{"type": "Completed", "status": "True", "reason": "Succeeded"}]}}
-        (directory / f"{kind}.json").write_text(json.dumps(resource))
+        }, "status": {"conditions": [
+            {"type": "Started", "status": "True", "lastTransitionTime": "2026-08-30T09:40:00Z"},
+            {"type": "Completed", "status": "True", "reason": "Succeeded", "lastTransitionTime": completed},
+        ]}}
+        (directory / f"{kind}.{extension}").write_text(dump(resource))
     report = mod.generate_report(tmp_path)
-    assert "[A ✅ 1/1<br>E ✅ 1/1<br>V ✅ 1/1]" in report
+    assert "[A ✅ 1/1<br>E ✅ 1/1<br>V ⏳ 0/1]" in report
     assert "**Completed**: ⚠️ ERROR" in report
     assert reason in report
-    assert "phase results written after that timeout" in report
-    assert "**Duration**: 25m 0s" in report
-    assert "[AgenticRun](crs/run.json)" in report
+    assert "later completion is excluded" in report
+    assert "**Duration**: 20m 0s" in report
+    assert f"[AgenticRun](crs/run.{extension})" in report
     monkeypatch.setattr(mod.sys, "argv", ["generate-report-agentic.py", str(tmp_path)])
     mod.main()
-    assert "25m 0s" in capsys.readouterr().out
+    assert "20m 0s" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("conditions", [[], [{
+    "type": "Verified", "status": "False", "reason": "Running",
+    "lastTransitionTime": "2026-10-13T10:09:00Z",
+}]])
+def test_frozen_parent_marks_active_phase_timed_out_without_result_cr(tmp_path, conditions):
+    from agentic_crs import freeze_run, record_eval_outcome, save_resource
+    from unittest.mock import patch
+
+    reason = "Timeout after 600s for 'eval-one'"
+    _write_run(tmp_path / "model/run_1", results=[_make_result(
+        "scenario", metric=mod.STATUS_METRIC, result="ERROR", score=None,
+    ) | {"reason": reason}], amended_entries=[{
+        "conversation_id": "scenario", "tags": ["remediation"],
+    }])
+    parent = {"kind": "AgenticRun", "metadata": {"name": "eval-one", "uid": "one"},
+              "status": {"conditions": conditions, "steps": {
+                  "verification": {"sandbox": {"claimName": "verification-sandbox"}},
+              }}}
+    directory = tmp_path / "crs"
+    with patch("agentic_crs.list_resources", return_value=[parent]):
+        uid = freeze_run(directory, "eval-one")
+    record_eval_outcome(directory, uid, reason)
+    parent["status"]["conditions"] = [{"type": "Verified", "status": "True", "reason": "Succeeded"}]
+    save_resource(directory, parent)
+    report = mod.generate_report(tmp_path)
+    assert "**Completed**: ⚠️ ERROR" in report
+    assert "**Verification**: ⏳ TimedOut" in report
+    assert "V ⏳ 0/1" in report
+    assert "[AgenticRun](crs/agenticrun-eval-one.yaml)" in report
+
+
+def test_late_parent_without_phase_history_does_not_prove_phase_never_started():
+    entries = [{"conversation_group_id": "scenario", "eval_timed_out": True,
+                "eval_stopped_at": "2026-10-13T10:10:00Z", "agentic_run_cr": {"kind": "AgenticRun"},
+                "agentic_run_status": {"conditions": [{
+                    "type": "Verified", "status": "True", "reason": "Succeeded",
+                    "lastTransitionTime": "2026-10-13T10:15:00Z",
+                }]}}]
+    assert mod.phase_status(entries, "scenario", "Verified") == "Unknown"
 
 
 def test_running_result_and_missing_phase_are_distinct(tmp_path):

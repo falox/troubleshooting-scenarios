@@ -84,6 +84,8 @@ def load_run_summary(run_dir: Path) -> list[dict] | None:
         with open(f) as fh:
             data = json.load(fh)
         file_results = data.get("results", [])
+        for result in file_results:
+            result["eval_stopped_at"] = data.get("timestamp")
         detailed = f.with_name(f.name.replace("_summary.json", "_detailed.csv"))
         if detailed.exists():
             with detailed.open(newline="") as fh:
@@ -386,6 +388,15 @@ def phase_status(entries: list[dict], conversation_id: str, condition_type: str)
         if entry["conversation_group_id"] != conversation_id:
             continue
         phase = next(label.lower() for label, condition in PHASE_CONDITIONS if condition == condition_type)
+        stopped = entry.get("eval_stopped_at")
+        cutoff = datetime.fromisoformat(stopped.replace("Z", "+00:00")) if stopped else None
+
+        def before_stop(condition):
+            stamp = condition.get("lastTransitionTime")
+            if stamp and cutoff:
+                return datetime.fromisoformat(stamp.replace("Z", "+00:00")) <= cutoff
+            return bool(entry.get("crs_frozen") or (not cutoff and not entry.get("eval_timed_out")))
+
         result_statuses = []
         for result in entry.get("agentic_run_results", {}).get(phase, []) or []:
             if not isinstance(result, dict):
@@ -393,6 +404,8 @@ def phase_status(entries: list[dict], conversation_id: str, condition_type: str)
             conditions = result.get("conditions")
             if not isinstance(conditions, list):
                 conditions = []
+            conditions = [condition for condition in conditions
+                          if isinstance(condition, dict) and before_stop(condition)]
             completed = next((c for c in reversed(conditions)
                               if isinstance(c, dict) and c.get("type") == "Completed"), None)
             if completed is not None:
@@ -407,11 +420,13 @@ def phase_status(entries: list[dict], conversation_id: str, condition_type: str)
                     result_statuses.append("Unknown")
             elif any(isinstance(c, dict) and c.get("type") == "Started"
                      and str(c.get("status", "")).lower() == "true" for c in conditions):
-                result_statuses.append("Running")
+                result_statuses.append("TimedOut" if entry.get("eval_timed_out") else "Running")
         if result_statuses:
             return result_statuses[-1]
         for condition in entry.get("agentic_run_status", {}).get("conditions", []) or []:
             if not isinstance(condition, dict):
+                continue
+            if not before_stop(condition):
                 continue
             if condition.get("type") == condition_type:
                 if str(condition.get("status", "")).lower() == "true":
@@ -419,11 +434,18 @@ def phase_status(entries: list[dict], conversation_id: str, condition_type: str)
                 if "timeout" in condition.get("reason", "").lower() or "timed out" in json.dumps(condition).lower():
                     return "TimedOut"
                 if condition.get("reason") in {"Running", "WaitingForSandbox", "Pending"}:
-                    return "Running"
+                    return "TimedOut" if entry.get("eval_timed_out") else "Running"
                 if str(condition.get("status", "")).lower() == "unknown":
                     return "Unknown"
                 return "Failed"
-        return "Not started" if entry.get("agentic_run_cr") else "Unknown"
+        # A result CR may only be created when the phase ends. The frozen
+        # parent still records the sandbox while the phase is active.
+        if entry.get("crs_frozen"):
+            step = (entry.get("agentic_run_status", {}).get("steps") or {}).get(phase) or {}
+            if (step.get("sandbox") or {}).get("claimName") and not step.get("results"):
+                return "TimedOut" if entry.get("eval_timed_out") else "Running"
+            return "Not started" if not step else "Unknown"
+        return "Unknown"
     return "Unknown"
 
 
@@ -753,7 +775,7 @@ def generate_scenario_details(
                         links = ", ".join(f"[{kind}]({path})" for kind, path in entry["cr_links"])
                         lines.extend([f"**Saved CRs**: {links}", ""])
                         if any("Timeout after" in r.get("reason", "") for r in conv_results):
-                            lines.extend(["The eval timed out. These CRs may include phase results written after that timeout.", ""])
+                            lines.extend(["The eval timed out. Phase states are shown at eval stop; later completion is excluded.", ""])
                         break
 
                 # Analysis duration and tokens
@@ -895,7 +917,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         lines.append("## Correctness breakdown by Phase")
         lines.append("")
         lines.append("A = Analysis; E = Execution; V = Verification.")
-        lines.append("Phase states use saved result CRs when available. Eval errors remain separate; ? means the phase state is unknown.")
+        lines.append("Phase states use saved result CRs at eval stop when available. Later completion is excluded. ⏳ means timed out; ? means unknown. Overall eval errors remain ERROR.")
         lines.append("")
         lines.append(generate_phase_breakdown_table(remediation, agent_names, agent_amended, scenario_names))
         lines.append("")
