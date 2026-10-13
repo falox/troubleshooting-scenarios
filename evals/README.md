@@ -128,6 +128,35 @@ Both the standalone command and the Agentic runner use the shared
 
 ## Reports
 
+Agentic sessions save full `AgenticRun`, `AnalysisResult`, `ExecutionResult`,
+`VerificationResult`, and `EscalationResult` CRs under `<session>/crs/` as JSON.
+Capture starts before evaluation and keeps updates and deletion events until
+the session ends. Existing runs are skipped. Agent and LLMProvider CRs are
+not saved. Capture errors appear in `capture-logs.log` and do not change the
+eval exit status.
+
+The phase breakdown reads these saved result CRs first. It checks the
+`Completed` condition's reason, since `Completed=True` also applies to a
+failed phase. Missing evidence is `Unknown`, and an active phase is `Running`.
+Older sessions use result statuses in amended YAML, then AgenticRun conditions.
+The report can be regenerated without cluster access. CR links let you inspect
+the evidence. When available, duration covers the full AgenticRun, from its
+creation to its terminal time.
+
+Eval outcomes still use the saved metrics. An eval timeout remains an ERROR
+even if a phase completes later. Saved CRs show their latest captured state,
+which may include results written after that timeout.
+
+To recover CRs for an older session while they still exist on the cluster:
+
+```bash
+venv/bin/python3 scripts/agentic_crs.py "evals/results/<session>"
+```
+
+This uses the run names in the saved log filenames. Use `--runs NAME ...` to
+select run names explicitly when logs are missing. It saves only those runs
+and their result CRs, matched by parent UID.
+
 Runners save Markdown reports to `evals/results/<session>/report.md`,
 in the same directory as the session results and system config.
 Use `NOTE` to describe the purpose of a run. It works for both eval targets:
@@ -147,8 +176,9 @@ The report is created before evaluation starts and updated at the start and
 end of each scenario. With `SETUP_MODE=run`, it is updated for each agent and
 repeat. You can open the file during `make eval-ols-agentic` or
 `make eval-ols-classic` to see partial results.
-The CLI prints the results table after each scenario. With `SETUP_MODE=run`,
-it prints the table after all agents and repeats for that scenario finish.
+The CLI prints the results table after each scenario, before cleanup starts.
+With `SETUP_MODE=run`, it prints the updated table after each agent and repeat,
+before cleanup starts for that run.
 CLI cells are yellow when the Markdown correctness table shows ⚠️, meaning
 at least one technical error, including a setup failure or missing results
 after the session ends (when output is not a terminal, these cells use `*`

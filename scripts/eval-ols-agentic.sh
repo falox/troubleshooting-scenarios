@@ -134,8 +134,8 @@ start_log_watch() {
 import sys
 sys.path.insert(0, sys.argv[1])
 from sandbox_logs import capture_logs
-sys.exit(capture_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True)))
-' "$SCRIPT_DIR" "$EVAL_DIR/logs" 2> "$EVAL_DIR/capture-logs.log"
+sys.exit(capture_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True), crs_directory=sys.argv[3]))
+' "$SCRIPT_DIR" "$EVAL_DIR/logs" "$EVAL_DIR/crs" 2> "$EVAL_DIR/capture-logs.log"
   }
   LOG_WATCH_PID=$SANDBOX_LOGS_PID
   ready_fd=${SANDBOX_LOGS[0]}
@@ -242,13 +242,9 @@ if [ "$SETUP_MODE" = "run" ]; then
     for agent in "${AGENTS[@]}"; do
       for run in $(seq 1 "$REPEAT"); do
         progress_index=$((progress_index + 1))
-        report_output=quiet
-        if [ "$agent" = "${AGENTS[-1]}" ] && [ "$run" -eq "$REPEAT" ]; then
-          report_output=table
-        fi
         run_scenario "$scenario" \
           "Progress: run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
-          "$report_output" \
+          table \
           --agent "$agent" \
           --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
       done

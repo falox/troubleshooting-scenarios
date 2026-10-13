@@ -97,6 +97,69 @@ def _write_run(
     (run_dir / f"evals_amended_{timestamp}.yaml").write_text(yaml.dump(amended))
 
 
+@pytest.mark.parametrize("reason,expected", [
+    ("Succeeded", "Completed"), ("Failed", "Failed"), ("AgentTimeout", "TimedOut"),
+])
+def test_result_cr_reason_overrides_parent_success(tmp_path, reason, expected):
+    run_dir = tmp_path / "model/run_1"
+    _write_run(run_dir, results=[_make_result("scenario")], amended_entries=[{
+        "conversation_id": "scenario", "tags": ["remediation"],
+        "agentic_run_status": {"conditions": [{"type": "Verified", "status": "True"}]},
+        "agentic_run_results": {"verification": [{"conditions": [
+            {"type": "Completed", "status": "True", "reason": reason},
+        ]}]},
+    }])
+    entries = mod.load_amended_entries(run_dir)
+    assert mod.phase_status(entries, "scenario", "Verified") == expected
+
+
+def test_saved_crs_recover_phases_without_changing_timeout_score(tmp_path, monkeypatch, capsys):
+    reason = "Timeout after 600s for 'eval-recovered'"
+    _write_run(tmp_path / "model/run_1", results=[_make_result(
+        "scenario", metric=mod.STATUS_METRIC, result="ERROR", score=None, reason=reason,
+    )], amended_entries=[{
+        "conversation_id": "scenario", "tags": ["remediation"], "agentic_run_status": None,
+    }])
+    # The framework records this reason in CSV; saved CRs remain separate evidence.
+    summary = next((tmp_path / "model/run_1").glob("*_summary.json"))
+    data = json.loads(summary.read_text())
+    data["results"][0]["reason"] = reason
+    summary.write_text(json.dumps(data))
+    directory = tmp_path / "crs"
+    directory.mkdir()
+    parent = {"kind": "AgenticRun", "metadata": {
+        "name": "eval-recovered", "uid": "recovered", "creationTimestamp": "2026-08-30T09:40:00Z",
+    }, "status": {"terminalTime": "2026-08-30T10:05:00Z", "conditions": []}}
+    (directory / "run.json").write_text(json.dumps(parent))
+    for kind in ("AnalysisResult", "ExecutionResult", "VerificationResult"):
+        resource = {"kind": kind, "metadata": {
+            "name": kind, "uid": kind, "labels": {"agentic.openshift.io/run": "recovered"},
+        }, "status": {"conditions": [{"type": "Completed", "status": "True", "reason": "Succeeded"}]}}
+        (directory / f"{kind}.json").write_text(json.dumps(resource))
+    report = mod.generate_report(tmp_path)
+    assert "[A ✅ 1/1<br>E ✅ 1/1<br>V ✅ 1/1]" in report
+    assert "**Completed**: ⚠️ ERROR" in report
+    assert reason in report
+    assert "phase results written after that timeout" in report
+    assert "**Duration**: 25m 0s" in report
+    assert "[AgenticRun](crs/run.json)" in report
+    monkeypatch.setattr(mod.sys, "argv", ["generate-report-agentic.py", str(tmp_path)])
+    mod.main()
+    assert "25m 0s" in capsys.readouterr().out
+
+
+def test_running_result_and_missing_phase_are_distinct(tmp_path):
+    _write_run(tmp_path / "model/run_1", results=[_make_result("scenario")], amended_entries=[{
+        "conversation_id": "scenario", "tags": ["remediation"],
+        "agentic_run_results": {"execution": [{"conditions": [
+            {"type": "Started", "status": "True"},
+        ]}]},
+    }])
+    report = mod.generate_report(tmp_path)
+    assert "**Execution**: 🔄 Running" in report
+    assert "**Verification**: ? Unknown" in report
+
+
 # --- Tests for discover_agents ---
 
 
@@ -463,11 +526,11 @@ class TestGenerateReport:
         assert "A = Analysis; E = Execution; V = Verification." in report
         assert "Each linked cell reports" not in report
         assert "| Scenario | gemini | gpt-5.4 |" in report
-        assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ? Unknown](#gpt-5.4--remediation-scenario)" in report
         assert "| [analysis-only](#analysis-only) |" not in report.split("## Correctness breakdown by Phase")[1].split("## Time")[0]
         assert "**Analysis**: ✅ Completed" in report
         assert "**Execution**: ⚠️ Failed" in report
-        assert "**Verification**: ⚠️ Failed" in report
+        assert "**Verification**: ? Unknown" in report
 
     @pytest.mark.parametrize("state", ["pending", "running"])
     def test_pending_remediation_phases_are_not_failures(self, tmp_path, state):
@@ -672,8 +735,8 @@ class TestGenerateReport:
 
         assert "# Evaluation Summary" in report
         assert "remediation-scenario" in report
-        # Phase breakdown should show Failed (no valid conditions)
-        assert "[A ⚠️ 0/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
+        # Missing evidence does not prove that a phase failed.
+        assert "[A ? Unknown<br>E ? Unknown<br>V ? Unknown](#gpt-5.4--remediation-scenario)" in report
 
     def test_handles_null_conditions_in_analysis(self, tmp_path):
         """Regression test: conditions field as null should be normalized to []."""
@@ -791,7 +854,7 @@ class TestGenerateReport:
         # Should not crash in phase_status when iterating conditions
         report = mod.generate_report(tmp_path)
         assert "# Evaluation Summary" in report
-        assert "[A ⚠️ 0/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ? Unknown<br>E ? Unknown<br>V ? Unknown](#gpt-5.4--remediation-scenario)" in report
 
     def test_normalizes_non_dict_entries_in_stored_conditions(self, tmp_path):
         """Regression test: non-dict entries in conditions list should be filtered before storage."""
@@ -821,7 +884,7 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         assert "# Evaluation Summary" in report
         # Should process the two valid conditions
-        assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ⚠️ 0/1](#gpt-5.4--remediation-scenario)" in report
+        assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ? Unknown](#gpt-5.4--remediation-scenario)" in report
 
     def test_no_rankings_section(self, tmp_path):
         _write_run(

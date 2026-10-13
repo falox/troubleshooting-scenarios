@@ -299,13 +299,9 @@ for scenario in "${SCENARIOS[@]}"; do
       agent_index=$((agent_index + 1))
       for run in $(seq 1 "$REPEAT"); do
         progress_index=$(( (scenario_index - 1) * ${#AGENTS[@]} * REPEAT + (agent_index - 1) * REPEAT + run ))
-        report_output=quiet
-        if [ "$agent" = "${AGENTS[-1]}" ] && [ "$run" -eq "$REPEAT" ]; then
-          report_output=table
-        fi
         run_scenario "$scenario" \
           "Progress: run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
-          "$report_output" \
+          table \
           --agent "$agent" \
           --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
       done

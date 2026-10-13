@@ -44,7 +44,7 @@ agents:
     repeat: 1
     parallel: true
     agent_config:
-      timeout: 600
+      timeout: 900
       poll_interval: 5
       cleanup_openshift_agentic_runs: false
 

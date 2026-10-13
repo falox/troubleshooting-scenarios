@@ -49,7 +49,7 @@ def workspace(tmp_path):
     # Most workflow tests use a small watcher with no cluster access.
     (scripts / "sandbox_logs.py").write_text(
         "from pathlib import Path\nimport signal\nimport sys\n"
-        "def capture_logs(directory, on_ready=None):\n"
+        "def capture_logs(directory, on_ready=None, crs_directory=None):\n"
         "    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
         "    Path(directory).mkdir(parents=True, exist_ok=True)\n"
         "    if on_ready is not None: on_ready()\n"
@@ -909,7 +909,7 @@ def live_report_workspace(request, classic_workspace):
     """Use the real reports with a small evaluator that needs no cluster."""
     root = classic_workspace
     service = request.param
-    for name in ("generate-report-agentic.py", "generate-report-classic.py", "report_common.py"):
+    for name in ("generate-report-agentic.py", "generate-report-classic.py", "report_common.py", "agentic_crs.py"):
         shutil.copy(ROOT / "scripts" / name, root / "scripts" / name)
     (root / f"evals/system-ols-{service}.yaml").write_text(yaml.safe_dump({
         "agents": {"default": {"agent": ["test-agent"], "repeat": 2}},
@@ -935,7 +935,9 @@ report = session / "report.md"
 assert report.is_file(), "Report must exist before evaluation starts"
 agent = args[args.index("--agent") + 1] if "--agent" in args else "test-agent"
 index = args[args.index("--run-index") + 1] if "--run-index" in args else "1"
-Path(os.environ["SNAPSHOT_DIR"], f"{scenario}-{index}.md").write_text(report.read_text())
+snapshot = Path(os.environ["SNAPSHOT_DIR"], f"{scenario}-{index}.md")
+if not snapshot.exists():
+    snapshot.write_text(report.read_text())
 if scenario == "second" and os.environ.get("INTERRUPT"):
     os.kill(os.getppid(), int(os.environ["INTERRUPT"]))
     sys.exit(0)
@@ -985,9 +987,20 @@ def run_live_report(workspace, mode="skip", **extra_env):
     return result, session
 
 
-@pytest.mark.parametrize("mode", ["skip", "scenario", "run"])
-def test_live_report_contains_partial_results_and_normal_final_report(live_report_workspace, mode):
-    root, _, _ = live_report_workspace
+@pytest.mark.parametrize("mode,agents", [
+    ("skip", ["test-agent"]),
+    ("scenario", ["test-agent"]),
+    ("run", ["test-agent"]),
+    ("run", ["test-agent", "other-agent"]),
+])
+def test_live_report_contains_partial_results_and_normal_final_report(
+    live_report_workspace, mode, agents,
+):
+    root, service, _ = live_report_workspace
+    config = root / f"evals/system-ols-{service}.yaml"
+    config.write_text(yaml.safe_dump({
+        "agents": {"default": {"agent": agents, "repeat": 2}},
+    }))
     for name in ("first", "second", "third"):
         executable(
             root / "evals/scenarios" / name / "cleanup.sh",
@@ -1000,14 +1013,13 @@ echo "cleanup:{name}"
     result, session = run_live_report(live_report_workspace, mode)
     assert result.returncode == 0, result.stdout + result.stderr
     tables = result.stdout.split("| Scenario")
-    assert len(tables) == 5  # One table per scenario, plus the final report.
     if mode == "run":
-        assert "Progress: run 2/6" in tables[0]
-        assert "Progress: run 3/6" in tables[1]
-        assert "Progress: run 4/6" in tables[1]
-        assert "Progress: run 5/6" in tables[2]
-        assert "Progress: run 6/6" in tables[2]
+        total_runs = 3 * len(agents) * 2
+        assert len(tables) == total_runs + 2  # Each run, plus the final report.
+        for index in range(total_runs):
+            assert f"Progress: run {index + 1}/{total_runs} |" in tables[index]
     else:
+        assert len(tables) == 5  # Each scenario, plus the final report.
         assert "Scenario 1/3" in tables[0]
         assert "Scenario 2/3" in tables[1]
         assert "Scenario 3/3" in tables[2]
@@ -1018,14 +1030,15 @@ echo "cleanup:{name}"
     assert "[🟢" in before_second
     if mode != "skip":
         assert (root / "snapshots/cleanup-first.md").read_text() == before_second
-        for index, name in enumerate(("first", "second", "third"), start=1):
-            before_cleanup = result.stdout.rsplit(f"cleanup:{name}", 1)[0]
-            assert before_cleanup.count("| Scenario") == index
+        cleanup_parts = result.stdout.split("cleanup:")
+        for before_cleanup in cleanup_parts[:-1]:
+            assert before_cleanup.count("| Scenario") == 1
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
     assert "## Progress" not in report
     assert "[🔴" in report  # A low score is separate from an execution error.
-    assert "3 scenarios, 1 agent, 2 repeats" in report
+    assert f"3 scenarios, {len(agents)} agent" in report
+    assert "2 repeats" in report
     progress = json.loads((session / "progress.json").read_text())
     assert progress["state"] == "completed"
     assert all(item["state"] == "completed" for item in progress["items"])

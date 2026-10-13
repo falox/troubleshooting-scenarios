@@ -28,7 +28,7 @@ def capture_workspace(tmp_path):
     for name in (
         "eval-ols-agentic.sh", "sandbox_logs.py", "show-eval-summary.sh",
         "show-eval-summary.py", "eval-report.sh", "report_progress.py",
-        "resolve-setup-mode.sh",
+        "resolve-setup-mode.sh", "agentic_crs.py",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     shutil.copy(ROOT / "Makefile", root / "Makefile")
@@ -85,12 +85,25 @@ elif args[:2] == ["get", "pods"]:
     old["metadata"]["uid"] = "old-pod"
     old["metadata"]["name"] = "ls-analysis-old"
     print(json.dumps({"metadata": {"resourceVersion": "123"}, "items": [old]}))
+elif args[0] == "get" and not args[1].startswith("--raw="):
+    print(json.dumps({"metadata": {"resourceVersion": "123"}, "items": []}))
 elif args[0] == "get":
     assert "resourceVersion=123" in args[1]
     while not (root / "eval-trigger").exists():
         time.sleep(0.02)
-    pod = json.loads((root / "pod.json").read_text())
-    print(json.dumps({"type": "ADDED", "object": pod}), flush=True)
+    if "/pods?" in args[1]:
+        obj = json.loads((root / "pod.json").read_text())
+    else:
+        kind = {"agenticruns": "AgenticRun", "analysisresults": "AnalysisResult",
+                "executionresults": "ExecutionResult", "verificationresults": "VerificationResult",
+                "escalationresults": "EscalationResult"}
+        resource = args[1].split("?")[0].split("/")[-1]
+        obj = {"kind": kind[resource], "metadata": {
+            "name": "eval-new" if resource == "agenticruns" else f"eval-new-{resource}",
+            "uid": "new-run" if resource == "agenticruns" else resource,
+            "resourceVersion": "124", "labels": {"agentic.openshift.io/run": "new-run"}},
+            "status": {"conditions": [{"type": "Completed", "status": "True", "reason": "Succeeded"}]}}
+    print(json.dumps({"type": "ADDED", "object": obj}), flush=True)
     signal.pause()
 elif args[0] == "logs":
     assert args[3] == "ls-analysis-new", "Existing pods must be skipped"
@@ -164,6 +177,11 @@ def test_make_agentic_saves_sandbox_logs(capture_workspace):
     assert [path.name for path in (session / "logs").iterdir()] == ["eval-new-analysis.log"]
     assert (session / "logs/eval-new-analysis.log").read_text() == "sandbox evidence\n"
     assert "Stopped." in (session / "capture-logs.log").read_text()
+    saved = [json.loads(path.read_text()) for path in (session / "crs").glob("*.json")]
+    assert {cr["kind"] for cr in saved} == {
+        "AgenticRun", "AnalysisResult", "ExecutionResult", "VerificationResult", "EscalationResult",
+    }
+    assert all(cr["status"]["conditions"][0]["reason"] == "Succeeded" for cr in saved)
 
 
 @pytest.mark.parametrize("extra_env,exit_code", [
