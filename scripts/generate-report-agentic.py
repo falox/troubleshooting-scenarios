@@ -423,12 +423,12 @@ def phase_breakdown_cell(agent_amended: list, cid: str, agent: str) -> str:
         ]
         completed = sum(status == "Completed" for status in statuses)
         total = len(statuses)
-        text = f"{completed}/{total}"
+        text = f"{completed}/{total}" if total else "N/A"
         if total and completed == total:
             text = f"✅ {text}"
         elif "TimedOut" in statuses:
             text = f"⏳ {text}"
-        elif completed == 0:
+        elif total and completed == 0:
             text = f"⚠️ {text}"
         phases.append(f"{label[0]} {text}")
     return f"[{'<br>'.join(phases)}](#{anchor_id(agent, cid)})"
@@ -667,6 +667,7 @@ def generate_scenario_details(
 
                 # Metrics for this conversation
                 conv_results = [r for r in results if r["conversation_group_id"] == cid]
+                state = None
                 if not conv_results:
                     state = getattr(runs, "missing", {}).get((run_idx, cid), "ERROR")
                     lines.extend([f"**Result**: {state}. No evaluation result is available.", ""])
@@ -692,6 +693,9 @@ def generate_scenario_details(
                         entry for entry in amended_entries if entry["conversation_group_id"] == cid
                     ]
                     for label, condition_type in PHASE_CONDITIONS:
+                        if state == "PENDING":
+                            lines.append(f"**{label}**: N/A")
+                            continue
                         status = phase_status(phase_entries, cid, condition_type)
                         icon = "✅" if status == "Completed" else "⚠️"
                         lines.append(f"**{label}**: {icon} {status}")

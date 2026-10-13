@@ -469,6 +469,36 @@ class TestGenerateReport:
         assert "**Execution**: ⚠️ Failed" in report
         assert "**Verification**: ⚠️ Failed" in report
 
+    @pytest.mark.parametrize("state", ["pending", "running"])
+    def test_pending_remediation_phases_are_not_failures(self, tmp_path, state):
+        definition = tmp_path / "scenarios/sample/evals-ols-agentic.yaml"
+        definition.parent.mkdir(parents=True)
+        definition.write_text("- conversation_group_id: remediation-scenario\n  tag: [remediation]\n")
+        (tmp_path / "progress.json").write_text(json.dumps({
+            "state": "running", "repeat": 2, "agents": ["finished", "pending"],
+            "scenarios": ["scenarios/sample"],
+            "items": [{"scenario": "scenarios/sample", "state": state}],
+        }))
+        _write_run(
+            tmp_path / "finished/run_1",
+            results=[_make_result("remediation-scenario")],
+            amended_entries=[{
+                "conversation_id": "remediation-scenario", "tags": ["remediation"],
+                "agentic_run_status": {"conditions": [
+                    {"type": phase, "status": "False"}
+                    for _, phase in mod.PHASE_CONDITIONS
+                ]},
+            }],
+        )
+
+        report = mod.generate_report(tmp_path)
+
+        assert report.count("**Result**: PENDING.") == 3
+        for label, _ in mod.PHASE_CONDITIONS:
+            assert report.count(f"**{label}**: N/A") == 3
+            assert report.count(f"**{label}**: ⚠️ Failed") == 1
+        assert "[A N/A<br>E N/A<br>V N/A](#pending--remediation-scenario)" in report
+
     def test_remediation_phase_breakdown_counts_repeats(self, tmp_path):
         for run, verification_status in [(1, "True"), (2, "False"), (3, "True")]:
             _write_run(

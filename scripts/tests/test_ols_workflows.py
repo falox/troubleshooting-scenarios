@@ -1019,7 +1019,7 @@ echo "cleanup:{name}"
     if mode != "skip":
         assert (root / "snapshots/cleanup-first.md").read_text() == before_second
         for index, name in enumerate(("first", "second", "third"), start=1):
-            before_cleanup = result.stdout.split(f"cleanup:{name}", 1)[0]
+            before_cleanup = result.stdout.rsplit(f"cleanup:{name}", 1)[0]
             assert before_cleanup.count("| Scenario") == index
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
