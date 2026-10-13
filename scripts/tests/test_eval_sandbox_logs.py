@@ -28,6 +28,7 @@ def capture_workspace(tmp_path):
     for name in (
         "eval-ols-agentic.sh", "sandbox_logs.py", "show-eval-summary.sh",
         "show-eval-summary.py", "eval-report.sh", "report_progress.py",
+        "resolve-setup-mode.sh",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     shutil.copy(ROOT / "Makefile", root / "Makefile")

@@ -41,6 +41,7 @@ def workspace(tmp_path):
         "eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py",
         "setup-ols-agentic.sh",
         "show-eval-summary.py", "show-eval-summary.sh",
+        "resolve-setup-mode.sh",
         "eval-report.sh", "report_progress.py",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
@@ -439,7 +440,14 @@ def test_eval_accepts_a_tag_filter(request, mode):
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
-def test_preview_summary_matches_real_run(request, mode):
+@pytest.mark.parametrize("setup_mode,remediation,effective_mode", [
+    ("run", False, "run"),
+    ("auto", False, "scenario"),
+    ("auto", True, "run"),
+    ("scenario", True, "scenario"),
+    ("skip", True, "skip"),
+])
+def test_preview_summary_matches_real_run(request, mode, setup_mode, remediation, effective_mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
     config_path = root / "evals" / f"system-ols-{mode}.yaml"
     config = yaml.safe_load(config_path.read_text())
@@ -448,7 +456,10 @@ def test_preview_summary_matches_real_run(request, mode):
     scenario_name = "crashlooping_pod_alert"
     scenario = root / "evals/scenarios" / scenario_name
     scenario.mkdir(parents=True)
-    (scenario / f"evals-ols-{mode}.yaml").write_text("[]\n")
+    (scenario / f"evals-ols-{mode}.yaml").write_text(
+        "- conversation_group_id: example\n  tag:\n    - remediation\n"
+        if remediation else "[]\n"
+    )
     executable(root / "scripts/run-agentic-evals.sh", "#!/bin/bash\nexit 0\n")
 
     if mode == "agentic":
@@ -463,12 +474,12 @@ def test_preview_summary_matches_real_run(request, mode):
     }
     preview = subprocess.run(
         ["make", f"eval-ols-{mode}", f"SCENARIO={scenario_name}",
-         "SETUP_MODE=run", "PREVIEW=1"],
+         f"SETUP_MODE={setup_mode}", "PREVIEW=1"],
         cwd=root, env=env, capture_output=True, text=True,
     )
     runner = subprocess.run(
         ["bash", str(root / "scripts" / f"eval-ols-{mode}.sh"),
-         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", "run",
+         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", setup_mode,
          "--scenarios", f"scenarios/{scenario_name}"],
         cwd=root / "evals", env=env, capture_output=True, text=True,
     )
@@ -481,8 +492,8 @@ def test_preview_summary_matches_real_run(request, mode):
         return "\n".join(line for line in lines[start:] if line and not line.startswith("==>"))
 
     assert summary(preview.stdout) == summary(runner.stdout)
-    assert "setup_mode: run" in preview.stdout
-    assert "parallel:   false" in preview.stdout
+    assert f"setup_mode: {effective_mode}" in preview.stdout
+    assert f"parallel:   {str(effective_mode != 'run').lower()}" in preview.stdout
     assert "scenarios:  1\n  crashlooping_pod_alert" in preview.stdout
     snapshots = list((root / "evals/results").glob(f"*/system-ols-{mode}.yaml"))
     assert len(snapshots) == 1
@@ -494,7 +505,7 @@ def test_preview_summary_matches_real_run(request, mode):
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
-@pytest.mark.parametrize("setup_mode", ["run", "scenario", "skip"])
+@pytest.mark.parametrize("setup_mode", ["auto", "run", "scenario", "skip"])
 def test_eval_uses_saved_definitions(request, mode, setup_mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
     filename = f"evals-ols-{mode}.yaml"
@@ -504,6 +515,8 @@ def test_eval_uses_saved_definitions(request, mode, setup_mode):
         scenario = root / "evals/scenarios" / name
         scenario.mkdir(parents=True)
         content = f"- conversation_group_id: {name.replace('/', '_')}\n"
+        if name == "group/first":
+            content += "  tag:\n    - remediation\n"
         (scenario / filename).write_text(content)
         originals[name] = content
         (scenario / "fixtures").mkdir()
@@ -551,7 +564,7 @@ def test_eval_uses_saved_definitions(request, mode, setup_mode):
     assert set(used) == {f"scenarios/{name}/{filename}" for name in names}
     config = yaml.safe_load((session / f"system-ols-{mode}.yaml").read_text())
     defaults = config["agents"]["default"]
-    repeats = len(defaults["agent"]) * defaults["repeat"] if setup_mode == "run" else 1
+    repeats = len(defaults["agent"]) * defaults["repeat"] if setup_mode in ("auto", "run") else 1
     assert len(used) == len(names) * repeats
 
 
@@ -767,7 +780,8 @@ def test_classic_failed_scenario_allows_later_scenarios_and_report(
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
 
-def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
+@pytest.mark.parametrize("setup_mode", ["run", "auto"])
+def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace, setup_mode):
     (classic_workspace / "evals/system-ols-classic.yaml").write_text(yaml.safe_dump({
         "agents": {
             "default": {"agent": ["first", "second"], "repeat": 2},
@@ -781,7 +795,9 @@ def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
     scenario = group / "first"
     executable(scenario / "setup.sh", '#!/bin/bash\necho setup >> "$EVENT_LOG"\n')
     executable(scenario / "cleanup.sh", '#!/bin/bash\necho cleanup >> "$EVENT_LOG"\n')
-    (scenario / "evals-ols-classic.yaml").write_text("[]\n")
+    (scenario / "evals-ols-classic.yaml").write_text(
+        "- conversation_group_id: example\n  tag:\n    - remediation\n"
+    )
     executable(
         classic_workspace / "scripts/run-agentic-evals.sh",
         '#!/bin/bash\n'
@@ -800,7 +816,7 @@ def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
         [
             "bash", str(classic_workspace / "scripts/eval-ols-classic.sh"),
             "--system-config", "system-ols-classic.yaml",
-            "--setup-mode", "run",
+            *(["--setup-mode", setup_mode] if setup_mode != "auto" else []),
             "--scenarios", "scenarios/group/first",
         ],
         cwd=classic_workspace / "evals",

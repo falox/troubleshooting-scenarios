@@ -30,7 +30,7 @@ Run Make commands from the repository root.
 | `TAG=core,alert` | Select scenarios with at least one of these tags. |
 | `PREVIEW=1` | Show the selection without running setup, evaluation, or cleanup. |
 | `NOTE="..."` | Add an optional memo before the first table in the Markdown report. |
-| `SETUP_MODE=scenario` | Control when resources are set up and removed; see below. |
+| `SETUP_MODE=auto` | Choose setup and cleanup based on the selected scenarios; see below. |
 
 Both eval targets and the manual `setup-scenario` and `cleanup-scenario` targets
 require `SCENARIO`, `TAG`, or both, including with `PREVIEW=1`. Without a filter,
@@ -40,7 +40,7 @@ tags filter the named scenarios.
 ```bash
 make eval-ols-agentic TAG=core PREVIEW=1
 make eval-ols-agentic TAG=investigation PREVIEW=1
-make eval-ols-agentic TAG=remediation SETUP_MODE=run
+make eval-ols-agentic TAG=remediation
 make eval-ols-classic TAG=difficulty_medium PREVIEW=1
 make eval-ols-agentic SCENARIO=blocked_deployment,refused_service
 make eval-ols-classic SCENARIO=crashlooping_pod_alert PREVIEW=1
@@ -59,14 +59,21 @@ Classic checks its operator CRD and server deployment.
 
 | Mode | Setup and cleanup | Parallel runs |
 |------|-------------------|---------------|
-| `scenario` (default) | Once per scenario. Use for agents that only read resources. | Uses the system config. |
+| `auto` (default) | Uses `run` if any selected scenario has the `remediation` tag; otherwise uses `scenario`. | Based on the selected mode. |
+| `scenario` | Once per scenario. Use for agents that only read resources. | Uses the system config. |
 | `run` | Once per scenario, agent, and repeat. Use for agents that change resources. | Disabled. |
 | `skip` | None. Use resources already deployed on the cluster. | Uses the system config. |
 
 ```bash
-make eval-ols-agentic SCENARIO=blocked_deployment_alert_remediation SETUP_MODE=run
+make eval-ols-agentic SCENARIO=blocked_deployment_alert_remediation
 make eval-ols-classic SCENARIO=crashlooping_pod_alert SETUP_MODE=skip
 ```
+
+The automatic choice applies to the whole session, including selections that
+mix investigation and remediation scenarios. Each agent and repeat gets a
+fresh fault, so a previous fix does not change the next evaluation. An explicit
+`SETUP_MODE=run`, `scenario`, or `skip` overrides the automatic choice. Preview
+and real runs show the selected mode.
 
 Classic group setup and cleanup run once per selected group in `scenario` and
 `run` modes. In `skip` mode, group setup and cleanup are skipped too.

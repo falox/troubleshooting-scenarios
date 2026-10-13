@@ -2,12 +2,12 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] --scenarios SCENARIO... [--tags TAG...]"
+  echo "Usage: $0 --system-config FILE [--setup-mode auto|run|scenario|skip] [--note TEXT] --scenarios SCENARIO... [--tags TAG...]"
   exit 1
 }
 
 SYSTEM_CONFIG=""
-SETUP_MODE="scenario"
+SETUP_MODE="auto"
 NOTE="${NOTE:-}"
 SCENARIOS=()
 TAGS=()
@@ -24,8 +24,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
-if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
-  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+if [ "$SETUP_MODE" != "auto" ] && [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be auto, run, scenario, or skip: $SETUP_MODE" >&2
   exit 2
 fi
 
@@ -39,6 +39,8 @@ for scenario in "${SCENARIOS[@]}"; do
     exit 1
   fi
 done
+
+SETUP_MODE="$(bash "$SCRIPT_DIR/resolve-setup-mode.sh" "$SETUP_MODE" evals-ols-classic.yaml "${SCENARIOS[@]}")"
 
 bash "$SCRIPT_DIR/preflight.sh" --require-ols
 

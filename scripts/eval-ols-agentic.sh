@@ -2,14 +2,14 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
+  echo "Usage: $0 --system-config FILE [--setup-mode auto|run|scenario|skip] [--note TEXT] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
   exit 1
 }
 
 SYSTEM_CONFIG=""
 SCENARIOS=()
 AGENTS=()
-SETUP_MODE="scenario"
+SETUP_MODE="auto"
 NOTE="${NOTE:-}"
 TAGS=()
 
@@ -26,8 +26,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
-if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
-  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+if [ "$SETUP_MODE" != "auto" ] && [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be auto, run, scenario, or skip: $SETUP_MODE" >&2
   exit 2
 fi
 
@@ -65,6 +65,8 @@ for scenario in "${SCENARIOS[@]}"; do
     exit 64
   fi
 done
+
+SETUP_MODE="$(bash "$SCRIPT_DIR/resolve-setup-mode.sh" "$SETUP_MODE" evals-ols-agentic.yaml "${SCENARIOS[@]}")"
 
 bash "$SCRIPT_DIR/preflight.sh" --require-agentic --system-config "$SYSTEM_CONFIG"
 

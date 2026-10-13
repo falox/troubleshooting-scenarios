@@ -93,11 +93,12 @@ make eval-ols-agentic SCENARIO=stuck_rollout,exhausted_quota  # multiple
 make eval-ols-agentic TAG=alert                               # filter by tag
 make eval-ols-agentic TAG=alert PREVIEW=1                     # preview matched scenarios
 make eval-ols-agentic TAG=investigation PREVIEW=1                  # preview investigation cases
-make eval-ols-agentic TAG=remediation SETUP_MODE=run           # run cases that apply fixes
+make eval-ols-agentic TAG=remediation                          # run cases that apply fixes
 ```
 
-For evaluations that change cluster resources, use `SETUP_MODE=run` to reset
-resources before each agent and repeat.
+When any selected scenario has the `remediation` tag, `SETUP_MODE=auto` (the
+default) uses `run` to reset resources before each agent and repeat. Otherwise,
+it uses `scenario`. You can set the mode explicitly to override this choice.
 
 ### OLS Classic
 
