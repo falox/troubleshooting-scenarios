@@ -16,7 +16,7 @@
           Alert: WarehouseOpsPodRestarting (warning)
           Namespace: warehouse-ops
           Description: Container in pod warehouse-ops/order-fulfillment-daemon has restarted multiple times.
-          Investigate using the skill investigate-alert
+          Investigate using the following skills:  investigate-alert
         tools:
           skills:
             - image: quay.io/openshiftanalytics/agentic-skills:latest

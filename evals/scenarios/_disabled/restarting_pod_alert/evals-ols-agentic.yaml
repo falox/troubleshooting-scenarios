@@ -17,7 +17,7 @@
           Alert: DataProcessingPodRestarting (critical)
           Namespace: data-processing
           Description: Containers in the report-generator workload have restarted multiple times during normal processing.
-          Investigate using the skill investigate-alert
+          Investigate using the following skills:  investigate-alert
         tools:
           skills:
             - image: quay.io/openshiftanalytics/agentic-skills:latest
