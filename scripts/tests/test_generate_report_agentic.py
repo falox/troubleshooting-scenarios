@@ -341,7 +341,7 @@ class TestGenerateReport:
         assert "| Avg score | **1.00 (2/3)** 🥇 | 0.80 (3/3) |" in report
         assert "| **Avg score** | **1.00 (2/3)** 🥇 | 0.80 (3/3) |" in report
         assert "| [s1](#s1) | **[⚠️ 2/3](#agent_a--s1) (1.00)** 🥇 | [🟢 3/3](#agent_b--s1) (0.80) |" in report
-        assert "mean of available correctness scores (scored / planned runs)." in report
+        assert "mean of available correctness scores (scored / finished runs)." in report
         assert "**Correctness**: ⚠️ ERROR (score: N/A)" in report
 
     def test_single_agent_single_run(self, tmp_path):

@@ -285,11 +285,11 @@ def system_config_appendix(eval_dir: Path, filename: str) -> str:
 
 
 SCORING_LEGEND = (
-    "PASS: passed / planned runs.\n"
-    "FAIL: failed quality checks without technical errors / planned runs.\n"
-    "ERROR: technical errors, including setup errors and missing results / planned runs.\n"
-    "Avg score: mean of available correctness scores (scored / planned runs).\n"
-    "Pending runs stay in the denominator but do not count as errors."
+    "PASS: passed / finished runs.\n"
+    "FAIL: failed quality checks without technical errors / finished runs.\n"
+    "ERROR: technical errors, including setup errors and missing results / finished runs.\n"
+    "Avg score: mean of available correctness scores (scored / finished runs).\n"
+    "Pending runs are excluded from tables and totals."
 )
 
 
@@ -308,7 +308,7 @@ def prepare_planned_runs(
     agent_runs: dict[str, list],
     agent_amended: dict[str, list],
 ) -> tuple[list[str], dict[str, str], int]:
-    """Use saved session data to include all planned scenarios and repeats.
+    """Use saved session data to identify finished scenarios and repeats.
 
     Results and amended entries keep their original run numbers. No metric is
     created for a missing result. Old sessions use the available run data when
@@ -355,16 +355,29 @@ def prepare_planned_runs(
                              and item.get("agent", agent) == agent
                              and item.get("run_index", index + 1) == index + 1), {})
                 # A live report must not call unfinished work an error.
-                pending = (progress.get("state") == "running"
-                           and item.get("state", "pending") in {"pending", "running"})
+                pending = (item.get("state") == "pending"
+                           or (progress.get("state") == "running"
+                               and item.get("state", "pending") in {"pending", "running"}))
                 missing[index, cid] = "PENDING" if pending else "ERROR"
         agent_runs[agent] = PlannedRuns(runs, missing)
         agent_amended[agent] = amended
+    conversations = [cid for cid in conversations if any(
+        any(
+            any(metric["conversation_group_id"] == cid for metric in (results or []))
+            or agent_runs[agent].missing[index, cid] != "PENDING"
+            for index, results in enumerate(agent_runs[agent])
+        )
+        for agent in agent_names
+    ) or (not agent_names and any(
+        item["scenario"] == scenario_for.get(cid)
+        and item.get("state") not in {"pending", "running"}
+        for item in progress.get("items", [])
+    ))]
     return conversations, names, repeat
 
 
 def report_stats(runs, conversations, get_result):
-    """Count outcomes against planned runs and average available scores."""
+    """Count finished outcomes and average available scores."""
     counts = {"PASS": 0, "FAIL": 0, "ERROR": 0, "PENDING": 0}
     scores = []
     for index, results in enumerate(runs):
@@ -376,7 +389,7 @@ def report_stats(runs, conversations, get_result):
             if score is not None:
                 scores.append(score)
     return {
-        **counts, "total": len(runs) * len(conversations), "scored": len(scores),
+        **counts, "total": sum(counts[s] for s in ("PASS", "FAIL", "ERROR")), "scored": len(scores),
         "mean": sum(scores) / len(scores) if scores else None,
     }
 

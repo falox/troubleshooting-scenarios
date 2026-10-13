@@ -176,13 +176,13 @@ Both report types use the same scoring rules:
   `system-ols-*.yaml`. Scenarios can override it with `turn_metrics_metadata`;
   the Agentic `failing_api_alert` case requires 0.80. Remediation cases use
   status checks without a correctness score.
-- PASS, FAIL, and ERROR rates use all planned runs as the denominator, including
-  runs with no results. FAIL means a failed quality check without a technical
+- PASS, FAIL, and ERROR rates use finished runs as the denominator, including
+  finished runs with no results. FAIL means a failed quality check without a technical
   error. ERROR includes setup failures, evaluation errors, failed completion
-  checks, and missing results after the session ends. Runs still pending in a
-  live session stay in the denominator but do not count as errors.
+  checks, and missing results after the session ends. Pending runs are excluded from tables and totals, also after a session stops.
+  Scenarios with no finished runs are hidden.
 - Avg score uses available correctness scores, including scores below the
-  threshold. It shows `(scored runs / planned runs)`. No zero is added for a
+  threshold. It shows `(scored runs / finished runs)`. No zero is added for a
   missing score. A real judge score is kept even if the run has a technical
   error. Completion status alone does not provide a correctness score.
 - Saved progress and scenario definitions provide the planned runs. For older

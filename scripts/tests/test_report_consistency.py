@@ -410,7 +410,7 @@ def test_missing_planned_runs_follow_session_state(
     amended = {"empty": []}
     mod.prepare_planned_runs(tmp_path, filename, ["empty"], runs, amended)
     stats = mod.report_stats(runs["empty"], ["healthy_id"], mod.get_performance_result)
-    assert stats["total"] == 3
+    assert stats["total"] == expected_errors
     assert stats["ERROR"] == expected_errors
     assert stats["PENDING"] == expected_pending
     assert stats["mean"] is None
@@ -452,3 +452,34 @@ def test_real_zero_score_survives_a_technical_error(report_module):
     assert stats["ERROR"] == 1
     assert stats["scored"] == 2
     assert stats["mean"] == 0.5
+
+
+@pytest.mark.parametrize("state", ["running", "interrupted", "completed"])
+def test_partial_tables_only_count_finished_runs(report_module, tmp_path, capsys, state):
+    mod = report_module
+    filename, progress = planned_session(mod, tmp_path, state)
+    progress["items"] = [
+        {"scenario": scenario, "agent": agent, "run_index": index,
+         "state": "completed" if (scenario, agent, index) ==
+         ("scenarios/healthy", "agent", 1) else "pending"}
+        for scenario in progress["scenarios"]
+        for agent in progress["agents"] for index in range(1, 4)
+    ]
+    (tmp_path / "progress.json").write_text(json.dumps(progress))
+    (tmp_path / "agent" / "run_3" / "result_summary.json").unlink()
+    report = mod.generate_report(tmp_path)
+    assert "1 scenario, 2 agents, 3 repeats" in report
+    assert "| PASS | N/A | **100% (1/1)** 🥇 |" in report
+    assert "0.90 (1/1)" in report
+    assert "[setup_error](#setup_id)" not in report
+    names = ["empty", "agent"]
+    runs = {a: [mod.load_run_summary(rd) for rd in mod.find_run_dirs(tmp_path, a)] for a in names}
+    amended = {a: [[] for _ in runs[a]] for a in names}
+    conversations, scenario_names, _ = mod.prepare_planned_runs(
+        tmp_path, filename, names, runs, amended,
+    )
+    mod.print_correctness_table(conversations, names, runs, amended, scenario_names)
+    output = capsys.readouterr().out
+    assert "setup_error" not in output
+    assert "100% (1/1)" in output
+    assert "0.90 (1/1)" in output

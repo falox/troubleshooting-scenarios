@@ -147,8 +147,6 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     if not stats["total"]:
         return "N/A"
     icon = correctness_icon(stats["PASS"], stats["total"], bool(stats["ERROR"]))
-    if stats["PENDING"] and not stats["ERROR"]:
-        icon = "⏳"
     label = f"{icon} {stats['PASS']}/{stats['total']}".strip()
     avg = f" ({stats['mean']:.2f})" if stats["mean"] is not None else ""
     return f"[{label}](#{anchor_id(agent, conversation_id)}){avg}"
@@ -656,8 +654,6 @@ def print_correctness_table(
             if technical_failure and not use_color:
                 plain += "*"
             colored = _colorize(p, t, technical_failure)
-            if scenario_stats[cid, agent]["PENDING"] and not technical_failure:
-                colored = plain
             cells.append(f"{colored}{' ' * (w - len(plain))}")
         print("| " + " | ".join(cells) + " |")
     print(sep)
