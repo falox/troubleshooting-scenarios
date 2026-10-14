@@ -18,7 +18,7 @@
           Alert: PaymentErrorRateHigh (critical)
           Namespace: payments
           Description: Payment error rate is 100.00%, which exceeds the 15% threshold.
-          Investigate using the following skills:  investigate-alert
+          Investigate using the following skills: investigate-alert
         tools:
           skills:
             - image: quay.io/openshiftanalytics/agentic-skills:latest
