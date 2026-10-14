@@ -235,9 +235,9 @@ Both report types use the same scoring rules:
 - Saved progress and scenario definitions provide the planned runs. For older
   sessions without a saved plan, reports use the saved repeat setting and
   available results. Percentages are rounded and may not sum to exactly 100%.
-- In the CLI summary, nonzero FAIL and ERROR rates are red. The Markdown
-  overview and Correctness tables show the same counts. Token usage appears
-  under Tokens.
+- In the CLI summary, nonzero FAIL rates are red and ERROR rates are yellow.
+  The Markdown overview and Correctness tables show the same counts. Token
+  usage appears under Tokens.
 - ⚠️ marks a technical error in at least one run. Otherwise, 🟢 means all runs
   passed and 🔴 means none passed. Mixed results have no icon.
 - Score medals compare values rounded to two decimal places.

@@ -1083,7 +1083,7 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         assert "1.5M/50K" in report
 
-    def test_tokens_missing_token_usage_shows_dash(self, tmp_path):
+    def test_tokens_missing_token_usage_shows_na(self, tmp_path):
         _write_run(
             tmp_path / "agent" / "run_1",
             results=[_make_result("s1")],
@@ -1094,7 +1094,8 @@ class TestGenerateReport:
         )
         report = mod.generate_report(tmp_path)
         tokens_section = report.split("## Tokens")[1].split("# Scenarios")[0]
-        assert "—" in tokens_section
+        assert "N/A" in tokens_section
+        assert "—" not in tokens_section
 
     def test_tokens_in_scenario_detail(self, tmp_path):
         """Token usage appears in the per-run detail section after Duration."""

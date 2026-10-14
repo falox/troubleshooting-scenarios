@@ -417,7 +417,7 @@ def test_missing_planned_runs_follow_session_state(
 
 
 @pytest.mark.parametrize("is_tty", [True, False])
-def test_cli_fail_and_error_rates_are_red_only_when_nonzero(report_module, monkeypatch, capsys, is_tty):
+def test_cli_fail_and_error_rates_use_status_colors_when_nonzero(report_module, monkeypatch, capsys, is_tty):
     mod = report_module
     monkeypatch.setattr(mod.sys.stdout, "isatty", lambda: is_tty)
     runs = {
@@ -427,9 +427,10 @@ def test_cli_fail_and_error_rates_are_red_only_when_nonzero(report_module, monke
     mod.print_correctness_table(["scenario"], list(runs), runs)
     output = capsys.readouterr().out
     for label in ("FAIL", "ERROR"):
+        color = mod.YELLOW if label == "ERROR" else mod.RED
         row = next(line for line in output.splitlines() if line.startswith(f"| {label}"))
-        assert (mod.RED + "33% (1/3)" + mod.RESET in row) == is_tty
-        assert mod.RED + "0% (0/3)" not in row
+        assert (color + "33% (1/3)" + mod.RESET in row) == is_tty
+        assert color + "0% (0/3)" not in row
         assert "0% (0/3)" in row
         assert ("\033[" in row) == is_tty
 

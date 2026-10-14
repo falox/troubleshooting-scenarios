@@ -166,7 +166,7 @@ def format_tokens_compact(number: int) -> str:
 
 def format_token_pair(input_tokens: int | None, output_tokens: int | None) -> str:
     if input_tokens is None and output_tokens is None:
-        return "—"
+        return "N/A"
     return (
         f"{format_tokens_compact(input_tokens or 0)}"
         f"/{format_tokens_compact(output_tokens or 0)}"
