@@ -163,6 +163,7 @@ class LogTests(unittest.TestCase):
         old = pod("old", "old-uid")
         pending = pod("pending", "pending-uid", state="waiting")
         first = pod("first", "first-uid")
+        first["status"]["containerStatuses"][0]["name"] = "sandbox"
         second = pod("second", "second-uid")
         execution = pod("execution", "execution-uid", step="execution", state="terminated")
         events = [
@@ -202,7 +203,7 @@ class LogTests(unittest.TestCase):
                 "    time.sleep(30)\n"
                 "elif args[0] == 'logs':\n"
                 "    assert args[1:3] == ['-n', 'openshift-lightspeed']\n"
-                "    assert args[-3:] == ['-c', 'agent', '--follow']\n"
+                "    assert args[4:] == ['--follow']\n"
                 "    print('log from ' + args[3], flush=True)\n"
                 "    time.sleep(30)\n"
                 "else:\n"
