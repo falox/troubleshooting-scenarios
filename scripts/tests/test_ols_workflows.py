@@ -37,10 +37,15 @@ def executable(path, content):
 def workspace(tmp_path):
     scripts = tmp_path / "scripts"
     scripts.mkdir()
+    # Wrapper behavior is tested separately with the framework driver.
+    (scripts / "agentic-eval.py").write_text(
+        "import os, sys\nos.execv(sys.argv[2], sys.argv[2:])\n"
+    )
     for name in (
         "eval-ols-agentic.sh", "ci-ols-agentic-evals.sh", "sync-agent-crs.py",
         "setup-ols-agentic.sh",
         "show-eval-summary.py", "show-eval-summary.sh",
+        "resolve-setup-mode.sh",
         "eval-report.sh", "report_progress.py",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
@@ -48,7 +53,7 @@ def workspace(tmp_path):
     # Most workflow tests use a small watcher with no cluster access.
     (scripts / "sandbox_logs.py").write_text(
         "from pathlib import Path\nimport signal\nimport sys\n"
-        "def capture_logs(directory, on_ready=None):\n"
+        "def capture_logs(directory, on_ready=None, crs_directory=None):\n"
         "    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))\n"
         "    Path(directory).mkdir(parents=True, exist_ok=True)\n"
         "    if on_ready is not None: on_ready()\n"
@@ -439,7 +444,14 @@ def test_eval_accepts_a_tag_filter(request, mode):
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
-def test_preview_summary_matches_real_run(request, mode):
+@pytest.mark.parametrize("setup_mode,remediation,effective_mode", [
+    ("run", False, "run"),
+    ("auto", False, "scenario"),
+    ("auto", True, "run"),
+    ("scenario", True, "scenario"),
+    ("skip", True, "skip"),
+])
+def test_preview_summary_matches_real_run(request, mode, setup_mode, remediation, effective_mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
     config_path = root / "evals" / f"system-ols-{mode}.yaml"
     config = yaml.safe_load(config_path.read_text())
@@ -448,7 +460,10 @@ def test_preview_summary_matches_real_run(request, mode):
     scenario_name = "crashlooping_pod_alert"
     scenario = root / "evals/scenarios" / scenario_name
     scenario.mkdir(parents=True)
-    (scenario / f"evals-ols-{mode}.yaml").write_text("[]\n")
+    (scenario / f"evals-ols-{mode}.yaml").write_text(
+        "- conversation_group_id: example\n  tag:\n    - remediation\n"
+        if remediation else "[]\n"
+    )
     executable(root / "scripts/run-agentic-evals.sh", "#!/bin/bash\nexit 0\n")
 
     if mode == "agentic":
@@ -463,12 +478,12 @@ def test_preview_summary_matches_real_run(request, mode):
     }
     preview = subprocess.run(
         ["make", f"eval-ols-{mode}", f"SCENARIO={scenario_name}",
-         "SETUP_MODE=run", "PREVIEW=1"],
+         f"SETUP_MODE={setup_mode}", "PREVIEW=1"],
         cwd=root, env=env, capture_output=True, text=True,
     )
     runner = subprocess.run(
         ["bash", str(root / "scripts" / f"eval-ols-{mode}.sh"),
-         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", "run",
+         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", setup_mode,
          "--scenarios", f"scenarios/{scenario_name}"],
         cwd=root / "evals", env=env, capture_output=True, text=True,
     )
@@ -481,8 +496,8 @@ def test_preview_summary_matches_real_run(request, mode):
         return "\n".join(line for line in lines[start:] if line and not line.startswith("==>"))
 
     assert summary(preview.stdout) == summary(runner.stdout)
-    assert "setup_mode: run" in preview.stdout
-    assert "parallel:   false" in preview.stdout
+    assert f"setup_mode: {effective_mode}" in preview.stdout
+    assert f"parallel:   {str(effective_mode != 'run').lower()}" in preview.stdout
     assert "scenarios:  1\n  crashlooping_pod_alert" in preview.stdout
     snapshots = list((root / "evals/results").glob(f"*/system-ols-{mode}.yaml"))
     assert len(snapshots) == 1
@@ -494,7 +509,7 @@ def test_preview_summary_matches_real_run(request, mode):
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
-@pytest.mark.parametrize("setup_mode", ["run", "scenario", "skip"])
+@pytest.mark.parametrize("setup_mode", ["auto", "run", "scenario", "skip"])
 def test_eval_uses_saved_definitions(request, mode, setup_mode):
     root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
     filename = f"evals-ols-{mode}.yaml"
@@ -504,6 +519,8 @@ def test_eval_uses_saved_definitions(request, mode, setup_mode):
         scenario = root / "evals/scenarios" / name
         scenario.mkdir(parents=True)
         content = f"- conversation_group_id: {name.replace('/', '_')}\n"
+        if name == "group/first":
+            content += "  tag:\n    - remediation\n"
         (scenario / filename).write_text(content)
         originals[name] = content
         (scenario / "fixtures").mkdir()
@@ -551,7 +568,7 @@ def test_eval_uses_saved_definitions(request, mode, setup_mode):
     assert set(used) == {f"scenarios/{name}/{filename}" for name in names}
     config = yaml.safe_load((session / f"system-ols-{mode}.yaml").read_text())
     defaults = config["agents"]["default"]
-    repeats = len(defaults["agent"]) * defaults["repeat"] if setup_mode == "run" else 1
+    repeats = len(defaults["agent"]) * defaults["repeat"] if setup_mode in ("auto", "run") else 1
     assert len(used) == len(names) * repeats
 
 
@@ -641,6 +658,7 @@ def test_scenario_cleanup(
     assert [event for event in recorded if event != "report"] == events[:-1]
     assert recorded[0] == recorded[-1] == "report"
     assert recorded.count("report") == 4
+    assert recorded[recorded.index("cleanup") - 1] == "report"
 
 
 @pytest.mark.parametrize("mode", ["run", "scenario"])
@@ -767,7 +785,8 @@ def test_classic_failed_scenario_allows_later_scenarios_and_report(
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
 
-def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
+@pytest.mark.parametrize("setup_mode", ["run", "auto"])
+def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace, setup_mode):
     (classic_workspace / "evals/system-ols-classic.yaml").write_text(yaml.safe_dump({
         "agents": {
             "default": {"agent": ["first", "second"], "repeat": 2},
@@ -781,7 +800,9 @@ def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
     scenario = group / "first"
     executable(scenario / "setup.sh", '#!/bin/bash\necho setup >> "$EVENT_LOG"\n')
     executable(scenario / "cleanup.sh", '#!/bin/bash\necho cleanup >> "$EVENT_LOG"\n')
-    (scenario / "evals-ols-classic.yaml").write_text("[]\n")
+    (scenario / "evals-ols-classic.yaml").write_text(
+        "- conversation_group_id: example\n  tag:\n    - remediation\n"
+    )
     executable(
         classic_workspace / "scripts/run-agentic-evals.sh",
         '#!/bin/bash\n'
@@ -800,7 +821,7 @@ def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace):
         [
             "bash", str(classic_workspace / "scripts/eval-ols-classic.sh"),
             "--system-config", "system-ols-classic.yaml",
-            "--setup-mode", "run",
+            *(["--setup-mode", setup_mode] if setup_mode != "auto" else []),
             "--scenarios", "scenarios/group/first",
         ],
         cwd=classic_workspace / "evals",
@@ -892,7 +913,7 @@ def live_report_workspace(request, classic_workspace):
     """Use the real reports with a small evaluator that needs no cluster."""
     root = classic_workspace
     service = request.param
-    for name in ("generate-report-agentic.py", "generate-report-classic.py", "report_common.py"):
+    for name in ("generate-report-agentic.py", "generate-report-classic.py", "report_common.py", "agentic_crs.py"):
         shutil.copy(ROOT / "scripts" / name, root / "scripts" / name)
     (root / f"evals/system-ols-{service}.yaml").write_text(yaml.safe_dump({
         "agents": {"default": {"agent": ["test-agent"], "repeat": 2}},
@@ -918,7 +939,9 @@ report = session / "report.md"
 assert report.is_file(), "Report must exist before evaluation starts"
 agent = args[args.index("--agent") + 1] if "--agent" in args else "test-agent"
 index = args[args.index("--run-index") + 1] if "--run-index" in args else "1"
-Path(os.environ["SNAPSHOT_DIR"], f"{scenario}-{index}.md").write_text(report.read_text())
+snapshot = Path(os.environ["SNAPSHOT_DIR"], f"{scenario}-{index}.md")
+if not snapshot.exists():
+    snapshot.write_text(report.read_text())
 if scenario == "second" and os.environ.get("INTERRUPT"):
     os.kill(os.getppid(), int(os.environ["INTERRUPT"]))
     sys.exit(0)
@@ -968,20 +991,39 @@ def run_live_report(workspace, mode="skip", **extra_env):
     return result, session
 
 
-@pytest.mark.parametrize("mode", ["skip", "scenario", "run"])
-def test_live_report_contains_partial_results_and_normal_final_report(live_report_workspace, mode):
-    root, _, _ = live_report_workspace
+@pytest.mark.parametrize("mode,agents", [
+    ("skip", ["test-agent"]),
+    ("scenario", ["test-agent"]),
+    ("run", ["test-agent"]),
+    ("run", ["test-agent", "other-agent"]),
+])
+def test_live_report_contains_partial_results_and_normal_final_report(
+    live_report_workspace, mode, agents,
+):
+    root, service, _ = live_report_workspace
+    config = root / f"evals/system-ols-{service}.yaml"
+    config.write_text(yaml.safe_dump({
+        "agents": {"default": {"agent": agents, "repeat": 2}},
+    }))
+    for name in ("first", "second", "third"):
+        executable(
+            root / "evals/scenarios" / name / "cleanup.sh",
+            f'''#!/bin/bash
+session="${{SCENARIO_STATE_DIR%/.scenario-state.*}}"
+cp "$session/report.md" "$SNAPSHOT_DIR/cleanup-{name}.md"
+echo "cleanup:{name}"
+''',
+        )
     result, session = run_live_report(live_report_workspace, mode)
     assert result.returncode == 0, result.stdout + result.stderr
     tables = result.stdout.split("| Scenario")
-    assert len(tables) == 5  # One table per scenario, plus the final report.
     if mode == "run":
-        assert "Progress: run 2/6" in tables[0]
-        assert "Progress: run 3/6" in tables[1]
-        assert "Progress: run 4/6" in tables[1]
-        assert "Progress: run 5/6" in tables[2]
-        assert "Progress: run 6/6" in tables[2]
+        total_runs = 3 * len(agents) * 2
+        assert len(tables) == total_runs + 2  # Each run, plus the final report.
+        for index in range(total_runs):
+            assert f"Progress: run {index + 1}/{total_runs} |" in tables[index]
     else:
+        assert len(tables) == 5  # Each scenario, plus the final report.
         assert "Scenario 1/3" in tables[0]
         assert "Scenario 2/3" in tables[1]
         assert "Scenario 3/3" in tables[2]
@@ -990,11 +1032,17 @@ def test_live_report_contains_partial_results_and_normal_final_report(live_repor
     assert "| Pending |" not in before_second
     assert "## Progress" not in before_second
     assert "[🟢" in before_second
+    if mode != "skip":
+        assert (root / "snapshots/cleanup-first.md").read_text() == before_second
+        cleanup_parts = result.stdout.split("cleanup:")
+        for before_cleanup in cleanup_parts[:-1]:
+            assert before_cleanup.count("| Scenario") == 1
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
     assert "## Progress" not in report
     assert "[🔴" in report  # A low score is separate from an execution error.
-    assert "3 scenarios, 1 agent, 2 repeats" in report
+    assert f"3 scenarios, {len(agents)} agent" in report
+    assert "2 repeats" in report
     progress = json.loads((session / "progress.json").read_text())
     assert progress["state"] == "completed"
     assert all(item["state"] == "completed" for item in progress["items"])

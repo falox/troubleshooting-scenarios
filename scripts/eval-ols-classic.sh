@@ -2,12 +2,12 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] --scenarios SCENARIO... [--tags TAG...]"
+  echo "Usage: $0 --system-config FILE [--setup-mode auto|run|scenario|skip] [--note TEXT] --scenarios SCENARIO... [--tags TAG...]"
   exit 1
 }
 
 SYSTEM_CONFIG=""
-SETUP_MODE="scenario"
+SETUP_MODE="auto"
 NOTE="${NOTE:-}"
 SCENARIOS=()
 TAGS=()
@@ -24,8 +24,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
-if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
-  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+if [ "$SETUP_MODE" != "auto" ] && [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be auto, run, scenario, or skip: $SETUP_MODE" >&2
   exit 2
 fi
 
@@ -39,6 +39,8 @@ for scenario in "${SCENARIOS[@]}"; do
     exit 1
   fi
 done
+
+SETUP_MODE="$(bash "$SCRIPT_DIR/resolve-setup-mode.sh" "$SETUP_MODE" evals-ols-classic.yaml "${SCENARIOS[@]}")"
 
 bash "$SCRIPT_DIR/preflight.sh" --require-ols
 
@@ -228,6 +230,7 @@ run_scenario() {
       "${TAG_FLAGS[@]}" || scenario_status=$?
     if [ "$scenario_status" -ne 0 ]; then failure_detail="Evaluation failed (exit $scenario_status)"; fi
   fi
+  report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   if [ "$SETUP_MODE" != "skip" ] && [ -n "$scenario_state_dir" ]; then
     echo "==> Cleanup: $scenario"
     if [ -x "$scenario/cleanup.sh" ]; then
@@ -240,7 +243,6 @@ run_scenario() {
   elif [ "$SETUP_MODE" = "skip" ]; then
     echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
   fi
-  report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   return "$scenario_status"
 }
 
@@ -297,13 +299,9 @@ for scenario in "${SCENARIOS[@]}"; do
       agent_index=$((agent_index + 1))
       for run in $(seq 1 "$REPEAT"); do
         progress_index=$(( (scenario_index - 1) * ${#AGENTS[@]} * REPEAT + (agent_index - 1) * REPEAT + run ))
-        report_output=quiet
-        if [ "$agent" = "${AGENTS[-1]}" ] && [ "$run" -eq "$REPEAT" ]; then
-          report_output=table
-        fi
         run_scenario "$scenario" \
           "Progress: run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
-          "$report_output" \
+          table \
           --agent "$agent" \
           --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
       done

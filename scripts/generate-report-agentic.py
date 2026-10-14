@@ -54,6 +54,7 @@ from report_common import (  # noqa: E402
 )
 
 from report_progress import format_failed_scenarios, format_progress, load_progress, write_atomic  # noqa: E402
+from agentic_crs import SavedCRs  # noqa: E402
 
 METRIC_LABELS = {
     "custom:openshift_agentic_run_status": "Completed",
@@ -83,6 +84,8 @@ def load_run_summary(run_dir: Path) -> list[dict] | None:
         with open(f) as fh:
             data = json.load(fh)
         file_results = data.get("results", [])
+        for result in file_results:
+            result["eval_stopped_at"] = data.get("timestamp")
         detailed = f.with_name(f.name.replace("_summary.json", "_detailed.csv"))
         if detailed.exists():
             with detailed.open(newline="") as fh:
@@ -207,10 +210,12 @@ def load_amended_entries(run_dir: Path) -> list[dict]:
             entries.append({
                 "conversation_group_id": cid,
                 "description": entry.get("description", ""),
-                "query": turn.get("query", ""),
+                "query": turn.get("query") or (turn.get("openshift_agentic_run_spec") or {}).get("request", ""),
                 "response": response,
                 "tags": tags,
                 "agentic_run_status": run_status,
+                "agentic_run_results": run_results or {},
+                "turn_id": turn.get("turn_id"),
                 "analysis_duration": duration,
                 "agent_input_tokens": agent_input_tok,
                 "agent_output_tokens": agent_output_tok,
@@ -261,8 +266,6 @@ def score_cell(agent_runs: list, conversation_id: str, agent: str) -> str:
     if not stats["total"]:
         return "N/A"
     icon = correctness_icon(stats["PASS"], stats["total"], bool(stats["ERROR"]))
-    if stats["PENDING"] and not stats["ERROR"]:
-        icon = "⏳"
     label = f"{icon} {stats['PASS']}/{stats['total']}".strip()
     avg = f" ({stats['mean']:.2f})" if stats["mean"] is not None else ""
     return f"[{label}](#{anchor_id(agent, conversation_id)}){avg}"
@@ -380,19 +383,70 @@ def remediation_conversations(
 
 
 def phase_status(entries: list[dict], conversation_id: str, condition_type: str) -> str:
-    """Return Completed only when the AgenticRun phase condition is true."""
+    """Read result CR conditions first; keep missing evidence distinct from failure."""
     for entry in entries:
         if entry["conversation_group_id"] != conversation_id:
             continue
-        for condition in entry.get("agentic_run_status", {}).get("conditions", []):
+        phase = next(label.lower() for label, condition in PHASE_CONDITIONS if condition == condition_type)
+        stopped = entry.get("eval_stopped_at")
+        cutoff = datetime.fromisoformat(stopped.replace("Z", "+00:00")) if stopped else None
+
+        def before_stop(condition):
+            stamp = condition.get("lastTransitionTime")
+            if stamp and cutoff:
+                return datetime.fromisoformat(stamp.replace("Z", "+00:00")) <= cutoff
+            return bool(entry.get("crs_frozen") or (not cutoff and not entry.get("eval_timed_out")))
+
+        result_statuses = []
+        for result in entry.get("agentic_run_results", {}).get(phase, []) or []:
+            if not isinstance(result, dict):
+                continue
+            conditions = result.get("conditions")
+            if not isinstance(conditions, list):
+                conditions = []
+            conditions = [condition for condition in conditions
+                          if isinstance(condition, dict) and before_stop(condition)]
+            completed = next((c for c in reversed(conditions)
+                              if isinstance(c, dict) and c.get("type") == "Completed"), None)
+            if completed is not None:
+                reason = completed.get("reason", "")
+                if "timeout" in reason.lower() or "timed out" in completed.get("message", "").lower():
+                    result_statuses.append("TimedOut")
+                elif reason == "Failed" or result.get("failureReason"):
+                    result_statuses.append("Failed")
+                elif str(completed.get("status", "")).lower() == "true" and reason == "Succeeded":
+                    result_statuses.append("Completed")
+                else:
+                    result_statuses.append("Unknown")
+            elif any(isinstance(c, dict) and c.get("type") == "Started"
+                     and str(c.get("status", "")).lower() == "true" for c in conditions):
+                result_statuses.append("TimedOut" if entry.get("eval_timed_out") else "Running")
+        if result_statuses:
+            return result_statuses[-1]
+        for condition in entry.get("agentic_run_status", {}).get("conditions", []) or []:
+            if not isinstance(condition, dict):
+                continue
+            if not before_stop(condition):
+                continue
             if condition.get("type") == condition_type:
                 if str(condition.get("status", "")).lower() == "true":
                     return "Completed"
-                if "timed out" in json.dumps(condition).lower():
+                if "timeout" in condition.get("reason", "").lower() or "timed out" in json.dumps(condition).lower():
                     return "TimedOut"
+                if condition.get("reason") in {"Running", "WaitingForSandbox", "Pending"}:
+                    return "TimedOut" if entry.get("eval_timed_out") else "Running"
+                if str(condition.get("status", "")).lower() == "unknown":
+                    return "Unknown"
                 return "Failed"
-        return "Failed"
-    return "Failed"
+        # A result CR may only be created when the phase ends. The frozen
+        # parent still records the sandbox while the phase is active.
+        if entry.get("crs_frozen"):
+            step = (entry.get("agentic_run_status", {}).get("steps") or {}).get(phase) or {}
+            if (step.get("sandbox") or {}).get("claimName") and not step.get("results"):
+                return "TimedOut" if entry.get("eval_timed_out") else "Running"
+            return "Not started" if not step else "Unknown"
+        return "Unknown"
+    return "Unknown"
 
 
 def phase_count(agent_amended: list, cid: str, condition_type: str) -> tuple[int, int]:
@@ -402,7 +456,9 @@ def phase_count(agent_amended: list, cid: str, condition_type: str) -> tuple[int
         for entries in agent_amended
         if any(entry["conversation_group_id"] == cid for entry in entries)
     ]
-    return sum(status == "Completed" for status in statuses), len(statuses)
+    return sum(status == "Completed" for status in statuses), sum(
+        status in {"Completed", "Failed", "TimedOut"} for status in statuses
+    )
 
 
 def phase_rate_cell(completed: int, total: int, bold: bool = False) -> str:
@@ -424,13 +480,23 @@ def phase_breakdown_cell(agent_amended: list, cid: str, agent: str) -> str:
             if any(entry["conversation_group_id"] == cid for entry in entries)
         ]
         completed = sum(status == "Completed" for status in statuses)
-        total = len(statuses)
-        text = f"{completed}/{total}"
-        if total and completed == total:
+        total = sum(status in {"Completed", "Failed", "TimedOut"} for status in statuses)
+        text = f"{completed}/{total}" if total else "N/A"
+        if statuses and all(status == "Unknown" for status in statuses):
+            text = "? Unknown"
+        elif statuses and all(status == "Not started" for status in statuses):
+            text = "— Not started"
+        elif "Running" in statuses:
+            text = f"🔄 {text}" if total else "🔄 Running"
+        elif "Unknown" in statuses:
+            text = f"? {text}"
+        elif "Not started" in statuses:
+            text = f"— {text}"
+        elif total and completed == total:
             text = f"✅ {text}"
         elif "TimedOut" in statuses:
             text = f"⏳ {text}"
-        elif completed == 0:
+        elif total and completed == 0:
             text = f"⚠️ {text}"
         phases.append(f"{label[0]} {text}")
     return f"[{'<br>'.join(phases)}](#{anchor_id(agent, cid)})"
@@ -669,6 +735,7 @@ def generate_scenario_details(
 
                 # Metrics for this conversation
                 conv_results = [r for r in results if r["conversation_group_id"] == cid]
+                state = None
                 if not conv_results:
                     state = getattr(runs, "missing", {}).get((run_idx, cid), "ERROR")
                     lines.extend([f"**Result**: {state}. No evaluation result is available.", ""])
@@ -694,10 +761,22 @@ def generate_scenario_details(
                         entry for entry in amended_entries if entry["conversation_group_id"] == cid
                     ]
                     for label, condition_type in PHASE_CONDITIONS:
+                        if state == "PENDING":
+                            lines.append(f"**{label}**: N/A")
+                            continue
                         status = phase_status(phase_entries, cid, condition_type)
-                        icon = "✅" if status == "Completed" else "⚠️"
+                        icon = {"Completed": "✅", "TimedOut": "⏳", "Unknown": "?",
+                                "Running": "🔄", "Not started": "—"}.get(status, "⚠️")
                         lines.append(f"**{label}**: {icon} {status}")
                     lines.append("")
+
+                for entry in amended_entries:
+                    if entry["conversation_group_id"] == cid and entry.get("cr_links"):
+                        links = ", ".join(f"[{kind}]({path})" for kind, path in entry["cr_links"])
+                        lines.extend([f"**Saved CRs**: {links}", ""])
+                        if any("Timeout after" in r.get("reason", "") for r in conv_results):
+                            lines.extend(["The eval timed out. Phase states are shown at eval stop; later completion is excluded.", ""])
+                        break
 
                 # Analysis duration and tokens
                 for entry in amended_entries:
@@ -752,14 +831,18 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
     agent_runs: dict[str, list] = {}
     agent_amended: dict[str, list] = {}
     agent_run_dirs_map: dict[str, list[Path]] = {}
+    saved_crs = SavedCRs(eval_dir)
     for agent in agent_names:
         run_dirs = find_run_dirs(eval_dir, agent)
         agent_run_dirs_map[agent] = run_dirs
         runs = []
         amended = []
         for rd in run_dirs:
-            runs.append(load_run_summary(rd))
-            amended.append(load_amended_entries(rd))
+            metrics = load_run_summary(rd)
+            entries = load_amended_entries(rd)
+            saved_crs.enrich(entries, agent, int(rd.name.split("_")[1]), metrics)
+            runs.append(metrics)
+            amended.append(entries)
         agent_runs[agent] = runs
         agent_amended[agent] = amended
 
@@ -834,6 +917,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         lines.append("## Correctness breakdown by Phase")
         lines.append("")
         lines.append("A = Analysis; E = Execution; V = Verification.")
+        lines.append("Phase states use saved result CRs at eval stop when available. Later completion is excluded. ⏳ means timed out; ? means unknown. Overall eval errors remain ERROR.")
         lines.append("")
         lines.append(generate_phase_breakdown_table(remediation, agent_names, agent_amended, scenario_names))
         lines.append("")
@@ -976,8 +1060,6 @@ def print_correctness_table(
             if technical_failure and not use_color:
                 plain += "*"
             colored = _colorize(p, t, technical_failure)
-            if scenario_stats[cid, agent]["PENDING"] and not technical_failure:
-                colored = plain
             cells.append(f"{colored}{' ' * (w - len(plain))}")
         print("| " + " | ".join(cells) + " |")
     print(sep)
@@ -1043,10 +1125,13 @@ def main():
     )
     agent_runs = {}
     agent_amended = {}
+    saved_crs = SavedCRs(eval_dir)
     for agent in agent_names:
         run_dirs = find_run_dirs(eval_dir, agent)
         agent_runs[agent] = [load_run_summary(rd) for rd in run_dirs]
         agent_amended[agent] = [load_amended_entries(rd) for rd in run_dirs]
+        for rd, metrics, entries in zip(run_dirs, agent_runs[agent], agent_amended[agent]):
+            saved_crs.enrich(entries, agent, int(rd.name.split("_")[1]), metrics)
     conversations, saved_names, repeat = prepare_planned_runs(
         eval_dir, "evals-ols-agentic.yaml", agent_names, agent_runs, agent_amended,
     )

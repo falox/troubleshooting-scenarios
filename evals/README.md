@@ -30,7 +30,7 @@ Run Make commands from the repository root.
 | `TAG=core,alert` | Select scenarios with at least one of these tags. |
 | `PREVIEW=1` | Show the selection without running setup, evaluation, or cleanup. |
 | `NOTE="..."` | Add an optional memo before the first table in the Markdown report. |
-| `SETUP_MODE=scenario` | Control when resources are set up and removed; see below. |
+| `SETUP_MODE=auto` | Choose setup and cleanup based on the selected scenarios; see below. |
 
 Both eval targets and the manual `setup-scenario` and `cleanup-scenario` targets
 require `SCENARIO`, `TAG`, or both, including with `PREVIEW=1`. Without a filter,
@@ -40,7 +40,7 @@ tags filter the named scenarios.
 ```bash
 make eval-ols-agentic TAG=core PREVIEW=1
 make eval-ols-agentic TAG=investigation PREVIEW=1
-make eval-ols-agentic TAG=remediation SETUP_MODE=run
+make eval-ols-agentic TAG=remediation
 make eval-ols-classic TAG=difficulty_medium PREVIEW=1
 make eval-ols-agentic SCENARIO=blocked_deployment,refused_service
 make eval-ols-classic SCENARIO=crashlooping_pod_alert PREVIEW=1
@@ -59,14 +59,21 @@ Classic checks its operator CRD and server deployment.
 
 | Mode | Setup and cleanup | Parallel runs |
 |------|-------------------|---------------|
-| `scenario` (default) | Once per scenario. Use for agents that only read resources. | Uses the system config. |
+| `auto` (default) | Uses `run` if any selected scenario has the `remediation` tag; otherwise uses `scenario`. | Based on the selected mode. |
+| `scenario` | Once per scenario. Use for agents that only read resources. | Uses the system config. |
 | `run` | Once per scenario, agent, and repeat. Use for agents that change resources. | Disabled. |
 | `skip` | None. Use resources already deployed on the cluster. | Uses the system config. |
 
 ```bash
-make eval-ols-agentic SCENARIO=blocked_deployment_alert_remediation SETUP_MODE=run
+make eval-ols-agentic SCENARIO=blocked_deployment_alert_remediation
 make eval-ols-classic SCENARIO=crashlooping_pod_alert SETUP_MODE=skip
 ```
+
+The automatic choice applies to the whole session, including selections that
+mix investigation and remediation scenarios. Each agent and repeat gets a
+fresh fault, so a previous fix does not change the next evaluation. An explicit
+`SETUP_MODE=run`, `scenario`, or `skip` overrides the automatic choice. Preview
+and real runs show the selected mode.
 
 Classic group setup and cleanup run once per selected group in `scenario` and
 `run` modes. In `skip` mode, group setup and cleanup are skipped too.
@@ -121,6 +128,45 @@ Both the standalone command and the Agentic runner use the shared
 
 ## Reports
 
+Agentic sessions save full `AgenticRun`, `AnalysisResult`, `ExecutionResult`,
+`VerificationResult`, and `EscalationResult` CRs under `<session>/crs/`, one YAML file per CR (`KIND-NAME.yaml`).
+Capture starts before evaluation and keeps updates and deletion events. At the
+end of each eval, the runner collects a final snapshot before cleanup and
+freezes that run's CR files. `crs/eval-stops.json` records the stop time and
+eval outcome. Later CR updates cannot replace that snapshot. Existing runs
+are skipped. Agent and LLMProvider CRs are
+not saved. Watch errors appear in `capture-logs.log`; final snapshot errors
+appear in the evaluator output. Capture errors do not replace the eval outcome.
+
+The phase breakdown reads these saved result CRs first. It checks the
+`Completed` condition's reason, since `Completed=True` also applies to a
+failed phase. Missing evidence is `Unknown`, and an active phase is `Running`.
+The reader also supports JSON CRs from older sessions. Without saved CRs, it
+uses result statuses in amended YAML, then AgenticRun conditions.
+The report can be regenerated without cluster access. CR links let you inspect
+the evidence. When available, duration covers the full AgenticRun, from its
+creation to its terminal time.
+
+Eval outcomes still use the saved metrics. An eval timeout is a failed test
+and remains an ERROR even if the AgenticRun continues and completes later.
+The framework timeout covers the full run, across all phases; `timeout: 900`
+means 900 seconds (15 minutes). A phase still running when this timeout expires
+is shown as timed out, even if its result CR does not exist yet. The frozen
+parent CR records the active sandbox. Later completion is excluded from the
+phase breakdown.
+For recovered CRs from older sessions, the report uses the timeout result's
+timestamp as the stop time; it does not count phase completions after that time.
+
+To recover CRs for an older session while they still exist on the cluster:
+
+```bash
+venv/bin/python3 scripts/agentic_crs.py "evals/results/<session>"
+```
+
+This uses the run names in the saved log filenames. Use `--runs NAME ...` to
+select run names explicitly when logs are missing. It saves only those runs
+and their result CRs, matched by parent UID.
+
 Runners save Markdown reports to `evals/results/<session>/report.md`,
 in the same directory as the session results and system config.
 Use `NOTE` to describe the purpose of a run. It works for both eval targets:
@@ -140,8 +186,9 @@ The report is created before evaluation starts and updated at the start and
 end of each scenario. With `SETUP_MODE=run`, it is updated for each agent and
 repeat. You can open the file during `make eval-ols-agentic` or
 `make eval-ols-classic` to see partial results.
-The CLI prints the results table after each scenario. With `SETUP_MODE=run`,
-it prints the table after all agents and repeats for that scenario finish.
+The CLI prints the results table after each scenario, before cleanup starts.
+With `SETUP_MODE=run`, it prints the updated table after each agent and repeat,
+before cleanup starts for that run.
 CLI cells are yellow when the Markdown correctness table shows ⚠️, meaning
 at least one technical error, including a setup failure or missing results
 after the session ends (when output is not a terminal, these cells use `*`
@@ -176,13 +223,13 @@ Both report types use the same scoring rules:
   `system-ols-*.yaml`. Scenarios can override it with `turn_metrics_metadata`;
   the Agentic `failing_api_alert` case requires 0.80. Remediation cases use
   status checks without a correctness score.
-- PASS, FAIL, and ERROR rates use all planned runs as the denominator, including
-  runs with no results. FAIL means a failed quality check without a technical
+- PASS, FAIL, and ERROR rates use finished runs as the denominator, including
+  finished runs with no results. FAIL means a failed quality check without a technical
   error. ERROR includes setup failures, evaluation errors, failed completion
-  checks, and missing results after the session ends. Runs still pending in a
-  live session stay in the denominator but do not count as errors.
+  checks, and missing results after the session ends. Pending runs are excluded from tables and totals, also after a session stops.
+  Scenarios with no finished runs are hidden.
 - Avg score uses available correctness scores, including scores below the
-  threshold. It shows `(scored runs / planned runs)`. No zero is added for a
+  threshold. It shows `(scored runs / finished runs)`. No zero is added for a
   missing score. A real judge score is kept even if the run has a technical
   error. Completion status alone does not provide a correctness score.
 - Saved progress and scenario definitions provide the planned runs. For older

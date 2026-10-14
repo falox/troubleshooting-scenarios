@@ -2,14 +2,14 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 --system-config FILE [--setup-mode run|scenario|skip] [--note TEXT] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
+  echo "Usage: $0 --system-config FILE [--setup-mode auto|run|scenario|skip] [--note TEXT] [--agents AGENT...] [--tags TAG...] --scenarios SCENARIO..."
   exit 1
 }
 
 SYSTEM_CONFIG=""
 SCENARIOS=()
 AGENTS=()
-SETUP_MODE="scenario"
+SETUP_MODE="auto"
 NOTE="${NOTE:-}"
 TAGS=()
 
@@ -26,8 +26,8 @@ while [ $# -gt 0 ]; do
 done
 
 [ -n "$SYSTEM_CONFIG" ] && [ ${#SCENARIOS[@]} -gt 0 ] || usage
-if [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
-  echo "ERROR: setup mode must be run, scenario, or skip: $SETUP_MODE" >&2
+if [ "$SETUP_MODE" != "auto" ] && [ "$SETUP_MODE" != "run" ] && [ "$SETUP_MODE" != "scenario" ] && [ "$SETUP_MODE" != "skip" ]; then
+  echo "ERROR: setup mode must be auto, run, scenario, or skip: $SETUP_MODE" >&2
   exit 2
 fi
 
@@ -65,6 +65,8 @@ for scenario in "${SCENARIOS[@]}"; do
     exit 64
   fi
 done
+
+SETUP_MODE="$(bash "$SCRIPT_DIR/resolve-setup-mode.sh" "$SETUP_MODE" evals-ols-agentic.yaml "${SCENARIOS[@]}")"
 
 bash "$SCRIPT_DIR/preflight.sh" --require-agentic --system-config "$SYSTEM_CONFIG"
 
@@ -132,8 +134,8 @@ start_log_watch() {
 import sys
 sys.path.insert(0, sys.argv[1])
 from sandbox_logs import capture_logs
-sys.exit(capture_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True)))
-' "$SCRIPT_DIR" "$EVAL_DIR/logs" 2> "$EVAL_DIR/capture-logs.log"
+sys.exit(capture_logs(sys.argv[2], on_ready=lambda: print("ready", flush=True), crs_directory=sys.argv[3]))
+' "$SCRIPT_DIR" "$EVAL_DIR/logs" "$EVAL_DIR/crs" 2> "$EVAL_DIR/capture-logs.log"
   }
   LOG_WATCH_PID=$SANDBOX_LOGS_PID
   ready_fd=${SANDBOX_LOGS[0]}
@@ -205,6 +207,7 @@ run_scenario() {
       "${TAG_FLAGS[@]}" || scenario_status=$?
     if [ "$scenario_status" -ne 0 ]; then failure_detail="Evaluation failed (exit $scenario_status)"; fi
   fi
+  report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   if [ "$SETUP_MODE" != "skip" ] && [ -n "$scenario_state_dir" ]; then
     echo "==> Cleanup: $scenario"
     if [ -x "$scenario/cleanup.sh" ]; then
@@ -217,7 +220,6 @@ run_scenario() {
   elif [ "$SETUP_MODE" = "skip" ]; then
     echo "==> Cleanup skipped: $scenario (SETUP_MODE=skip)"
   fi
-  report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   return "$scenario_status"
 }
 
@@ -240,13 +242,9 @@ if [ "$SETUP_MODE" = "run" ]; then
     for agent in "${AGENTS[@]}"; do
       for run in $(seq 1 "$REPEAT"); do
         progress_index=$((progress_index + 1))
-        report_output=quiet
-        if [ "$agent" = "${AGENTS[-1]}" ] && [ "$run" -eq "$REPEAT" ]; then
-          report_output=table
-        fi
         run_scenario "$scenario" \
           "Progress: run $progress_index/$total_runs | ${scenario#scenarios/} | agent=$agent | repeat=$run/$REPEAT" \
-          "$report_output" \
+          table \
           --agent "$agent" \
           --run-index "$run" || record_failure "$?" "$scenario (agent=$agent run=$run)"
       done

@@ -140,7 +140,7 @@ _ALL_OLS_CLASSIC := \
 	unready_pod_alert
 SCENARIO ?=
 TAG ?=
-SETUP_MODE ?= scenario
+SETUP_MODE ?= auto
 PREVIEW ?= 0
 
 COMMA := ,
@@ -177,6 +177,9 @@ endif
 # A scenario can have eval definitions for either OLS Agentic, OLS Classic, or
 # both. Standalone setup and cleanup targets use each selected scenario once.
 MATCHED_SCENARIOS := $(sort $(OLS_AGENTIC_SCENARIOS) $(OLS_CLASSIC_SCENARIOS))
+
+OLS_AGENTIC_SETUP_MODE = $(shell bash $(SCRIPTS_DIR)/resolve-setup-mode.sh $(SETUP_MODE) evals-ols-agentic.yaml $(addprefix $(SCENARIOS_DIR)/,$(OLS_AGENTIC_SCENARIOS)))
+OLS_CLASSIC_SETUP_MODE = $(shell bash $(SCRIPTS_DIR)/resolve-setup-mode.sh $(SETUP_MODE) evals-ols-classic.yaml $(addprefix $(SCENARIOS_DIR)/,$(OLS_CLASSIC_SCENARIOS)))
 
 .PHONY: _validate-scenario-filters setup-scenario cleanup-scenario setup-venv setup-ols-agentic setup-ols-classic eval-ols-agentic eval-ols-classic cleanup-ols-agentic cleanup-ols-classic help
 
@@ -235,7 +238,7 @@ ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
 	@bash $(SCRIPTS_DIR)/show-eval-summary.sh \
 	  --system-config "$(SYSTEM_CONFIG_AGENTIC)" \
-	  --setup-mode $(SETUP_MODE) \
+	  --setup-mode $(OLS_AGENTIC_SETUP_MODE) \
 	  --scenarios $(OLS_AGENTIC_SCENARIOS)
 else ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
@@ -243,7 +246,7 @@ else
 	@echo "==> Using config: $(SYSTEM_CONFIG_AGENTIC)"
 	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-agentic.sh \
 	  --system-config "$(abspath $(SYSTEM_CONFIG_AGENTIC))" \
-	  --setup-mode $(SETUP_MODE) \
+	  --setup-mode $(OLS_AGENTIC_SETUP_MODE) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
 	  --scenarios $(addprefix scenarios/,$(OLS_AGENTIC_SCENARIOS)) \
 	  || { status=$$?; if [ "$$status" -ne 64 ]; then exit "$$status"; fi; }
@@ -254,7 +257,7 @@ ifeq ($(PREVIEW),1)
 	@echo "Preview only: no setup, evaluation, or cleanup will run."
 	@bash $(SCRIPTS_DIR)/show-eval-summary.sh \
 	  --system-config "$(SYSTEM_CONFIG_CLASSIC)" \
-	  --setup-mode $(SETUP_MODE) \
+	  --setup-mode $(OLS_CLASSIC_SETUP_MODE) \
 	  --scenarios $(OLS_CLASSIC_SCENARIOS)
 else ifeq ($(OLS_CLASSIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
@@ -262,7 +265,7 @@ else
 	@echo "==> Using config: $(SYSTEM_CONFIG_CLASSIC)"
 	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-classic.sh \
 	  --system-config "$(abspath $(SYSTEM_CONFIG_CLASSIC))" \
-	  --setup-mode $(SETUP_MODE) \
+	  --setup-mode $(OLS_CLASSIC_SETUP_MODE) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
 	  --scenarios $(addprefix scenarios/,$(OLS_CLASSIC_SCENARIOS))
 endif
@@ -303,7 +306,8 @@ help: ## Show available targets
 	@echo "  TAG=...                   Filter by tag (required unless SCENARIO is set)"
 	@echo "  PREVIEW=1                 List matched scenarios without running them"
 	@echo "  NOTE=...                  Optional memo before the first report table"
-	@echo "  SETUP_MODE=run|scenario|skip Setup/cleanup lifecycle (default: scenario)"
+	@echo "  SETUP_MODE=auto|run|scenario|skip Setup/cleanup lifecycle (default: auto)"
+	@echo "    auto: run if any selected scenario has remediation; otherwise scenario"
 	@echo "    run:      per (scenario, agent, repeat) - for mutating agents"
 	@echo "    scenario: per scenario - for read-only agents, parallel OK"
 	@echo "    skip:     no scenario or group setup/cleanup"

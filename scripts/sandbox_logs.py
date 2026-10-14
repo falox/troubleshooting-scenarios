@@ -52,7 +52,7 @@ def report(message):
 
 
 class Watcher:
-    def __init__(self, directory, on_ready=None):
+    def __init__(self, directory, on_ready=None, crs_directory=None):
         self.directory = directory
         self.on_ready = on_ready
         self.seen = set()
@@ -60,6 +60,10 @@ class Watcher:
         self.lock = threading.Lock()
         self.processes = set()
         self.threads = []
+        self.cr_capture = None
+        if crs_directory is not None:
+            from agentic_crs import CRCapture
+            self.cr_capture = CRCapture(crs_directory, report)
 
     def list_pods(self):
         result = subprocess.run(
@@ -160,6 +164,8 @@ class Watcher:
             initial = self.list_pods()
             self.seen.update(pod["metadata"]["uid"] for pod in initial["items"])
             resource_version = initial["metadata"]["resourceVersion"]
+            if self.cr_capture is not None:
+                self.cr_capture.start()
             # Let the eval runner start only after existing pods are recorded.
             if self.on_ready is not None:
                 self.on_ready()
@@ -191,16 +197,19 @@ class Watcher:
                 self.terminate(process)
             for thread in self.threads:
                 thread.join()
+            if self.cr_capture is not None:
+                self.cr_capture.stop()
 
 
 def interrupt(*_):
     raise KeyboardInterrupt
 
 
-def capture_logs(directory, on_ready=None):
+def capture_logs(directory, on_ready=None, crs_directory=None):
     """Capture new sandbox pod logs until interrupted.
 
     Call on_ready after the initial pod list, before watching new events.
+    If crs_directory is set, also save new AgenticRun and result CRs there.
     Return zero on normal shutdown and one when startup fails.
     """
     if not shutil.which("oc"):
@@ -223,7 +232,7 @@ def capture_logs(directory, on_ready=None):
         return 1
     previous_handler = signal.signal(signal.SIGTERM, interrupt)
     try:
-        Watcher(directory, on_ready).run()
+        Watcher(directory, on_ready, crs_directory).run()
     except KeyboardInterrupt:
         report("Stopped.")
     except (subprocess.CalledProcessError, OSError, ValueError) as error:

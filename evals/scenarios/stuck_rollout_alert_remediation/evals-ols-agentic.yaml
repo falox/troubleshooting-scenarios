@@ -15,8 +15,7 @@
           Alert: ShippingTrackerRolloutStalled (warning)
           Namespace: shipping-tracker
           Description: Deployment shipping-tracker/shipping-tracker rollout is not progressing.
-          Investigate the alert, remediate the root cause, and verify the recovery.
-          Use the skill at /app/skills/cluster-troubleshoot/investigate-alert.
+          Investigate using the following skills:  investigate-alert
         tools:
           skills:
             - image: quay.io/openshiftanalytics/agentic-skills:latest
