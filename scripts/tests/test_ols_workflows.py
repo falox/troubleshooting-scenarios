@@ -935,6 +935,8 @@ import sys
 args = sys.argv[1:]
 session = Path(args[args.index("--eval-dir") + 1])
 scenario = Path(args[args.index("--evals") + 1]).parent.name
+progress = json.loads((session / "progress.json").read_text())
+assert any(item["state"] == "running" for item in progress["items"])
 report = session / "report.md"
 assert report.is_file(), "Report must exist before evaluation starts"
 agent = args[args.index("--agent") + 1] if "--agent" in args else "test-agent"
@@ -1027,6 +1029,9 @@ echo "cleanup:{name}"
         assert "Scenario 1/3" in tables[0]
         assert "Scenario 2/3" in tables[1]
         assert "Scenario 3/3" in tables[2]
+    completed_updates = 3 * len(agents) * 2 if mode == "run" else 3
+    # Initial report, completed runs, and final report; no writes at run start.
+    assert result.stdout.count("Report written to ") == completed_updates + 2
     before_second = (root / "snapshots/second-1.md").read_text()
     assert "Partial results: scenario 1/3." in before_second
     assert "| Pending |" not in before_second

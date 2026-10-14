@@ -182,10 +182,11 @@ Before setup starts, runners also copy the selected `evals-ols-*.yaml` files
 to `<session>/scenarios/`, keeping scenario and group subdirectories.
 Evaluations use these saved copies, so later edits to the source files do not
 change the definitions used by the session.
-The report is created before evaluation starts and updated at the start and
-end of each scenario. With `SETUP_MODE=run`, it is updated for each agent and
+The report is created before evaluation starts and updated at the end of each
+scenario. With `SETUP_MODE=run`, it is updated for each agent and
 repeat. You can open the file during `make eval-ols-agentic` or
 `make eval-ols-classic` to see partial results.
+Run starts update only `progress.json`, which records the active run.
 The CLI prints the results table after each scenario, before cleanup starts.
 With `SETUP_MODE=run`, it prints the updated table after each agent and repeat,
 before cleanup starts for that run.

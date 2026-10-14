@@ -16,6 +16,8 @@ report_event() {
   local output="$2"
   shift 2
   if "$PYTHON" "$SCRIPT_DIR/report_progress.py" "$event" "$EVAL_DIR" "$@"; then
+    # Save the active run in progress.json without rewriting the report.
+    if [ "$event" = "start" ]; then return 0; fi
     report_update "$output" || echo "WARNING: report update failed; keeping the last report." >&2
   else
     echo "WARNING: progress update failed; keeping the last report." >&2
