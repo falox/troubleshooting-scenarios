@@ -81,8 +81,7 @@ class Watcher:
         # Wait for the agent container, including pods that have already finished.
         statuses = pod.get("status", {}).get("containerStatuses", [])
         if not any(
-            status["name"] == "agent"
-            and ("running" in status.get("state", {}) or "terminated" in status.get("state", {}))
+            "running" in status.get("state", {}) or "terminated" in status.get("state", {})
             for status in statuses
         ):
             return
@@ -103,7 +102,7 @@ class Watcher:
                     if self.stop.is_set():
                         return
                     process = subprocess.Popen(
-                        ["oc", "logs", "-n", NAMESPACE, name, "-c", "agent", "--follow"],
+                        ["oc", "logs", "-n", NAMESPACE, name, "--follow"],
                         stdout=output, stderr=subprocess.PIPE,
                     )
                     self.processes.add(process)
