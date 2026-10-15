@@ -657,7 +657,8 @@ def test_scenario_cleanup(
     recorded = log.read_text().splitlines()
     assert [event for event in recorded if event != "report"] == events[:-1]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 4
+    # Initial report, one finished scenario, and final report.
+    assert recorded.count("report") == 3
     assert recorded[recorded.index("cleanup") - 1] == "report"
 
 
@@ -722,7 +723,8 @@ def test_failed_scenario_allows_later_scenarios_and_report(
     recorded = log.read_text().splitlines()
     assert [event for event in recorded if event != "report"] == expected_events[:-1]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 6
+    # Initial report, two finished scenarios, and final report.
+    assert recorded.count("report") == 4
     assert list((workspace / "evals/results").glob("*/report.md"))
 
 
@@ -781,7 +783,8 @@ def test_classic_failed_scenario_allows_later_scenarios_and_report(
     recorded = log.read_text().splitlines()
     assert [event for event in recorded if event != "report"] == expected_events[:-1]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 6
+    # Initial report, two finished scenarios, and final report.
+    assert recorded.count("report") == 4
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
 
@@ -848,7 +851,8 @@ def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace, setup_mod
         "group-cleanup",
     ]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 10
+    # Initial report, four finished runs, and final report.
+    assert recorded.count("report") == 6
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
 
@@ -903,7 +907,8 @@ def test_classic_failed_group_setup_skips_group_and_reports_other_scenarios(
         "group-cleanup",
     ]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 6
+    # Initial report, two skipped scenarios, one finished scenario, and final report.
+    assert recorded.count("report") == 5
     assert "Skipping scenarios/group/second" in result.stderr
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 

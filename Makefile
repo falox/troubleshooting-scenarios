@@ -181,7 +181,7 @@ MATCHED_SCENARIOS := $(sort $(OLS_AGENTIC_SCENARIOS) $(OLS_CLASSIC_SCENARIOS))
 OLS_AGENTIC_SETUP_MODE = $(shell bash $(SCRIPTS_DIR)/resolve-setup-mode.sh $(SETUP_MODE) evals-ols-agentic.yaml $(addprefix $(SCENARIOS_DIR)/,$(OLS_AGENTIC_SCENARIOS)))
 OLS_CLASSIC_SETUP_MODE = $(shell bash $(SCRIPTS_DIR)/resolve-setup-mode.sh $(SETUP_MODE) evals-ols-classic.yaml $(addprefix $(SCENARIOS_DIR)/,$(OLS_CLASSIC_SCENARIOS)))
 
-.PHONY: _validate-scenario-filters setup-scenario cleanup-scenario setup-venv setup-ols-agentic setup-ols-classic eval-ols-agentic eval-ols-classic cleanup-ols-agentic cleanup-ols-classic help
+.PHONY: _validate-scenario-filters setup-scenario cleanup-scenario setup-venv cleanup-venv setup-ols-agentic setup-ols-classic eval-ols-agentic eval-ols-classic cleanup-ols-agentic cleanup-ols-classic help
 
 _validate-scenario-filters:
 ifeq ($(strip $(SCENARIO)$(TAG)),)
@@ -272,14 +272,16 @@ else
 	  --scenarios $(addprefix scenarios/,$(OLS_CLASSIC_SCENARIOS))
 endif
 
-cleanup-ols-agentic:
+cleanup-venv:
 	@rm -rf venv
 	@echo "venv removed."
+
+cleanup-ols-agentic: cleanup-venv
 	@echo ""
 	@echo "NOTE: Remove lightspeed-agentic-operator manually for now."
 	@echo "This will be automated in the future."
 
-cleanup-ols-classic: cleanup-ols-agentic
+cleanup-ols-classic: cleanup-venv
 	@bash $(SCRIPTS_DIR)/cleanup-ols.sh
 
 help: ## Show available targets
@@ -300,6 +302,7 @@ help: ## Show available targets
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  cleanup-scenario     Remove selected scenario(s)"
+	@echo "  cleanup-venv         Remove only venv"
 	@echo "  cleanup-ols-agentic  Remove venv (OLS agentic operator is manual for now)"
 	@echo "  cleanup-ols-classic  Remove venv and OLS classic"
 	@echo ""
