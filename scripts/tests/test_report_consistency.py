@@ -109,7 +109,7 @@ def test_report_formats_note_as_italic_block_quote(report_module, tmp_path, note
     }))
     report = report_module.generate_report(tmp_path)
     assert report.count(expected) == 1
-    assert report.index(expected) < report.index("| PASS")
+    assert report.index(expected) < report.index("| Avg duration")
 
 
 def test_report_includes_saved_yaml_and_header_link(report_module, tmp_path):
@@ -178,12 +178,12 @@ def test_directory_labels_keep_scores_and_links(
 
     report = mod.generate_report(tmp_path)
 
-    assert report.count("| [kiali-ossm/check_mesh_status](#mesh_check) |") == 3
+    assert report.count("| [kiali-ossm/check_mesh_status](#mesh_check) |") == (4 if hasattr(mod, "generate_phase_breakdown_table") else 3)
     assert '<a id="mesh_check"></a>\n\n## kiali-ossm/check_mesh_status' in report
     assert '<a id="agent--mesh_check"></a>' in report
     assert "[🟢 2/2](#agent--mesh_check) (0.90)" in report
     assert "50% (2/4)" in report
-    assert report.count("| [old_id](#old_id) |") == 3
+    assert report.count("| [old_id](#old_id) |") == (4 if hasattr(mod, "generate_phase_breakdown_table") else 3)
     assert "## old_id\n" in report
 
     mod.print_correctness_table(
@@ -247,6 +247,9 @@ def test_cli_cell_colors_match_markdown(
     runs = [[metric(mod, result, 1.0 if result == "PASS" else 0.0)] for result in results]
     mod.print_correctness_table(["scenario"], ["agent"], {"agent": runs})
     output = capsys.readouterr().out
+    if hasattr(mod, "scored_conversations") and not mod.scored_conversations(["scenario"], {"agent": runs}):
+        assert output == ""
+        return
     row = next(line for line in output.splitlines() if line.startswith("| scenario"))
     if is_tty and color:
         assert getattr(mod, color) + expected + mod.RESET in row
@@ -303,7 +306,7 @@ def test_fully_failed_scenarios_appear_before_correctness(report_module, tmp_pat
     note = "**Scenarios that failed completely:**\n\n- `restarting_pod_alert`: Setup failed (exit 1)"
     if failed:
         assert report.count(note) == 1
-        assert report.index(note) < report.index("## Correctness")
+        assert report.index(note) < report.index("## Time" if hasattr(report_module, "scored_conversations") else "## Correctness")
         assert report.replace(note + "\n\n", "") == normal
     else:
         assert report == normal
@@ -371,10 +374,18 @@ def test_saved_plan_includes_setup_errors_missing_runs_and_empty_agents(report_m
     for label in ("PASS", "FAIL", "ERROR", "Avg score"):
         assert f"| {label} |" in report
         assert f"| **{label}** |" in report
-    assert "| ERROR | 100% (6/6) | 67% (4/6) |" in report
-    assert "| FAIL | 0% (0/6) | 17% (1/6) |" in report
-    assert "| Avg score | N/A (0/6) | **0.60 (2/6)** 🥇 |" in report
-    assert "| [setup_error](#setup_id) | [⚠️ 0/3](#empty--setup_id) |" in report
+    agentic = hasattr(mod, "scored_conversations")
+    denominator = 3 if agentic else 6
+    errors = "33% (1/3)" if agentic else "67% (4/6)"
+    failed = "33% (1/3)" if agentic else "17% (1/6)"
+    assert f"| ERROR | 100% ({denominator}/{denominator}) | {errors} |" in report
+    assert f"| FAIL | 0% (0/{denominator}) | {failed} |" in report
+    assert f"| Avg score | N/A (0/{denominator}) | **0.60 (2/{denominator})** 🥇 |" in report
+    if agentic:
+        phases = report.split("## Phase completion")[1].split("## Time")[0]
+        assert "| [setup_error](#setup_id) | [A N/A](#empty--setup_id) |" in phases
+    else:
+        assert "| [setup_error](#setup_id) | [⚠️ 0/3](#empty--setup_id) |" in report
     assert '<a id="empty--setup_id"></a>' in report
     assert "## Tokens" in report
     assert "## Cost" not in report
@@ -390,10 +401,10 @@ def test_saved_plan_includes_setup_errors_missing_runs_and_empty_agents(report_m
     assert runs["agent"][2][0]["result"] == "FAIL"
     mod.print_correctness_table(conversations, names, runs, amended, scenario_names)
     output = capsys.readouterr().out
-    assert "17% (1/6)" in output
-    assert "67% (4/6)" in output
-    assert "0.60 (2/6)" in output
-    assert "setup_error" in output
+    assert failed in output
+    assert errors in output
+    assert f"0.60 (2/{denominator})" in output
+    assert ("setup_error" in output) == (not agentic)
 
 
 @pytest.mark.parametrize("state,expected_errors,expected_pending", [

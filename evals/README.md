@@ -199,7 +199,7 @@ Partial reports add one line, such as `Partial results: scenario 2/47.`
 The count shows scenarios whose agents and repeats have all finished.
 Completed reports use the normal format without that line. Scores use saved
 results only. Scenarios whose runs all failed or were skipped after a setup
-error are listed with the reason before Correctness. Progress details remain
+error are listed with the reason before the result tables. Progress details remain
 in `progress.json` in the session directory.
 
 Runners try a final report update on exit, including Ctrl+C or termination.
@@ -244,6 +244,20 @@ Both report types use the same scoring rules:
 - Score medals compare values rounded to two decimal places.
 - Model columns follow `agents.default.agent` in the matching
   `system-ols-*.yaml`. Models absent from the list appear last, alphabetically.
+
+Agentic reports show **Correctness** only when at least one correctness score
+is available, including a score of zero. The table and its totals include only
+scenarios with scores. A partial report adds this table when the first score
+arrives. Status scores are never shown or used as correctness scores.
+
+**Phase completion** appears in both Markdown and CLI reports. Investigation
+scenarios show Analysis; remediation scenarios also show Execution and
+Verification. Saved scenario definitions select the phases, with recorded tags
+as a fallback for older sessions. Each phase has its own completion count and
+rate. Execution and Verification totals exclude investigation scenarios.
+Completion means a phase succeeded; it does not measure answer correctness.
+Missing, unknown, running, and timed out states stay distinct. CLI summaries
+also keep average duration, tokens, and evaluation error counts when present.
 
 ## Conventions
 

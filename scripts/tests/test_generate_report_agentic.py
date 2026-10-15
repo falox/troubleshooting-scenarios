@@ -525,7 +525,7 @@ class TestGenerateReport:
         assert "**PASS**" in report
         assert "75% (3/4)" in report
 
-    def test_status_metric_fallback(self, tmp_path, capsys):
+    def test_status_metric_does_not_create_correctness_table(self, tmp_path, capsys):
         _write_run(
             tmp_path / "gpt-5.4" / "run_1",
             results=[_make_result(
@@ -542,9 +542,9 @@ class TestGenerateReport:
         report = mod.generate_report(tmp_path)
         mod.print_correctness_table(conversations, ["gpt-5.4"], agent_runs)
 
-        assert "100% (1/1)" in report
-        assert "🟢 1/1" in report
-        assert "1/1" in capsys.readouterr().out
+        assert "## Correctness" not in report
+        assert "Avg score" not in report
+        assert capsys.readouterr().out == ""
 
     def test_remediation_phase_breakdown(self, tmp_path):
         status = {
@@ -570,12 +570,12 @@ class TestGenerateReport:
 
         report = mod.generate_report(tmp_path)
 
-        assert "## Correctness breakdown by Phase" in report
+        assert "## Phase completion" in report
         assert "A = Analysis; E = Execution; V = Verification." in report
         assert "Each linked cell reports" not in report
         assert "| Scenario | gemini | gpt-5.4 |" in report
         assert "[A ✅ 1/1<br>E ⚠️ 0/1<br>V ? Unknown](#gpt-5.4--remediation-scenario)" in report
-        assert "| [analysis-only](#analysis-only) |" not in report.split("## Correctness breakdown by Phase")[1].split("## Time")[0]
+        assert "| [analysis-only](#analysis-only) |" in report.split("## Phase completion")[1].split("## Time")[0]
         assert "**Analysis**: ✅ Completed" in report
         assert "**Execution**: ⚠️ Failed" in report
         assert "**Verification**: ? Unknown" in report
@@ -688,18 +688,21 @@ class TestGenerateReport:
                 )
 
         report = mod.generate_report(tmp_path)
-        breakdown = report.split("## Correctness breakdown by Phase")[1].split("## Time")[0]
+        breakdown = report.split("## Phase completion")[1].split("## Time")[0]
 
         assert "| **PASS** | A **100% (2/2)** 🥇<br>E 50% (1/2)<br>V **50% (1/2)** 🥇 | A 50% (1/2)<br>E **100% (2/2)** 🥇<br>V 0% (0/2) |" in breakdown
 
-    def test_omits_phase_breakdown_without_remediation(self, tmp_path):
+    def test_investigation_phase_breakdown_shows_only_analysis(self, tmp_path):
         _write_run(
             tmp_path / "gpt-5.4" / "run_1",
             results=[_make_result("analysis-only")],
             amended_entries=[{"conversation_id": "analysis-only"}],
         )
 
-        assert "## Correctness breakdown by Phase" not in mod.generate_report(tmp_path)
+        report = mod.generate_report(tmp_path)
+        phases = report.split("## Phase completion")[1].split("## Time")[0]
+        assert "[A ? Unknown](#gpt-5.4--analysis-only)" in phases
+        assert "<br>E " not in phases
 
     def test_timestamp_in_header(self, tmp_path):
         _write_run(
@@ -1163,3 +1166,117 @@ class TestPrintCorrectnessTable:
         mod.print_correctness_table(conversations, ["a"], agent_runs)
         out = capsys.readouterr().out
         assert "1/2" in out
+
+
+@pytest.mark.parametrize("remediation", [False, True])
+def test_status_only_reports_show_phase_completion(tmp_path, monkeypatch, capsys, remediation):
+    tags = ["remediation"] if remediation else ["investigation"]
+    conditions = mod.PHASE_CONDITIONS if remediation else mod.PHASE_CONDITIONS[:1]
+    for index, passed in [(1, True), (2, False)]:
+        _write_run(
+            tmp_path / f"agent/run_{index}",
+            [_make_result("case", metric=mod.STATUS_METRIC,
+                          result="PASS" if passed else "FAIL", score=float(passed))],
+            [{"conversation_id": "case", "tags": tags, "agentic_run_status": {
+                "conditions": [{"type": condition, "status": str(passed)}
+                               for _, condition in conditions],
+            }}],
+        )
+    monkeypatch.setattr(mod.sys, "argv", ["generate-report-agentic.py", str(tmp_path)])
+    mod.main()
+    output = capsys.readouterr().out
+    report = (tmp_path / "report.md").read_text()
+    for content in (report, output):
+        assert "Phase completion" in content
+        assert "Correctness" not in content
+        assert "Avg score" not in content
+        assert "score:" not in content
+        assert "1/2" in content
+        assert "Avg duration" in content
+        assert "Avg tokens" in content
+    assert "**Completed**: ✅ PASS\n" in report
+    assert "**Completed**: ⚠️ FAIL\n" in report
+    assert ("**Execution**" in report) == remediation
+    assert ("Verification" in output) == remediation
+    assert "0/1 (Failed)" not in output  # Both repeats belong to the same phase.
+    assert "1/2 (Failed)" in output
+
+
+def test_mixed_reports_keep_status_only_scenarios_out_of_correctness(tmp_path, monkeypatch, capsys):
+    _write_run(tmp_path / "agent/run_1", [
+        _make_result("quality", score=0.0, result="FAIL"),
+        _make_result("status-only", metric=mod.STATUS_METRIC),
+    ], [{"conversation_id": "quality"}, {"conversation_id": "status-only"}])
+    monkeypatch.setattr(mod.sys, "argv", ["generate-report-agentic.py", str(tmp_path)])
+    mod.main()
+    output = capsys.readouterr().out
+    report = (tmp_path / "report.md").read_text()
+    correctness = report.split("## Correctness\n")[1].split("## Phase completion")[0]
+    assert "status-only" not in correctness
+    assert "(0.00)" in correctness
+    assert "status-only" in report.split("## Phase completion")[1]
+    assert "status-only" not in output.split("Phase completion")[0]
+    assert "0.00 (1/1)" in output
+
+
+def test_phase_plan_uses_saved_definition_without_amended_output(tmp_path, monkeypatch, capsys):
+    path = tmp_path / "scenarios/case/evals-ols-agentic.yaml"
+    path.parent.mkdir(parents=True)
+    path.write_text("- conversation_group_id: case\n  tag: [remediation]\n")
+    _write_run(tmp_path / "agent/run_1", [
+        _make_result("case", metric=mod.STATUS_METRIC, result="ERROR", score=None),
+    ], [])
+    monkeypatch.setattr(mod.sys, "argv", ["generate-report-agentic.py", str(tmp_path)])
+    mod.main()
+    output = capsys.readouterr().out
+    report = (tmp_path / "report.md").read_text()
+    assert "Correctness" not in report
+    assert "Verification" in output
+    assert "Eval errors" in output
+    assert "**Verification**: ? Unknown" in report
+    assert "N/A (Unknown)" not in output  # No phase output was recorded.
+
+
+def test_phase_totals_exclude_investigation_from_execution(tmp_path):
+    _write_run(tmp_path / "agent/run_1", [
+        _make_result("investigation", metric=mod.STATUS_METRIC),
+        _make_result("remediation", metric=mod.STATUS_METRIC),
+    ], [
+        {"conversation_id": "investigation", "agentic_run_status": {"conditions": [
+            {"type": "Analyzed", "status": "True"},
+            {"type": "Executed", "status": "False"},
+        ]}},
+        {"conversation_id": "remediation", "tags": ["remediation"],
+         "agentic_run_status": {"conditions": [
+             {"type": condition, "status": "True"} for _, condition in mod.PHASE_CONDITIONS
+         ]}},
+    ])
+    report = mod.generate_report(tmp_path)
+    assert "A **100% (2/2)** 🥇<br>E **100% (1/1)** 🥇<br>V **100% (1/1)** 🥇" in report
+    row = next(row for row in report.splitlines() if row.startswith("| [investigation]"))
+    assert "E " not in row
+
+
+def test_partial_report_adds_correctness_when_a_score_arrives(tmp_path):
+    path = tmp_path / "scenarios/case/evals-ols-agentic.yaml"
+    path.parent.mkdir(parents=True)
+    path.write_text("- conversation_group_id: case\n  tag: [investigation]\n")
+    (tmp_path / "progress.json").write_text(json.dumps({
+        "state": "running", "repeat": 2, "agents": ["agent"],
+        "scenarios": ["scenarios/case"],
+        "items": [{"scenario": "scenarios/case", "state": "running"}],
+    }))
+    _write_run(tmp_path / "agent/run_1", [
+        _make_result("case", result="ERROR", score=None),
+    ], [{"conversation_id": "case"}])
+    before = mod.generate_report(tmp_path)
+    assert "## Correctness" not in before
+    assert "Avg score" not in before
+    assert "## Phase completion" in before
+    _write_run(tmp_path / "agent/run_2", [
+        _make_result("case", result="FAIL", score=0.0),
+    ], [{"conversation_id": "case"}])
+    after = mod.generate_report(tmp_path)
+    assert "## Correctness" in after
+    assert "0.00 (1/2)" in after
+    assert "Partial results: scenario 0/1." in after

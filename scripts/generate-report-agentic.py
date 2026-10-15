@@ -254,6 +254,38 @@ def get_performance_result(
     return performance_result(results, conversation_id, (CORRECTNESS_METRIC, STATUS_METRIC))
 
 
+def scored_conversations(conversations: list[str], agent_runs: dict[str, list]) -> list[str]:
+    """Keep scenarios with at least one available correctness score, including zero."""
+    return [cid for cid in conversations if any(
+        scenario_mean_score(runs, cid) is not None for runs in agent_runs.values()
+    )]
+
+
+def load_phase_plan(eval_dir: Path, conversations: list[str], agent_amended: dict[str, list]) -> dict:
+    """Use saved definitions first, then recorded tags for older sessions."""
+    remediation = set(remediation_conversations(conversations, agent_amended))
+    for path in sorted((eval_dir / "scenarios").rglob("evals-ols-agentic.yaml")):
+        for entry in yaml.safe_load(path.read_text()) or []:
+            cid = entry["conversation_group_id"]
+            needs_fix = "remediation" in entry.get("tag", []) or any(
+                phase in (turn.get("openshift_agentic_run_spec") or {})
+                for turn in entry.get("turns", []) for phase in ("execution", "verification")
+            )
+            if needs_fix:
+                remediation.add(cid)
+            else:
+                remediation.discard(cid)
+    return {cid: PHASE_CONDITIONS if cid in remediation else PHASE_CONDITIONS[:1]
+            for cid in conversations}
+
+
+def scenario_phases(cid: str, agent_amended: dict[str, list], phase_plan: dict | None = None):
+    if phase_plan is not None and cid in phase_plan:
+        return phase_plan[cid]
+    return (PHASE_CONDITIONS if remediation_conversations([cid], agent_amended)
+            else PHASE_CONDITIONS[:1])
+
+
 def strip_request_section(response: str) -> str:
     match = re.search(r'^## Analysis\b', response, re.MULTILINE)
     if match:
@@ -331,7 +363,9 @@ def generate_overview_table(
     separator = "|---|" + "|".join("---" for _ in agent_names) + "|"
     lines = [header, separator]
 
-    lines.extend(summary_rows(conversations, agent_names, agent_runs, get_performance_result))
+    scored = scored_conversations(conversations, agent_runs)
+    if scored:
+        lines.extend(summary_rows(scored, agent_names, agent_runs, get_performance_result))
 
     # Mean duration
     mean_durations = {a: mean_duration(agent_amended[a], conversations) for a in agent_names}
@@ -450,7 +484,7 @@ def phase_status(entries: list[dict], conversation_id: str, condition_type: str)
 
 
 def phase_count(agent_amended: list, cid: str, condition_type: str) -> tuple[int, int]:
-    """Return completed and total runs for one remediation phase."""
+    """Return completed and total finished runs for one phase."""
     statuses = [
         phase_status(entries, cid, condition_type)
         for entries in agent_amended
@@ -462,7 +496,7 @@ def phase_count(agent_amended: list, cid: str, condition_type: str) -> tuple[int
 
 
 def phase_rate_cell(completed: int, total: int, bold: bool = False) -> str:
-    """Format a phase pass rate using the Correctness table convention."""
+    """Format the percentage of finished phases that succeeded."""
     if total == 0:
         return "N/A"
     pct = round(100 * completed / total)
@@ -470,10 +504,10 @@ def phase_rate_cell(completed: int, total: int, bold: bool = False) -> str:
     return winner_cell(text, bold)
 
 
-def phase_breakdown_cell(agent_amended: list, cid: str, agent: str) -> str:
+def phase_breakdown_cell(agent_amended: list, cid: str, agent: str, phases=None) -> str:
     """Build one linked phase-summary cell for an agent and conversation."""
-    phases = []
-    for label, condition_type in PHASE_CONDITIONS:
+    parts = []
+    for label, condition_type in (phases if phases is not None else PHASE_CONDITIONS):
         statuses = [
             phase_status(entries, cid, condition_type)
             for entries in agent_amended
@@ -498,22 +532,25 @@ def phase_breakdown_cell(agent_amended: list, cid: str, agent: str) -> str:
             text = f"⏳ {text}"
         elif total and completed == 0:
             text = f"⚠️ {text}"
-        phases.append(f"{label[0]} {text}")
-    return f"[{'<br>'.join(phases)}](#{anchor_id(agent, cid)})"
+        parts.append(f"{label[0]} {text}")
+    return f"[{'<br>'.join(parts)}](#{anchor_id(agent, cid)})"
 
 
 def generate_phase_breakdown_table(
     conversations: list[str], agent_names: list[str], agent_amended: dict[str, list],
     scenario_names: dict[str, str] | None = None,
+    phase_plan: dict | None = None,
 ) -> str:
-    """Render per-phase outcomes for remediation scenarios."""
+    """Render phase completion for investigation and remediation scenarios."""
     scenario_names = scenario_names or {}
     header = "| Scenario | " + " | ".join(agent_names) + " |"
     separator = "|---|" + "|".join("---" for _ in agent_names) + "|"
     lines = [header, separator]
     for cid in conversations:
         anchor = cid.lower().replace(" ", "-")
-        cells = [phase_breakdown_cell(agent_amended[agent], cid, agent) for agent in agent_names]
+        cells = [phase_breakdown_cell(agent_amended[agent], cid, agent,
+                                      scenario_phases(cid, agent_amended, phase_plan))
+                 for agent in agent_names]
         lines.append(f"| [{scenario_names.get(cid, cid)}](#{anchor}) | {' | '.join(cells)} |")
 
     phase_totals = {
@@ -522,6 +559,7 @@ def generate_phase_breakdown_table(
                 sum(values[index] for values in (
                     phase_count(agent_amended[agent], cid, condition_type)
                     for cid in conversations
+                    if condition_type in {condition for _, condition in scenario_phases(cid, agent_amended, phase_plan)}
                 ))
                 for index in (0, 1)
             )
@@ -542,10 +580,13 @@ def generate_phase_breakdown_table(
         )
         for _, condition_type in PHASE_CONDITIONS
     }
+    used_phases = [phase for phase in PHASE_CONDITIONS if any(
+        phase in scenario_phases(cid, agent_amended, phase_plan) for cid in conversations
+    )]
     cells = []
     for agent in agent_names:
         rates = []
-        for label, condition_type in PHASE_CONDITIONS:
+        for label, condition_type in used_phases:
             completed, total = phase_totals[agent][condition_type]
             rates.append(
                 f"{label[0]} {phase_rate_cell(
@@ -668,6 +709,7 @@ def generate_scenario_details(
     agent_amended: dict[str, list],
     agent_run_dirs: dict[str, list[Path]],
     scenario_names: dict[str, str] | None = None,
+    phase_plan: dict | None = None,
 ) -> str:
     scenario_names = scenario_names or {}
     lines = []
@@ -743,9 +785,10 @@ def generate_scenario_details(
                     result_icon = "✅" if r["result"] == "PASS" else "⚠️"
                     score = r.get("score")
                     score_str = f"{score:.2f}" if score is not None else "N/A"
+                    score_text = f" (score: {score_str})" if r["metric_identifier"] == CORRECTNESS_METRIC else ""
                     lines.append(
                         f"**{metric_label(r['metric_identifier'])}**: "
-                        f"{result_icon} {r['result']} (score: {score_str})"
+                        f"{result_icon} {r['result']}{score_text}"
                     )
 
                     for js in r.get("judge_scores") or []:
@@ -756,19 +799,18 @@ def generate_scenario_details(
 
                     lines.append("")
 
-                if tags and "remediation" in tags:
-                    phase_entries = [
-                        entry for entry in amended_entries if entry["conversation_group_id"] == cid
-                    ]
-                    for label, condition_type in PHASE_CONDITIONS:
-                        if state == "PENDING":
-                            lines.append(f"**{label}**: N/A")
-                            continue
-                        status = phase_status(phase_entries, cid, condition_type)
-                        icon = {"Completed": "✅", "TimedOut": "⏳", "Unknown": "?",
-                                "Running": "🔄", "Not started": "—"}.get(status, "⚠️")
-                        lines.append(f"**{label}**: {icon} {status}")
-                    lines.append("")
+                phase_entries = [
+                    entry for entry in amended_entries if entry["conversation_group_id"] == cid
+                ]
+                for label, condition_type in scenario_phases(cid, agent_amended, phase_plan):
+                    if state == "PENDING":
+                        lines.append(f"**{label}**: N/A")
+                        continue
+                    status = phase_status(phase_entries, cid, condition_type)
+                    icon = {"Completed": "✅", "TimedOut": "⏳", "Unknown": "?",
+                            "Running": "🔄", "Not started": "—"}.get(status, "⚠️")
+                    lines.append(f"**{label}**: {icon} {status}")
+                lines.append("")
 
                 for entry in amended_entries:
                     if entry["conversation_group_id"] == cid and entry.get("cr_links"):
@@ -903,24 +945,21 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
         lines.append(failed_scenarios)
         lines.append("")
 
-    lines.append("## Correctness")
-    lines.append("")
-    lines.append(SCORING_LEGEND)
-    lines.append("")
-    lines.append(CORRECTNESS_LEGEND)
-    lines.append("")
-    lines.append(generate_summary_table(conversations, agent_names, agent_runs, scenario_names))
-    lines.append("")
+    scored = scored_conversations(conversations, agent_runs)
+    if scored:
+        lines.extend(["## Correctness", "", SCORING_LEGEND, "", CORRECTNESS_LEGEND, ""])
+        lines.append(generate_summary_table(scored, agent_names, agent_runs, scenario_names))
+        lines.append("")
 
-    remediation = remediation_conversations(conversations, agent_amended)
-    if remediation:
-        lines.append("## Correctness breakdown by Phase")
-        lines.append("")
-        lines.append("A = Analysis; E = Execution; V = Verification.")
-        lines.append("Phase states use saved result CRs at eval stop when available. Later completion is excluded. ⏳ means timed out; ? means unknown. Overall eval errors remain ERROR.")
-        lines.append("")
-        lines.append(generate_phase_breakdown_table(remediation, agent_names, agent_amended, scenario_names))
-        lines.append("")
+    phase_plan = load_phase_plan(eval_dir, conversations, agent_amended)
+    if conversations:
+        lines.extend([
+            "## Phase completion", "",
+            "A = Analysis; E = Execution; V = Verification.",
+            "Phase states use saved result CRs at eval stop when available. Later completion is excluded. ⏳ means timed out; ? means unknown. Overall eval errors remain ERROR.",
+            "Phase completion does not measure answer correctness. Only remediation scenarios include Execution and Verification.", "",
+            generate_phase_breakdown_table(conversations, agent_names, agent_amended, scenario_names, phase_plan), "",
+        ])
 
     # Duration per scenario
     lines.append("## Time")
@@ -943,7 +982,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
     lines.append("")
     lines.append(
         generate_scenario_details(
-            conversations, agent_names, agent_runs, agent_amended, agent_run_dirs_map, scenario_names
+            conversations, agent_names, agent_runs, agent_amended, agent_run_dirs_map, scenario_names, phase_plan
         )
     )
 
@@ -982,6 +1021,9 @@ def print_correctness_table(
     agent_amended: dict[str, list] | None = None,
     scenario_names: dict[str, str] | None = None,
 ) -> None:
+    conversations = scored_conversations(conversations, agent_runs)
+    if not conversations:
+        return
     scenario_names = scenario_names or {}
     agent_amended = agent_amended or {}
     grid: list[list[tuple[int, int]]] = []
@@ -1084,6 +1126,66 @@ def print_correctness_table(
     print(sep)
 
 
+def print_phase_completion_table(
+    conversations, agent_names, agent_amended, scenario_names=None, phase_plan=None,
+    agent_runs=None,
+):
+    """Print each applicable phase without combining it into a score."""
+    if not conversations:
+        return
+    names = scenario_names or {}
+    rows = []
+    for cid in conversations:
+        for label, condition_type in scenario_phases(cid, agent_amended, phase_plan):
+            cells = []
+            for agent in agent_names:
+                entries = agent_amended.get(agent, [])
+                statuses = [phase_status(run, cid, condition_type) for run in entries
+                            if any(entry["conversation_group_id"] == cid for entry in run)]
+                completed, total = phase_count(entries, cid, condition_type)
+                text = f"{completed}/{total}" if total else "N/A"
+                other = list(dict.fromkeys(status for status in statuses if status != "Completed"))
+                if other:
+                    text += " (" + ", ".join(other) + ")"
+                cells.append(text)
+            rows.append([names.get(cid, cid), label, *cells])
+    for label, condition_type in PHASE_CONDITIONS:
+        applicable = [cid for cid in conversations if (label, condition_type)
+                      in scenario_phases(cid, agent_amended, phase_plan)]
+        if not applicable:
+            continue
+        cells = []
+        for agent in agent_names:
+            counts = [phase_count(agent_amended.get(agent, []), cid, condition_type)
+                      for cid in applicable]
+            cells.append(phase_rate_cell(sum(p for p, _ in counts), sum(t for _, t in counts)))
+        rows.append(["Completed", label, *cells])
+    if agent_runs is not None:
+        errors = [report_stats(agent_runs[a], conversations, get_performance_result)["ERROR"]
+                  for a in agent_names]
+        if any(errors):
+            rows.append(["Eval errors", "", *(str(count) for count in errors)])
+    durations = [mean_duration(agent_amended.get(a, []), conversations) for a in agent_names]
+    rows.append(["Avg duration", "", *(
+        format_duration(value) if value is not None else "N/A" for value in durations
+    )])
+    rows.append(["Avg tokens", "", *(
+        format_token_pair(*mean_tokens(agent_amended.get(a, []), conversations))
+        for a in agent_names
+    )])
+    header = ["Scenario", "Phase", *agent_names]
+    widths = [max(len(row[index]) for row in [header, *rows]) for index in range(len(header))]
+    separator = "+-" + "-+-".join("-" * width for width in widths) + "-+"
+    print("Phase completion")
+    print("Phase states are recorded at eval stop; completion does not measure answer correctness.")
+    print(separator)
+    for index, row in enumerate([header, *rows]):
+        print("| " + " | ".join(f"{cell:<{width}}" for cell, width in zip(row, widths)) + " |")
+        if index == 0:
+            print(separator)
+    print(separator)
+
+
 def main():
     import argparse
 
@@ -1140,7 +1242,14 @@ def main():
     scenario_names.update(saved_names)
 
     print()
-    print_correctness_table(conversations, agent_names, agent_runs, agent_amended, scenario_names)
+    if scored_conversations(conversations, agent_runs):
+        print("Correctness")
+        print_correctness_table(conversations, agent_names, agent_runs, agent_amended, scenario_names)
+        print()
+    print_phase_completion_table(
+        conversations, agent_names, agent_amended, scenario_names,
+        load_phase_plan(eval_dir, conversations, agent_amended), agent_runs,
+    )
     print()
     print(f"Report written to {output}")
 
