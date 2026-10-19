@@ -244,8 +244,9 @@ else ifeq ($(OLS_AGENTIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
 	@echo "==> Using config: $(SYSTEM_CONFIG_AGENTIC)"
-	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-agentic.sh \
-	  --system-config "$(abspath $(SYSTEM_CONFIG_AGENTIC))" \
+	@config=$$(cd . && realpath "$(SYSTEM_CONFIG_AGENTIC)") && \
+	  cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-agentic.sh \
+	  --system-config "$$config" \
 	  --setup-mode $(OLS_AGENTIC_SETUP_MODE) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
 	  --scenarios $(addprefix scenarios/,$(OLS_AGENTIC_SCENARIOS)) \
@@ -263,8 +264,9 @@ else ifeq ($(OLS_CLASSIC_SCENARIOS),)
 	@echo "No scenarios match the given filters."
 else
 	@echo "==> Using config: $(SYSTEM_CONFIG_CLASSIC)"
-	@cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-classic.sh \
-	  --system-config "$(abspath $(SYSTEM_CONFIG_CLASSIC))" \
+	@config=$$(cd . && realpath "$(SYSTEM_CONFIG_CLASSIC)") && \
+	  cd $(EVALS_DIR) && bash ../$(SCRIPTS_DIR)/eval-ols-classic.sh \
+	  --system-config "$$config" \
 	  --setup-mode $(OLS_CLASSIC_SETUP_MODE) \
 	  $(if $(TAG),--tags $(subst $(COMMA), ,$(TAG))) \
 	  --scenarios $(addprefix scenarios/,$(OLS_CLASSIC_SCENARIOS))
