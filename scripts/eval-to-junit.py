@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """Convert lightspeed-eval summary JSON files to JUnit XML for Sippy ingestion.
 
-This script extracts test results and token usage metrics from lightspeed-eval
-summary JSON files and converts them to JUnit XML format for Sippy dashboard ingestion.
+Aggregates results per scenario/agent pair across runs so that each test case
+in Sippy represents a stable, trackable identity (e.g. cascading_failure.openai-gpt-6-luna)
+rather than ephemeral per-run entries.
 
-Token metrics are embedded as JUnit properties for cost tracking and analysis.
+A test case passes only when every run passes all metrics for that scenario/agent.
+Aggregate stats (pass rate, average score, duration, tokens) are embedded as
+JUnit properties for downstream analysis.
 """
 
 import json
 import sys
+from collections import defaultdict
 from pathlib import Path
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom.minidom import parseString
@@ -17,122 +21,21 @@ from xml.dom.minidom import parseString
 SUITE_NAME = "troubleshooting-scenarios"
 
 
-def add_token_properties(parent: Element, data: dict, agent_name: str = "unknown") -> None:
-    """Add token usage metrics as JUnit properties.
-
-    Extracts token counts from the eval summary and embeds them as JUnit properties
-    for downstream analysis in Sippy dashboards and cost tracking tools.
-
-    Args:
-        parent: Parent XML element to attach properties to
-        data: Eval summary JSON data containing token metrics
-        agent_name: Agent name extracted from directory path (optional)
-    """
-    props = SubElement(parent, "properties")
-
-    stats = data.get("summary_stats", {}).get("overall", {})
-    config = data.get("configuration", {})
-
-    # Overall token metrics from the eval run
-    SubElement(props, "property", name="total_tokens",
-               value=str(stats.get("total_tokens", 0)))
-    SubElement(props, "property", name="total_api_input_tokens",
-               value=str(stats.get("total_api_input_tokens", 0)))
-    SubElement(props, "property", name="total_api_output_tokens",
-               value=str(stats.get("total_api_output_tokens", 0)))
-    SubElement(props, "property", name="total_judge_llm_input_tokens",
-               value=str(stats.get("total_judge_llm_input_tokens", 0)))
-    SubElement(props, "property", name="total_judge_llm_output_tokens",
-               value=str(stats.get("total_judge_llm_output_tokens", 0)))
-    SubElement(props, "property", name="total_embedding_tokens",
-               value=str(stats.get("total_embedding_tokens", 0)))
-
-    # LLM provider configuration
-    # Extract judge LLM info from llm_pool.models using judge_panel.judges selection
-    llm_pool = config.get("llm_pool", {})
-    models = llm_pool.get("models", {})
-    judge_panel = config.get("judge_panel", {})
-    judges = judge_panel.get("judges", [])
-
-    judge_provider = "unknown"
-    judge_model = "unknown"
-    if judges and len(judges) > 0:
-        judge_name = judges[0]
-        judge_config = models.get(judge_name, {})
-        judge_provider = judge_config.get("provider", "unknown")
-        judge_model = judge_config.get("model", "unknown")
-
-    SubElement(props, "property", name="judge_llm_provider", value=judge_provider)
-    SubElement(props, "property", name="judge_llm_model", value=judge_model)
-
-    # Agent info extracted from directory path (agent_name parameter)
-    SubElement(props, "property", name="agent_llm_provider", value="openshift-lightspeed")
-    SubElement(props, "property", name="agent_llm_model", value=agent_name)
-
-    # Timestamp and eval metadata
-    SubElement(props, "property", name="eval_timestamp",
-               value=data.get("timestamp", ""))
-    SubElement(props, "property", name="total_evaluations",
-               value=str(data.get("total_evaluations", 0)))
-
-
-def add_testcase_properties(tc: Element, result: dict) -> None:
-    """Add per-test token metrics as properties.
-
-    Args:
-        tc: Testcase XML element
-        result: Individual test result from eval summary
-    """
-    tc_props = SubElement(tc, "properties")
-
-    # Per-test token usage
-    SubElement(tc_props, "property", name="api_input_tokens",
-               value=str(result.get("api_input_tokens", 0)))
-    SubElement(tc_props, "property", name="api_output_tokens",
-               value=str(result.get("api_output_tokens", 0)))
-    SubElement(tc_props, "property", name="judge_llm_input_tokens",
-               value=str(result.get("judge_llm_input_tokens", 0)))
-    SubElement(tc_props, "property", name="judge_llm_output_tokens",
-               value=str(result.get("judge_llm_output_tokens", 0)))
-    SubElement(tc_props, "property", name="embedding_tokens",
-               value=str(result.get("embedding_tokens", 0)))
-
-    # Test metadata
-    tag = result.get("tag", "")
-    if tag:
-        SubElement(tc_props, "property", name="scenario_tag", value=tag)
-
-    # Performance metrics
-    agent_latency = result.get("agent_latency")
-    if agent_latency is not None:
-        SubElement(tc_props, "property", name="agent_latency_seconds",
-                   value=f"{agent_latency:.3f}")
-
-    eval_latency = result.get("evaluation_latency")
-    if eval_latency is not None:
-        SubElement(tc_props, "property", name="evaluation_latency_seconds",
-                   value=f"{eval_latency:.3f}")
+def _aggregate_key(agent: str, scenario: str) -> tuple[str, str]:
+    return (agent, scenario)
 
 
 def build_junit(summary_files: list[Path]) -> Element:
-    """Build a JUnit XML tree from one or more eval summary JSON files.
+    """Build a JUnit XML tree from eval summary JSON files.
 
-    Converts eval results to JUnit format with embedded token metrics for Sippy ingestion.
-
-    Args:
-        summary_files: List of paths to evaluation_*_summary.json files
-
-    Returns:
-        Root testsuites XML element
+    Groups individual metric results by (agent, scenario) and aggregates across
+    runs. Each group becomes one JUnit test case with a stable name.
     """
-    testsuites = Element("testsuites")
-
-    # Create a single testsuite for all tests
-    suite = SubElement(testsuites, "testsuite", name=SUITE_NAME)
-
-    total_tests = 0
-    total_failures = 0
-    total_errors = 0
+    # Collect raw results keyed by (agent, scenario) -> list of per-run dicts
+    # Each "run" is one summary file for a specific agent/run_N directory.
+    # A run may contain multiple metric results for the same scenario.
+    groups: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    run_tracker: dict[tuple[str, str], set[str]] = defaultdict(set)
 
     for path in sorted(summary_files):
         with open(path) as f:
@@ -142,44 +45,114 @@ def build_junit(summary_files: list[Path]) -> Element:
         if not results:
             continue
 
-        # Extract agent and run info from directory path
-        # Path structure: .../AGENT_NAME/run_N/evaluation_*_summary.json
         agent_name = path.parent.parent.name if path.parent.parent.name != "results" else "unknown"
-        run_number = path.parent.name if path.parent.name.startswith("run_") else "unknown"
+        run_id = path.parent.name if path.parent.name.startswith("run_") else str(path)
 
         for r in results:
             scenario = r.get("conversation_group_id", "unknown")
-            metric = r.get("metric_identifier", "unknown")
-            name = f"{scenario}/{agent_name}/{run_number}/{metric}"
+            key = _aggregate_key(agent_name, scenario)
+            groups[key].append({**r, "_run_id": run_id})
+            run_tracker[key].add(run_id)
 
-            tc = SubElement(suite, "testcase", name=name, classname=scenario)
+    testsuites = Element("testsuites")
+    suite = SubElement(testsuites, "testsuite", name=SUITE_NAME)
 
-            # Add per-test token metrics and metadata
-            add_testcase_properties(tc, r)
+    total_tests = 0
+    total_failures = 0
+    total_errors = 0
 
-            status = r.get("result", "ERROR")
-            score = r.get("score")
-            reason = ""
-            judges = r.get("judge_scores") or []
-            if judges:
-                reason = judges[0].get("reason", "")
+    for (agent, scenario), results in sorted(groups.items()):
+        num_runs = len(run_tracker[(agent, scenario)])
+        name = f"{scenario}.{agent}"
 
-            if status == "ERROR":
+        # A run passes only when every metric result in it has result == "PASS".
+        runs_by_id: dict[str, list[dict]] = defaultdict(list)
+        for r in results:
+            runs_by_id[r["_run_id"]].append(r)
+
+        runs_passed = sum(
+            1 for run_results in runs_by_id.values()
+            if all(r.get("result") == "PASS" for r in run_results)
+        )
+        all_passed = runs_passed == num_runs
+
+        # Aggregate scores
+        scores = [r.get("score") for r in results if r.get("score") is not None]
+        avg_score = sum(scores) / len(scores) if scores else 0.0
+
+        # Aggregate duration (agent_latency)
+        latencies = [r.get("agent_latency") for r in results if r.get("agent_latency") is not None and r.get("agent_latency") > 0]
+        avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
+
+        # Aggregate tokens
+        total_input = sum(r.get("api_input_tokens", 0) or 0 for r in results)
+        total_output = sum(r.get("api_output_tokens", 0) or 0 for r in results)
+        avg_input = total_input / num_runs if num_runs else 0
+        avg_output = total_output / num_runs if num_runs else 0
+
+        tc = SubElement(suite, "testcase", name=name, classname=scenario)
+        if avg_latency > 0:
+            tc.set("time", f"{avg_latency:.3f}")
+
+        # Properties for Sippy to display
+        props = SubElement(tc, "properties")
+        SubElement(props, "property", name="agent", value=agent)
+        SubElement(props, "property", name="scenario", value=scenario)
+        SubElement(props, "property", name="runs_passed", value=str(runs_passed))
+        SubElement(props, "property", name="runs_total", value=str(num_runs))
+        SubElement(props, "property", name="pass_rate",
+                   value=f"{runs_passed / num_runs * 100:.0f}" if num_runs else "0")
+        SubElement(props, "property", name="avg_score", value=f"{avg_score:.2f}")
+        SubElement(props, "property", name="avg_latency_seconds",
+                   value=f"{avg_latency:.1f}")
+        SubElement(props, "property", name="avg_api_input_tokens",
+                   value=f"{avg_input:.0f}")
+        SubElement(props, "property", name="avg_api_output_tokens",
+                   value=f"{avg_output:.0f}")
+
+        # Build output text with run-by-run detail
+        output_lines = [
+            f"Pass rate: {runs_passed}/{num_runs}",
+            f"Avg score: {avg_score:.2f}",
+            f"Avg latency: {avg_latency:.1f}s",
+            f"Avg tokens: {avg_input:.0f}/{avg_output:.0f} (in/out)",
+        ]
+
+        # Collect judge reasons from failures
+        fail_reasons = []
+        for r in results:
+            if r.get("result") in ("FAIL", "ERROR"):
+                judges = r.get("judge_scores") or []
+                for js in judges:
+                    reason = js.get("reason", "")
+                    if reason:
+                        metric = r.get("metric_identifier", "").split(":")[-1]
+                        fail_reasons.append(f"[{metric}] {reason}")
+
+        has_errors = any(r.get("result") == "ERROR" for r in results)
+
+        if not all_passed:
+            output_lines.append("")
+            if fail_reasons:
+                output_lines.append("Failure details:")
+                for reason in fail_reasons[:5]:
+                    output_lines.append(f"  - {reason}")
+
+            output_text = "\n".join(output_lines)
+
+            if has_errors:
                 total_errors += 1
-                SubElement(tc, "error", message=f"score={score}").text = reason
-            elif status == "FAIL":
+                SubElement(tc, "error",
+                           message=f"{runs_passed}/{num_runs} passed, avg_score={avg_score:.2f}"
+                           ).text = output_text
+            else:
                 total_failures += 1
-                SubElement(tc, "failure", message=f"score={score}").text = reason
-            elif status == "SKIPPED":
-                SubElement(tc, "skipped")
+                SubElement(tc, "failure",
+                           message=f"{runs_passed}/{num_runs} passed, avg_score={avg_score:.2f}"
+                           ).text = output_text
 
-            exec_time = r.get("execution_time")
-            if exec_time is not None:
-                tc.set("time", f"{exec_time:.3f}")
+        total_tests += 1
 
-            total_tests += 1
-
-    # Set totals on the single testsuite
     suite.set("tests", str(total_tests))
     suite.set("failures", str(total_failures))
     suite.set("errors", str(total_errors))
