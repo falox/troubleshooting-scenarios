@@ -663,7 +663,8 @@ def print_correctness_table(
             plain = _footer_plain(s[outcome], s["total"]) if s["total"] else "N/A"
             text = plain
             if use_color and outcome in {"FAIL", "ERROR"} and s[outcome] > 0:
-                text = f"{RED}{plain}{RESET}"
+                color = YELLOW if outcome == "ERROR" else RED
+                text = f"{color}{plain}{RESET}"
             footer_cells.append(f"{text}{' ' * (w - len(plain))}")
         print("| " + " | ".join(footer_cells) + " |")
     for label, values in (

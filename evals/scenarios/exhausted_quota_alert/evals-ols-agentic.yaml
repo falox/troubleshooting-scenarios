@@ -18,7 +18,7 @@
           Alert: TeamOnboardingDeploymentUnavailable (warning)
           Namespace: team-onboarding
           Description: Deployment team-onboarding/onboarding-app has 0 available replicas for more than 15 seconds.
-          Investigate using the following skills:  investigate-alert
+          Investigate using the following skills: investigate-alert
         tools:
           skills:
             - image: quay.io/openshiftanalytics/agentic-skills:latest

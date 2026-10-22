@@ -657,7 +657,8 @@ def test_scenario_cleanup(
     recorded = log.read_text().splitlines()
     assert [event for event in recorded if event != "report"] == events[:-1]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 4
+    # Initial report, one finished scenario, and final report.
+    assert recorded.count("report") == 3
     assert recorded[recorded.index("cleanup") - 1] == "report"
 
 
@@ -722,7 +723,8 @@ def test_failed_scenario_allows_later_scenarios_and_report(
     recorded = log.read_text().splitlines()
     assert [event for event in recorded if event != "report"] == expected_events[:-1]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 6
+    # Initial report, two finished scenarios, and final report.
+    assert recorded.count("report") == 4
     assert list((workspace / "evals/results").glob("*/report.md"))
 
 
@@ -781,7 +783,8 @@ def test_classic_failed_scenario_allows_later_scenarios_and_report(
     recorded = log.read_text().splitlines()
     assert [event for event in recorded if event != "report"] == expected_events[:-1]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 6
+    # Initial report, two finished scenarios, and final report.
+    assert recorded.count("report") == 4
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
 
@@ -848,7 +851,8 @@ def test_classic_run_mode_sets_up_each_agent_repeat(classic_workspace, setup_mod
         "group-cleanup",
     ]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 10
+    # Initial report, four finished runs, and final report.
+    assert recorded.count("report") == 6
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
 
@@ -903,7 +907,8 @@ def test_classic_failed_group_setup_skips_group_and_reports_other_scenarios(
         "group-cleanup",
     ]
     assert recorded[0] == recorded[-1] == "report"
-    assert recorded.count("report") == 6
+    # Initial report, two skipped scenarios, one finished scenario, and final report.
+    assert recorded.count("report") == 5
     assert "Skipping scenarios/group/second" in result.stderr
     assert list((classic_workspace / "evals/results").glob("*/report.md"))
 
@@ -935,6 +940,8 @@ import sys
 args = sys.argv[1:]
 session = Path(args[args.index("--eval-dir") + 1])
 scenario = Path(args[args.index("--evals") + 1]).parent.name
+progress = json.loads((session / "progress.json").read_text())
+assert any(item["state"] == "running" for item in progress["items"])
 report = session / "report.md"
 assert report.is_file(), "Report must exist before evaluation starts"
 agent = args[args.index("--agent") + 1] if "--agent" in args else "test-agent"
@@ -1016,7 +1023,7 @@ echo "cleanup:{name}"
         )
     result, session = run_live_report(live_report_workspace, mode)
     assert result.returncode == 0, result.stdout + result.stderr
-    tables = result.stdout.split("| Scenario")
+    tables = result.stdout.split("Correctness\n" if service == "agentic" else "| Scenario")
     if mode == "run":
         total_runs = 3 * len(agents) * 2
         assert len(tables) == total_runs + 2  # Each run, plus the final report.
@@ -1027,6 +1034,9 @@ echo "cleanup:{name}"
         assert "Scenario 1/3" in tables[0]
         assert "Scenario 2/3" in tables[1]
         assert "Scenario 3/3" in tables[2]
+    completed_updates = 3 * len(agents) * 2 if mode == "run" else 3
+    # Initial report, completed runs, and final report; no writes at run start.
+    assert result.stdout.count("Report written to ") == completed_updates + 2
     before_second = (root / "snapshots/second-1.md").read_text()
     assert "Partial results: scenario 1/3." in before_second
     assert "| Pending |" not in before_second
@@ -1036,7 +1046,7 @@ echo "cleanup:{name}"
         assert (root / "snapshots/cleanup-first.md").read_text() == before_second
         cleanup_parts = result.stdout.split("cleanup:")
         for before_cleanup in cleanup_parts[:-1]:
-            assert before_cleanup.count("| Scenario") == 1
+            assert before_cleanup.count("| Scenario") == (2 if service == "agentic" else 1)
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
     assert "## Progress" not in report
