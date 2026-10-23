@@ -238,7 +238,9 @@ Both report types use the same scoring rules:
   available results. Percentages are rounded and may not sum to exactly 100%.
 - In the CLI summary, nonzero FAIL rates are red and ERROR rates are yellow.
   The Markdown overview and Correctness tables show the same counts. Token
-  usage appears under Tokens.
+  usage appears under Tokens. Above the CLI table, a metadata line shows the
+  same date, system, scenario and agent counts, repeats, parallel mode, and
+  judge as the Markdown report.
 - ⚠️ marks a technical error in at least one run. Otherwise, 🟢 means all runs
   passed and 🔴 means none passed. Mixed results have no icon.
 - Score medals compare values rounded to two decimal places.
@@ -250,14 +252,18 @@ is available, including a score of zero. The table and its totals include only
 scenarios with scores. A partial report adds this table when the first score
 arrives. Status scores are never shown or used as correctness scores.
 
-**Phase completion** appears in both Markdown and CLI reports. Investigation
+The CLI summary shows one table with no title and one row per scenario. It uses
+correctness results when available, with completion status as a fallback.
+The footer shows PASS, FAIL, ERROR, average duration, and average tokens.
+Avg score appears only when at least one correctness score is available.
+
+**Phase completion** appears in Markdown reports. Investigation
 scenarios show Analysis; remediation scenarios also show Execution and
 Verification. Saved scenario definitions select the phases, with recorded tags
 as a fallback for older sessions. Each phase has its own completion count and
 rate. Execution and Verification totals exclude investigation scenarios.
 Completion means a phase succeeded; it does not measure answer correctness.
-Missing, unknown, running, and timed out states stay distinct. CLI summaries
-also keep average duration, tokens, and evaluation error counts when present.
+Missing, unknown, running, and timed out states stay distinct.
 
 ## Conventions
 

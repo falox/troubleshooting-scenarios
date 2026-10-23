@@ -544,7 +544,10 @@ class TestGenerateReport:
 
         assert "## Correctness" not in report
         assert "Avg score" not in report
-        assert capsys.readouterr().out == ""
+        output = capsys.readouterr().out
+        assert "blocked_deployment_alert-remediation" in output
+        assert "100% (1/1)" in output
+        assert "Avg score" not in output
 
     def test_remediation_phase_breakdown(self, tmp_path):
         status = {
@@ -1186,8 +1189,8 @@ def test_status_only_reports_show_phase_completion(tmp_path, monkeypatch, capsys
     mod.main()
     output = capsys.readouterr().out
     report = (tmp_path / "report.md").read_text()
+    assert "## Phase completion" in report
     for content in (report, output):
-        assert "Phase completion" in content
         assert "Correctness" not in content
         assert "Avg score" not in content
         assert "score:" not in content
@@ -1197,14 +1200,25 @@ def test_status_only_reports_show_phase_completion(tmp_path, monkeypatch, capsys
     assert "**Completed**: ✅ PASS\n" in report
     assert "**Completed**: ⚠️ FAIL\n" in report
     assert ("**Execution**" in report) == remediation
-    assert ("Verification" in output) == remediation
-    assert "0/1 (Failed)" not in output  # Both repeats belong to the same phase.
-    assert "1/2 (Failed)" in output
+    assert "Phase" not in output
+    assert output.count("| Scenario") == 1
+    assert sum(line.startswith("+-") for line in output.splitlines()) == 4
+    rows = [line for line in output.splitlines() if line.startswith("|")]
+    assert len({len(line) for line in rows}) == 1
+    assert [line.split("|")[1].strip() for line in rows] == [
+        "Scenario", "case", "PASS", "FAIL", "ERROR", "Avg duration", "Avg tokens",
+    ]
+    case = next(line for line in rows if line.startswith("| case"))
+    assert case.split("|")[2].strip() == "1/2*"
+    for label, value in [("PASS", "50% (1/2)"), ("FAIL", "0% (0/2)"), ("ERROR", "50% (1/2)")]:
+        row = next(line for line in rows if line.startswith(f"| {label}"))
+        assert row.split("|")[2].strip() == value
 
 
-def test_mixed_reports_keep_status_only_scenarios_out_of_correctness(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize("score", [0.0, 0.9])
+def test_mixed_reports_keep_status_only_scenarios_out_of_correctness(tmp_path, monkeypatch, capsys, score):
     _write_run(tmp_path / "agent/run_1", [
-        _make_result("quality", score=0.0, result="FAIL"),
+        _make_result("quality", score=score, result="PASS" if score >= 0.75 else "FAIL"),
         _make_result("status-only", metric=mod.STATUS_METRIC),
     ], [{"conversation_id": "quality"}, {"conversation_id": "status-only"}])
     monkeypatch.setattr(mod.sys, "argv", ["generate-report-agentic.py", str(tmp_path)])
@@ -1213,10 +1227,19 @@ def test_mixed_reports_keep_status_only_scenarios_out_of_correctness(tmp_path, m
     report = (tmp_path / "report.md").read_text()
     correctness = report.split("## Correctness\n")[1].split("## Phase completion")[0]
     assert "status-only" not in correctness
-    assert "(0.00)" in correctness
+    assert f"({score:.2f})" in correctness
     assert "status-only" in report.split("## Phase completion")[1]
-    assert "status-only" not in output.split("Phase completion")[0]
-    assert "0.00 (1/1)" in output
+    assert "Correctness" not in output
+    assert "Phase" not in output
+    assert output.count("| Scenario") == 1
+    assert sum(line.startswith("+-") for line in output.splitlines()) == 4
+    rows = [line for line in output.splitlines() if line.startswith("|")]
+    assert len({len(line) for line in rows}) == 1
+    assert [line.split("|")[1].strip() for line in rows] == [
+        "Scenario", "quality", "status-only", "PASS", "FAIL", "ERROR",
+        "Avg score", "Avg duration", "Avg tokens",
+    ]
+    assert f"{score:.2f} (1/2)" in output
 
 
 def test_phase_plan_uses_saved_definition_without_amended_output(tmp_path, monkeypatch, capsys):
@@ -1231,8 +1254,10 @@ def test_phase_plan_uses_saved_definition_without_amended_output(tmp_path, monke
     output = capsys.readouterr().out
     report = (tmp_path / "report.md").read_text()
     assert "Correctness" not in report
-    assert "Verification" in output
-    assert "Eval errors" in output
+    assert "Phase" not in output
+    assert "Avg score" not in output
+    row = next(line for line in output.splitlines() if line.startswith("| ERROR"))
+    assert row.split("|")[2].strip() == "100% (1/1)"
     assert "**Verification**: ? Unknown" in report
     assert "N/A (Unknown)" not in output  # No phase output was recorded.
 

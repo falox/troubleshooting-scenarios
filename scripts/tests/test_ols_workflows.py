@@ -1023,7 +1023,7 @@ echo "cleanup:{name}"
         )
     result, session = run_live_report(live_report_workspace, mode)
     assert result.returncode == 0, result.stdout + result.stderr
-    tables = result.stdout.split("Correctness\n" if service == "agentic" else "| Scenario")
+    tables = result.stdout.split("| Scenario")
     if mode == "run":
         total_runs = 3 * len(agents) * 2
         assert len(tables) == total_runs + 2  # Each run, plus the final report.
@@ -1046,7 +1046,7 @@ echo "cleanup:{name}"
         assert (root / "snapshots/cleanup-first.md").read_text() == before_second
         cleanup_parts = result.stdout.split("cleanup:")
         for before_cleanup in cleanup_parts[:-1]:
-            assert before_cleanup.count("| Scenario") == (2 if service == "agentic" else 1)
+            assert before_cleanup.count("| Scenario") == 1
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
     assert "## Progress" not in report

@@ -40,11 +40,11 @@ from report_common import (  # noqa: E402
     load_scenario_names,
     discover_agents,
     extract_judge_model,
+    extract_report_timestamp,
     find_run_dirs,
     format_duration,
     format_report_metadata,
     format_report_note,
-    format_timestamp,
     format_token_pair,
     mean_tokens,
     scenario_tokens,
@@ -894,21 +894,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
     scenario_names = load_scenario_names("evals-ols-agentic.yaml")
     scenario_names.update(saved_names)
 
-    # Extract timestamp from first available summary JSON
-    timestamp_str = ""
-    for agent in agent_names:
-        run_dirs = find_run_dirs(eval_dir, agent)
-        for rd in run_dirs:
-            files = sorted(rd.glob("*_summary.json"))
-            if files:
-                with open(files[0]) as f:
-                    ts = json.load(f).get("timestamp", "")
-                if ts:
-                    timestamp_str = format_timestamp(ts)
-                    break
-        if timestamp_str:
-            break
-
+    timestamp_str = extract_report_timestamp(eval_dir, agent_names)
     judge = extract_judge_model(eval_dir, agent_names)
 
     # Build the report
@@ -1021,7 +1007,7 @@ def print_correctness_table(
     agent_amended: dict[str, list] | None = None,
     scenario_names: dict[str, str] | None = None,
 ) -> None:
-    conversations = scored_conversations(conversations, agent_runs)
+    """Print one CLI summary for all scenarios with finished runs."""
     if not conversations:
         return
     scenario_names = scenario_names or {}
@@ -1049,17 +1035,23 @@ def print_correctness_table(
         )
         for a in agent_names
     ]
-    avg_score_cells = [average_score_cell(s) for s in stats]
     avg_duration_cells = [
         "N/A" if duration is None else format_duration(duration)
         for duration in avg_durations
     ]
+    average_rows = []
+    if any(s["scored"] for s in stats):
+        average_rows.append(("Avg score", [average_score_cell(s) for s in stats]))
+    average_rows.extend([
+        ("Avg duration", avg_duration_cells),
+        ("Avg tokens", avg_tokens),
+    ])
 
     def _footer_plain(p, t):
         pct = round(100 * p / t) if t else 0
         return f"{pct}% ({p}/{t})"
 
-    footer_labels = ["PASS", "FAIL", "ERROR", "Avg score", "Avg duration", "Avg tokens"]
+    footer_labels = ["PASS", "FAIL", "ERROR", *(label for label, _ in average_rows)]
     scenario_w = max(
         [len("Scenario"), *(len(label) for label in footer_labels)]
         + [len(scenario_names.get(c, c)) for c in conversations]
@@ -1074,11 +1066,7 @@ def print_correctness_table(
             ),
             default=0,
         )
-        summary_width = max(
-            len(avg_score_cells[index]),
-            len(avg_duration_cells[index]),
-            len(avg_tokens[index]),
-        )
+        summary_width = max(len(values[index]) for _, values in average_rows)
         col_widths.append(
             max(len(agent), result_width, summary_width, *(
                 len(_footer_plain(stats[index][outcome], total[1]))
@@ -1115,75 +1103,11 @@ def print_correctness_table(
                 text = f"{color}{plain}{RESET}"
             footer_cells.append(f"{text}{' ' * (w - len(plain))}")
         print("| " + " | ".join(footer_cells) + " |")
-    for label, values in (
-        ("Avg score", avg_score_cells),
-        ("Avg duration", avg_duration_cells),
-        ("Avg tokens", avg_tokens),
-    ):
+    for label, values in average_rows:
         cells = [f"{label:<{scenario_w}}"]
         cells.extend(f"{value:<{width}}" for value, width in zip(values, col_widths))
         print("| " + " | ".join(cells) + " |")
     print(sep)
-
-
-def print_phase_completion_table(
-    conversations, agent_names, agent_amended, scenario_names=None, phase_plan=None,
-    agent_runs=None,
-):
-    """Print each applicable phase without combining it into a score."""
-    if not conversations:
-        return
-    names = scenario_names or {}
-    rows = []
-    for cid in conversations:
-        for label, condition_type in scenario_phases(cid, agent_amended, phase_plan):
-            cells = []
-            for agent in agent_names:
-                entries = agent_amended.get(agent, [])
-                statuses = [phase_status(run, cid, condition_type) for run in entries
-                            if any(entry["conversation_group_id"] == cid for entry in run)]
-                completed, total = phase_count(entries, cid, condition_type)
-                text = f"{completed}/{total}" if total else "N/A"
-                other = list(dict.fromkeys(status for status in statuses if status != "Completed"))
-                if other:
-                    text += " (" + ", ".join(other) + ")"
-                cells.append(text)
-            rows.append([names.get(cid, cid), label, *cells])
-    for label, condition_type in PHASE_CONDITIONS:
-        applicable = [cid for cid in conversations if (label, condition_type)
-                      in scenario_phases(cid, agent_amended, phase_plan)]
-        if not applicable:
-            continue
-        cells = []
-        for agent in agent_names:
-            counts = [phase_count(agent_amended.get(agent, []), cid, condition_type)
-                      for cid in applicable]
-            cells.append(phase_rate_cell(sum(p for p, _ in counts), sum(t for _, t in counts)))
-        rows.append(["Completed", label, *cells])
-    if agent_runs is not None:
-        errors = [report_stats(agent_runs[a], conversations, get_performance_result)["ERROR"]
-                  for a in agent_names]
-        if any(errors):
-            rows.append(["Eval errors", "", *(str(count) for count in errors)])
-    durations = [mean_duration(agent_amended.get(a, []), conversations) for a in agent_names]
-    rows.append(["Avg duration", "", *(
-        format_duration(value) if value is not None else "N/A" for value in durations
-    )])
-    rows.append(["Avg tokens", "", *(
-        format_token_pair(*mean_tokens(agent_amended.get(a, []), conversations))
-        for a in agent_names
-    )])
-    header = ["Scenario", "Phase", *agent_names]
-    widths = [max(len(row[index]) for row in [header, *rows]) for index in range(len(header))]
-    separator = "+-" + "-+-".join("-" * width for width in widths) + "-+"
-    print("Phase completion")
-    print("Phase states are recorded at eval stop; completion does not measure answer correctness.")
-    print(separator)
-    for index, row in enumerate([header, *rows]):
-        print("| " + " | ".join(f"{cell:<{width}}" for cell, width in zip(row, widths)) + " |")
-        if index == 0:
-            print(separator)
-    print(separator)
 
 
 def main():
@@ -1242,14 +1166,18 @@ def main():
     scenario_names.update(saved_names)
 
     print()
-    if scored_conversations(conversations, agent_runs):
-        print("Correctness")
-        print_correctness_table(conversations, agent_names, agent_runs, agent_amended, scenario_names)
-        print()
-    print_phase_completion_table(
-        conversations, agent_names, agent_amended, scenario_names,
-        load_phase_plan(eval_dir, conversations, agent_amended), agent_runs,
-    )
+    print(format_report_metadata(
+        "OLS Agentic",
+        extract_report_timestamp(eval_dir, agent_names),
+        len(conversations),
+        len(agent_names),
+        repeat,
+        extract_judge_model(eval_dir, agent_names),
+        parallel_runs=args.parallel_runs == "yes",
+        markdown=False,
+    ))
+    print()
+    print_correctness_table(conversations, agent_names, agent_runs, agent_amended, scenario_names)
     print()
     print(f"Report written to {output}")
 
