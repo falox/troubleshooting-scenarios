@@ -247,6 +247,10 @@ def test_cli_cell_colors_match_markdown(
     runs = [[metric(mod, result, 1.0 if result == "PASS" else 0.0)] for result in results]
     mod.print_correctness_table(["scenario"], ["agent"], {"agent": runs})
     output = capsys.readouterr().out
+    average = next(line for line in output.splitlines() if line.startswith("| Avg score"))
+    if all(result == "ERROR" for result in results):
+        assert f"N/A (0/{len(results)})" in average
+        assert "\033[" not in average
     row = next(line for line in output.splitlines() if line.startswith("| scenario"))
     if is_tty and color:
         assert getattr(mod, color) + expected + mod.RESET in row

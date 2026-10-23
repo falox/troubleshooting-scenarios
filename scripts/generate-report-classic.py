@@ -539,6 +539,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
 YELLOW = "\033[0;33m"
+BRIGHT_WHITE = "\033[97m"
 RESET = "\033[0m"
 
 
@@ -660,7 +661,11 @@ def print_correctness_table(
         ("Avg tokens", avg_tokens),
     ):
         cells = [f"{label:<{scenario_w}}"]
-        cells.extend(f"{value:<{width}}" for value, width in zip(values, col_widths))
+        for value, width in zip(values, col_widths):
+            text = value
+            if use_color and label == "Avg score" and not value.startswith("N/A"):
+                text = f"{BRIGHT_WHITE}{value}{RESET}"
+            cells.append(f"{text}{' ' * (width - len(value))}")
         print("| " + " | ".join(cells) + " |")
     print(sep)
 

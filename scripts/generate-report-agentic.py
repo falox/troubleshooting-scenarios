@@ -980,6 +980,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
 YELLOW = "\033[0;33m"
+BRIGHT_WHITE = "\033[97m"
 RESET = "\033[0m"
 
 
@@ -1040,7 +1041,12 @@ def print_correctness_table(
         for duration in avg_durations
     ]
     average_rows = []
-    if any(s["scored"] for s in stats):
+    if any(
+        metric["metric_identifier"] == CORRECTNESS_METRIC
+        and metric["conversation_group_id"] in conversations
+        for agent in agent_names for results in agent_runs[agent]
+        for metric in (results or [])
+    ):
         average_rows.append(("Avg score", [average_score_cell(s) for s in stats]))
     average_rows.extend([
         ("Avg duration", avg_duration_cells),
@@ -1105,7 +1111,11 @@ def print_correctness_table(
         print("| " + " | ".join(footer_cells) + " |")
     for label, values in average_rows:
         cells = [f"{label:<{scenario_w}}"]
-        cells.extend(f"{value:<{width}}" for value, width in zip(values, col_widths))
+        for value, width in zip(values, col_widths):
+            text = value
+            if use_color and label == "Avg score" and not value.startswith("N/A"):
+                text = f"{BRIGHT_WHITE}{value}{RESET}"
+            cells.append(f"{text}{' ' * (width - len(value))}")
         print("| " + " | ".join(cells) + " |")
     print(sep)
 

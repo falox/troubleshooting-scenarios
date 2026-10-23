@@ -245,6 +245,9 @@ Both report types use the same scoring rules:
   sessions without a saved plan, reports use the saved repeat setting and
   available results. Percentages are rounded and may not sum to exactly 100%.
 - In the CLI summary, nonzero FAIL rates are red and ERROR rates are yellow.
+  Numeric Avg score values are bright white; N/A keeps the default color.
+  The CLI includes Avg score when a correctness metric is recorded, even if
+  all scores are N/A. Status-only Agentic results do not add this row.
   The Markdown overview and Correctness tables show the same counts. Token
   usage appears under Tokens. Above the CLI table, a metadata line shows the
   same date, system, scenario and agent counts, repeats, parallel mode, and
