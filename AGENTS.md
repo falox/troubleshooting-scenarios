@@ -69,7 +69,8 @@ Paths below are relative to the session directory:
 | `<agent>/run_N/*amended*.yaml` | Actual responses and recorded turn data. Agentic output also includes run status, phase results, and sandbox references. |
 | `eval_report.json` | Framework report, when produced. Read it with the run files and progress data. |
 | `logs/AGENTICRUN-PHASE.log` | Agentic sandbox container logs for `analysis`, `execution`, or `verification`. Duplicate filenames get `-1`, `-2`, etc. |
-| `crs/KIND-NAME.yaml` | Full AgenticRun and result CR snapshots. Check result conditions and reasons for each phase, and parent UIDs to match the run. Agent and LLMProvider CRs are not saved. |
+| `crs/KIND-NAME.yaml` | Full CR snapshots. Both runners save OLSConfig at session start; Agentic also saves Agent and LLMProvider. Namespaced configuration CR filenames include the namespace before the name. AgenticRun and result CRs are saved during Agentic runs. Check result conditions and reasons for each phase, and parent UIDs to match the run. |
+| `capture-config-crs.log` | Configuration CR capture status and errors. Capture errors do not stop the evaluation. |
 | `capture-logs.log` | Agentic watcher status and errors, including the mapping from pod names to log paths. |
 | `failed-evals/output.*/` | Partial framework output saved after an evaluation failure, including files produced before agent/run directories existed. |
 

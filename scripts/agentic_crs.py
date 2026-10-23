@@ -69,7 +69,7 @@ def save_resource(directory, resource):
 
 
 def _save_resource(directory, resource, force=False):
-    """Save the complete CR atomically; never save providers or agents."""
+    """Save complete run and result CRs atomically."""
     kind = resource.get("kind")
     if kind != "AgenticRun" and kind not in RESULT_KINDS:
         return

@@ -47,6 +47,7 @@ def workspace(tmp_path):
         "show-eval-summary.py", "show-eval-summary.sh",
         "resolve-setup-mode.sh",
         "eval-report.sh", "report_progress.py",
+        "capture-config-crs.py",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     executable(scripts / "preflight.sh", "#!/bin/bash\nexit 0\n")
@@ -506,6 +507,87 @@ def test_preview_summary_matches_real_run(request, mode, setup_mode, remediation
     assert (session / "logs").is_dir() == (mode == "agentic")
     assert (session / "capture-logs.log").is_file() == (mode == "agentic")
     assert not list(session.glob(".capture-logs-ready.*"))
+
+
+@pytest.mark.parametrize("mode", ["agentic", "classic"])
+@pytest.mark.parametrize("olsconfig_error", [False, True])
+def test_eval_saves_config_crs(request, mode, olsconfig_error):
+    root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
+    resources = {
+        "olsconfigs.ols.openshift.io": [{
+            "apiVersion": "ols.openshift.io/v1alpha1", "kind": "OLSConfig",
+            "metadata": {"name": "cluster", "resourceVersion": "4"},
+            "spec": {"ols": {"defaultModel": "model"}},
+            "status": {"conditions": [{"type": "Ready", "status": "True"}]},
+        }],
+        "llmproviders.agentic.openshift.io": [{
+            "apiVersion": "agentic.openshift.io/v1alpha1", "kind": "LLMProvider",
+            "metadata": {"name": "provider", "namespace": "openshift-lightspeed"},
+            "spec": {"type": "OpenAI", "openAI": {"credentialsSecret": {"name": "creds"}}},
+        }],
+        "agents.agentic.openshift.io": [{
+            "apiVersion": "agentic.openshift.io/v1alpha1", "kind": "Agent",
+            "metadata": {"name": "model", "namespace": namespace},
+            "spec": {"model": "model", "llmProvider": {"name": "provider"}},
+        } for namespace in ("openshift-lightspeed", "other")],
+    }
+    (root / "resources.json").write_text(json.dumps(resources))
+    executable(root / "bin/oc", f"#!{sys.executable}\n" + '''
+import json
+import os
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+if args == ["whoami", "-t"]:
+    print("test-token")
+    sys.exit(0)
+with open(os.environ["OC_LOG"], "a") as log:
+    log.write(" ".join(args) + "\\n")
+assert args[0] == "get"
+assert "--all-namespaces" in args
+if args[1] == "olsconfigs.ols.openshift.io" and os.environ["CONFIG_ERROR"] == "yes":
+    print("OLSConfig read failed", file=sys.stderr)
+    sys.exit(1)
+resources = json.loads(Path(os.environ["CONFIG_RESOURCES"]).read_text())
+print(json.dumps({"items": resources[args[1]]}))
+''')
+    scenario = root / "evals/scenarios/example"
+    scenario.mkdir(parents=True)
+    (scenario / f"evals-ols-{mode}.yaml").write_text("[]\n")
+    executable(root / "scripts/run-agentic-evals.sh", "#!/bin/bash\nexit 0\n")
+    (root / f"scripts/generate-report-{mode}.py").write_text(
+        'import sys\nfrom pathlib import Path\nPath(sys.argv[-1]).write_text("report\\n")\n'
+    )
+    result = subprocess.run(
+        ["bash", str(root / f"scripts/eval-ols-{mode}.sh"),
+         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", "skip",
+         "--scenarios", "scenarios/example"],
+        cwd=root / "evals", capture_output=True, text=True, timeout=30,
+        env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+             "EVENT_LOG": str(root / "events"), "OC_LOG": str(root / "oc.log"),
+             "CONFIG_RESOURCES": str(root / "resources.json"),
+             "CONFIG_ERROR": "yes" if olsconfig_error else "no"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    session = next((root / "evals/results").iterdir())
+    expected = resources if mode == "agentic" else dict(list(resources.items())[:1])
+    saved = []
+    for resource_type, items in expected.items():
+        if olsconfig_error and resource_type == "olsconfigs.ols.openshift.io":
+            continue
+        saved.extend(items)
+    actual = [yaml.safe_load(path.read_text()) for path in (session / "crs").glob("*.yaml")]
+    assert sorted(actual, key=str) == sorted(saved, key=str)
+    commands = (root / "oc.log").read_text().splitlines()
+    assert len(commands) == len(expected)
+    assert all(command.split()[1] in expected for command in commands)
+    log = (session / "capture-config-crs.log").read_text()
+    if olsconfig_error:
+        assert "OLSConfig read failed" in log
+        assert "configuration CR capture failed" in result.stderr
+    else:
+        assert "Saved OLSConfig" in log
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])

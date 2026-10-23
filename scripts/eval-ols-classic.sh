@@ -50,6 +50,11 @@ mkdir -p "$EVAL_DIR"
 cp "$SYSTEM_CONFIG" "$EVAL_DIR/system-ols-classic.yaml"
 SYSTEM_CONFIG="$EVAL_DIR/system-ols-classic.yaml"
 
+if ! "$PYTHON" "$SCRIPT_DIR/capture-config-crs.py" "$EVAL_DIR/crs" \
+    2> "$EVAL_DIR/capture-config-crs.log"; then
+  echo "WARNING: configuration CR capture failed; see $EVAL_DIR/capture-config-crs.log." >&2
+fi
+
 # Save the selected definitions before setup or evaluation starts.
 for scenario in "${SCENARIOS[@]}"; do
   snapshot_dir="$EVAL_DIR/scenarios/${scenario#scenarios/}"

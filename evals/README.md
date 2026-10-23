@@ -128,14 +128,22 @@ Both the standalone command and the Agentic runner use the shared
 
 ## Reports
 
+Both Classic and Agentic runners save full `OLSConfig` CRs at session start
+under `<session>/crs/`. Agentic also saves full `LLMProvider` and `Agent` CRs.
+These configuration snapshots are read across namespaces, once per session,
+before scenario setup. Cluster-scoped CRs use `KIND-NAME.yaml`; namespaced
+configuration CRs use `KIND-NAMESPACE-NAME.yaml`, with the kind in lowercase.
+Secret resources are not collected. Capture status and errors are saved in
+`capture-config-crs.log`. A failed read does not block other resource types
+or stop the evaluation.
+
 Agentic sessions save full `AgenticRun`, `AnalysisResult`, `ExecutionResult`,
 `VerificationResult`, and `EscalationResult` CRs under `<session>/crs/`, one YAML file per CR (`KIND-NAME.yaml`).
 Capture starts before evaluation and keeps updates and deletion events. At the
 end of each eval, the runner collects a final snapshot before cleanup and
 freezes that run's CR files. `crs/eval-stops.json` records the stop time and
 eval outcome. Later CR updates cannot replace that snapshot. Existing runs
-are skipped. Agent and LLMProvider CRs are
-not saved. Watch errors appear in `capture-logs.log`; final snapshot errors
+are skipped. Watch errors appear in `capture-logs.log`; final snapshot errors
 appear in the evaluator output. Capture errors do not replace the eval outcome.
 
 The phase breakdown reads these saved result CRs first. It checks the
