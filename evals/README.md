@@ -78,6 +78,13 @@ and real runs show the selected mode.
 Classic group setup and cleanup run once per selected group in `scenario` and
 `run` modes. In `skip` mode, group setup and cleanup are skipped too.
 
+MCP setup applies the config and Deployment before waiting for the rollout.
+The default MCP image supports the `netobserv` toolset. Set `MCP_IMAGE` to use
+another image that supports the selected toolsets. Config changes trigger a
+rollout through a config hash in the pod template. `MCP_ROLLOUT_TIMEOUT`
+sets the rollout timeout (default: `120s`), including standalone runs of
+`scripts/mcp-config.sh`. A failed rollout prints pod status and recent logs.
+
 ### Failures and cleanup
 
 In `scenario` and `run` modes, cleanup runs after each setup attempt, even if

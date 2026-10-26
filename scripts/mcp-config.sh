@@ -8,6 +8,14 @@ MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
 MCP_TOOLSETS="${MCP_TOOLSETS:-core,config}"
 MCP_KIALI_URL="${MCP_KIALI_URL:-}"
+MCP_ROLLOUT_TIMEOUT="${MCP_ROLLOUT_TIMEOUT:-120s}"
+
+restart=true
+case "${1:-}" in
+  "") ;;
+  --no-restart) restart=false ;;
+  *) echo "Usage: $0 [--no-restart]" >&2; exit 2 ;;
+esac
 
 # Build toolsets array: ["core","config","ossm",...]
 ts='["core","config"'
@@ -37,8 +45,12 @@ echo "$config" | oc create configmap mcp-config \
   -n "$MCP_NS" --dry-run=client -o yaml | oc apply -f -
 
 # Restart if deployment exists
-if oc get deployment "$MCP_DEPLOYMENT" -n "$MCP_NS" &>/dev/null; then
+if [ "$restart" = true ] && oc get deployment "$MCP_DEPLOYMENT" -n "$MCP_NS" &>/dev/null; then
   echo "==> Restarting ${MCP_DEPLOYMENT}..."
   oc rollout restart "deployment/${MCP_DEPLOYMENT}" -n "$MCP_NS"
-  oc rollout status "deployment/${MCP_DEPLOYMENT}" -n "$MCP_NS"
+  if ! oc rollout status "deployment/${MCP_DEPLOYMENT}" -n "$MCP_NS" --timeout="$MCP_ROLLOUT_TIMEOUT"; then
+    oc get pods -n "$MCP_NS" -l "app=${MCP_DEPLOYMENT}" >&2 || true
+    oc logs -n "$MCP_NS" -l "app=${MCP_DEPLOYMENT}" --all-containers=true --prefix=true --tail=40 >&2 || true
+    exit 1
+  fi
 fi
