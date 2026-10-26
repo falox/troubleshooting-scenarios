@@ -3,7 +3,7 @@ set -euo pipefail
 
 MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
-MCP_IMAGE="${MCP_IMAGE:-registry.redhat.io/openshift-mcp/openshift-mcp-server-rhel9@sha256:a551fd58f7b2a7505a76ba2109ae5a8f031606605490c9c68d60f91f502f6fe5}"
+MCP_IMAGE="${MCP_IMAGE:-}"
 MCP_COMMAND="${MCP_COMMAND:-/openshift-mcp-server}"
 MCP_CONFIG_MOUNT="${MCP_CONFIG_MOUNT:-/etc/mcp}"
 MCP_TOOLSETS="${MCP_TOOLSETS:-core,config}"
@@ -11,6 +11,19 @@ MCP_KIALI_URL="${MCP_KIALI_URL:-}"
 MCP_ROLLOUT_TIMEOUT="${MCP_ROLLOUT_TIMEOUT:-120s}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+image_source="MCP_IMAGE"
+if [ -z "$MCP_IMAGE" ]; then
+  image_source="deployment/openshift-mcp-server in openshift-lightspeed"
+  if ! MCP_IMAGE="$(oc get deployment openshift-mcp-server -n openshift-lightspeed \
+      --request-timeout=15s \
+      -o 'jsonpath={.spec.template.spec.containers[?(@.name=="openshift-mcp-server")].image}')" \
+      || [ -z "$MCP_IMAGE" ]; then
+    echo "ERROR: Cannot read the MCP image from ${image_source}. Set MCP_IMAGE explicitly." >&2
+    exit 1
+  fi
+fi
+echo "==> MCP image (${image_source}): ${MCP_IMAGE}"
 
 echo "==> Creating namespace ${MCP_NS}..."
 oc create namespace "$MCP_NS" --dry-run=client -o yaml | oc apply -f -
