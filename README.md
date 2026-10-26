@@ -157,5 +157,10 @@ Agentic evaluations also save sandbox pod logs to
 the first scenario and stops when the session ends. Existing result files are
 kept. See [sandbox logs](evals/README.md#sandbox-logs) for details and manual use.
 
+Classic evaluations download app-server logs at evaluation and setup/cleanup
+checkpoints. Files use `logs/<scenario>/<agent>-run_N.log`; calls with several
+agents or repeats share a log window. See [Classic app-server logs](evals/README.md#classic-app-server-logs)
+for naming, restart handling, and capture limits.
+
 Copy reports worth keeping to `evals/reports/` to track them in Git.
 See [report generation](evals/README.md#reports) for commands and scoring rules.

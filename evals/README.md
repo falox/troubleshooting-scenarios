@@ -99,6 +99,39 @@ status if setup or evaluation failed.
 If Classic group setup fails, the runner skips that group's scenarios and
 continues with other groups. Group cleanup runs after the full scenario loop.
 
+## Classic app-server logs
+
+`make eval-ols-classic` downloads logs from the `lightspeed-service-api`
+container after each evaluation, before scenario cleanup. It also downloads
+logs before group setup and group cleanup can replace the app pod, and at
+session start and exit, including failure, Ctrl+C, or termination. It uses
+snapshots, without a background watcher, and keeps the current logging level.
+
+Files include the scenario path, agent name, and repeat number:
+
+```text
+evals/results/<session>/logs/netobserv/dns_latency/openai-gpt-6-luna-run_1.log
+```
+
+Each file covers scenario setup and the whole evaluation call. When a call
+contains several agents or repeats, each named file contains the same shared
+log window. Its header states this limit. The collector does not separate
+requests by model, including when agents run in parallel. `SETUP_MODE=run`
+uses a separate evaluation call for each agent and repeat.
+
+Other session, group setup, and cleanup logs go to
+`logs/lightspeed-app-server-setup.log`. Each line
+has a timestamp, pod name, and container restart number. The collector reads
+all matching app-server pods and requests both current and previous container
+logs after a restart. A cursor per pod UID and container instance avoids
+duplicate lines across downloads. Cursor data is saved in
+`.classic-log-state.json`; capture status and errors go to `capture-logs.log`.
+Capture errors produce warnings and do not change the evaluation exit status.
+
+Snapshots cannot recover logs lost through rotation, deleted pods, or several
+container restarts between downloads. These gaps can still occur during long
+DEBUG runs or unexpected pod replacement. Preview runs do not capture logs.
+
 ## Sandbox logs
 
 `make eval-ols-agentic` automatically captures logs from the `agent` container

@@ -45,6 +45,7 @@ SETUP_MODE="$(bash "$SCRIPT_DIR/resolve-setup-mode.sh" "$SETUP_MODE" evals-ols-c
 bash "$SCRIPT_DIR/preflight.sh" --require-ols
 
 DATETIME="$(date +%Y%m%d_%H%M%S)"
+LOG_START_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 EVAL_DIR="results/${DATETIME}"
 mkdir -p "$EVAL_DIR"
 cp "$SYSTEM_CONFIG" "$EVAL_DIR/system-ols-classic.yaml"
@@ -99,12 +100,20 @@ cleanup_ols_classic() {
 # shellcheck source=scripts/eval-report.sh
 source "$SCRIPT_DIR/eval-report.sh"
 
+capture_app_logs() {
+  if ! "$PYTHON" "$SCRIPT_DIR/capture-classic-logs.py" "$EVAL_DIR" \
+      --since-time "$LOG_START_TIME" "$@" 2>> "$EVAL_DIR/capture-logs.log"; then
+    echo "WARNING: app-server log capture failed; see $EVAL_DIR/capture-logs.log." >&2
+  fi
+}
+
 # Invoked by the EXIT trap.
 # shellcheck disable=SC2329
 finish_evaluation() {
   local status=$?
   local report_status=0
   trap - EXIT INT TERM
+  capture_app_logs --checkpoint session-end
   report_finalize "$status" || report_status=$?
   if [ "$report_status" -ne 0 ]; then
     echo "ERROR: final report update failed; keeping the last report." >&2
@@ -118,6 +127,8 @@ report_init classic
 trap finish_evaluation EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+capture_app_logs --checkpoint session-start
 
 if ! curl -ksf --connect-timeout 2 "https://localhost:8443/docs" >/dev/null 2>&1; then
   echo "==> Starting port-forward to OLS..."
@@ -212,6 +223,8 @@ run_scenario() {
   local scenario_state_dir=""
   local failure_detail=""
 
+  capture_app_logs --checkpoint before-evaluation --begin "$scenario" \
+    --agents "${AGENTS[@]}" --repeat "$REPEAT" "$@"
   report_event start quiet "$scenario" "$@"
 
   echo ""
@@ -235,6 +248,7 @@ run_scenario() {
       "${TAG_FLAGS[@]}" || scenario_status=$?
     if [ "$scenario_status" -ne 0 ]; then failure_detail="Evaluation failed (exit $scenario_status)"; fi
   fi
+  capture_app_logs --checkpoint after-evaluation --end
   report_event finish "$report_output" "$scenario" "$@" --exit-code "$scenario_status" --detail "$failure_detail"
   if [ "$SETUP_MODE" != "skip" ] && [ -n "$scenario_state_dir" ]; then
     echo "==> Cleanup: $scenario"
@@ -276,6 +290,7 @@ for scenario in "${SCENARIOS[@]}"; do
     if [ "$already_done" = "false" ]; then
       echo ""
       echo "==> Group setup: $grp_setup"
+      capture_app_logs --checkpoint "before-group-setup:$grp_setup"
       if bash "$grp_setup"; then
         if restart_port_forward; then
           groups_setup+=("$grp_setup")
@@ -329,6 +344,7 @@ if [ "$SETUP_MODE" != "skip" ]; then
       done
       if [ "$already_done" = "false" ]; then
         echo "==> Group cleanup: $grp_cleanup"
+        capture_app_logs --checkpoint "before-group-cleanup:$grp_cleanup"
         bash "$grp_cleanup" || echo "WARNING: group cleanup failed (non-fatal)"
         groups_cleanup+=("$grp_cleanup")
       fi
