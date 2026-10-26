@@ -2,7 +2,7 @@
 # CI job: run OLS Classic evaluation scenarios.
 #
 # Agents and providers are read from the system config file (SYSTEM_CONFIG).
-# The OLSConfig is built with all providers from active agents, with OpenAI as default.
+# The OLSConfig includes active agents and judges; the first agent sets the default.
 #
 # Input environment variables:
 #   EVAL_OPENAI_API_KEY     - Required for judge LLM (always OpenAI)

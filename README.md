@@ -107,8 +107,9 @@ Each scenario folder that supports OLS Classic contains an
 in the `agents.default.agent` list in
 [`evals/system-ols-classic.yaml`](evals/system-ols-classic.yaml).
 Setup registers the active agents and judge models in OLS, using each entry's
-`provider` and `model`. The first active agent sets the default model and must
-use OpenAI. Remove Google and Anthropic entries for an OpenAI-only run.
+`provider` and `model`. The first active agent sets the default provider and
+model. OpenAI, Google, or Anthropic can be first. Remove Google and Anthropic
+entries for an OpenAI-only run.
 
 ```bash
 make setup-ols-classic
