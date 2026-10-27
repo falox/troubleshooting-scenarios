@@ -107,8 +107,9 @@ Each scenario folder that supports OLS Classic contains an
 in the `agents.default.agent` list in
 [`evals/system-ols-classic.yaml`](evals/system-ols-classic.yaml).
 Setup registers the active agents and judge models in OLS, using each entry's
-`provider` and `model`. The first active agent sets the default model and must
-use OpenAI. Remove Google and Anthropic entries for an OpenAI-only run.
+`provider` and `model`. The first active agent sets the default provider and
+model. OpenAI, Google, or Anthropic can be first. Remove Google and Anthropic
+entries for an OpenAI-only run.
 
 ```bash
 make setup-ols-classic
@@ -155,6 +156,11 @@ Agentic evaluations also save sandbox pod logs to
 `evals/results/<session>/capture-logs.log`. Capture starts automatically before
 the first scenario and stops when the session ends. Existing result files are
 kept. See [sandbox logs](evals/README.md#sandbox-logs) for details and manual use.
+
+Classic evaluations download app-server logs at evaluation and setup/cleanup
+checkpoints. Files use `logs/<scenario>/<agent>-run_N.log`; calls with several
+agents or repeats share a log window. See [Classic app-server logs](evals/README.md#classic-app-server-logs)
+for naming, restart handling, and capture limits.
 
 Copy reports worth keeping to `evals/reports/` to track them in Git.
 See [report generation](evals/README.md#reports) for commands and scoring rules.

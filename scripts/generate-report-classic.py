@@ -39,11 +39,11 @@ from report_common import (  # noqa: E402
     load_scenario_names,
     discover_agents,
     extract_judge_model,
+    extract_report_timestamp,
     find_run_dirs,
     format_duration,
     format_report_metadata,
     format_report_note,
-    format_timestamp,
     format_token_pair,
     mean_tokens,
     scenario_tokens,
@@ -466,20 +466,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
     scenario_names = load_scenario_names("evals-ols-classic.yaml")
     scenario_names.update(saved_names)
 
-    timestamp_str = ""
-    for agent in agent_names:
-        run_dirs = find_run_dirs(eval_dir, agent)
-        for rd in run_dirs:
-            files = sorted(rd.glob("*_summary.json"))
-            if files:
-                with open(files[0]) as f:
-                    ts = json.load(f).get("timestamp", "")
-                if ts:
-                    timestamp_str = format_timestamp(ts)
-                    break
-        if timestamp_str:
-            break
-
+    timestamp_str = extract_report_timestamp(eval_dir, agent_names)
     judge = extract_judge_model(eval_dir, agent_names)
 
     lines = ["# Evaluation Summary"]
@@ -552,6 +539,7 @@ def generate_report(eval_dir: Path, parallel_runs: str | None = None) -> str:
 GREEN = "\033[0;32m"
 RED = "\033[0;31m"
 YELLOW = "\033[0;33m"
+BRIGHT_WHITE = "\033[97m"
 RESET = "\033[0m"
 
 
@@ -673,7 +661,11 @@ def print_correctness_table(
         ("Avg tokens", avg_tokens),
     ):
         cells = [f"{label:<{scenario_w}}"]
-        cells.extend(f"{value:<{width}}" for value, width in zip(values, col_widths))
+        for value, width in zip(values, col_widths):
+            text = value
+            if use_color and label == "Avg score" and not value.startswith("N/A"):
+                text = f"{BRIGHT_WHITE}{value}{RESET}"
+            cells.append(f"{text}{' ' * (width - len(value))}")
         print("| " + " | ".join(cells) + " |")
     print(sep)
 
@@ -730,6 +722,17 @@ def main():
     scenario_names = load_scenario_names("evals-ols-classic.yaml")
     scenario_names.update(saved_names)
 
+    print()
+    print(format_report_metadata(
+        "OLS Classic",
+        extract_report_timestamp(eval_dir, agent_names),
+        len(conversations),
+        len(agent_names),
+        repeat,
+        extract_judge_model(eval_dir, agent_names),
+        parallel_runs=args.parallel_runs == "yes",
+        markdown=False,
+    ))
     print()
     print_correctness_table(conversations, agent_names, agent_runs, agent_amended, scenario_names)
     print()

@@ -81,6 +81,16 @@ def test_model_order_without_config_is_alphabetical(report_module, tmp_path):
     ]
 
 
+@pytest.mark.parametrize("timestamp", ["2026-10-27T10:00:00", ""])
+def test_timestamp_lookup_checks_later_summaries(report_module, tmp_path, timestamp):
+    run = tmp_path / "agent" / "run_1"
+    run.mkdir(parents=True)
+    (run / "a_summary.json").write_text("{}")
+    (run / "b_summary.json").write_text(json.dumps({"timestamp": timestamp}))
+    expected = "2026-10-27 10:00:00 UTC" if timestamp else ""
+    assert report_module.extract_report_timestamp(tmp_path, ["agent"]) == expected
+
+
 def test_score_medals_use_displayed_precision(report_module):
     mod = report_module
     runs = {
@@ -247,9 +257,10 @@ def test_cli_cell_colors_match_markdown(
     runs = [[metric(mod, result, 1.0 if result == "PASS" else 0.0)] for result in results]
     mod.print_correctness_table(["scenario"], ["agent"], {"agent": runs})
     output = capsys.readouterr().out
-    if hasattr(mod, "scored_conversations") and not mod.scored_conversations(["scenario"], {"agent": runs}):
-        assert output == ""
-        return
+    average = next(line for line in output.splitlines() if line.startswith("| Avg score"))
+    if all(result == "ERROR" for result in results):
+        assert f"N/A (0/{len(results)})" in average
+        assert "\033[" not in average
     row = next(line for line in output.splitlines() if line.startswith("| scenario"))
     if is_tty and color:
         assert getattr(mod, color) + expected + mod.RESET in row
@@ -401,10 +412,10 @@ def test_saved_plan_includes_setup_errors_missing_runs_and_empty_agents(report_m
     assert runs["agent"][2][0]["result"] == "FAIL"
     mod.print_correctness_table(conversations, names, runs, amended, scenario_names)
     output = capsys.readouterr().out
-    assert failed in output
-    assert errors in output
-    assert f"0.60 (2/{denominator})" in output
-    assert ("setup_error" in output) == (not agentic)
+    assert "17% (1/6)" in output
+    assert "67% (4/6)" in output
+    assert "setup_error" in output
+    assert "0.60 (2/6)" in output
 
 
 @pytest.mark.parametrize("state,expected_errors,expected_pending", [

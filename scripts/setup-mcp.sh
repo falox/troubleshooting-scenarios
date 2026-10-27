@@ -3,13 +3,27 @@ set -euo pipefail
 
 MCP_NS="${MCP_NS:-openshift-mcp}"
 MCP_DEPLOYMENT="${MCP_DEPLOYMENT:-openshift-mcp-server}"
-MCP_IMAGE="${MCP_IMAGE:-registry.redhat.io/openshift-lightspeed/openshift-mcp-server-rhel9@sha256:83f288c04aad9c742cf2cee51f45e1be1982e1fcc388d2112cf5483e381fff62}"
+MCP_IMAGE="${MCP_IMAGE:-}"
 MCP_COMMAND="${MCP_COMMAND:-/openshift-mcp-server}"
 MCP_CONFIG_MOUNT="${MCP_CONFIG_MOUNT:-/etc/mcp}"
 MCP_TOOLSETS="${MCP_TOOLSETS:-core,config}"
 MCP_KIALI_URL="${MCP_KIALI_URL:-}"
+MCP_ROLLOUT_TIMEOUT="${MCP_ROLLOUT_TIMEOUT:-120s}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+image_source="MCP_IMAGE"
+if [ -z "$MCP_IMAGE" ]; then
+  image_source="deployment/openshift-mcp-server in openshift-lightspeed"
+  if ! MCP_IMAGE="$(oc get deployment openshift-mcp-server -n openshift-lightspeed \
+      --request-timeout=15s \
+      -o 'jsonpath={.spec.template.spec.containers[?(@.name=="openshift-mcp-server")].image}')" \
+      || [ -z "$MCP_IMAGE" ]; then
+    echo "ERROR: Cannot read the MCP image from ${image_source}. Set MCP_IMAGE explicitly." >&2
+    exit 1
+  fi
+fi
+echo "==> MCP image (${image_source}): ${MCP_IMAGE}"
 
 echo "==> Creating namespace ${MCP_NS}..."
 oc create namespace "$MCP_NS" --dry-run=client -o yaml | oc apply -f -
@@ -30,7 +44,9 @@ oc create clusterrolebinding "${MCP_DEPLOYMENT}-admin" \
   --dry-run=client -o yaml | oc apply -f -
 
 # Build config.toml
-"${SCRIPT_DIR}/mcp-config.sh"
+bash "${SCRIPT_DIR}/mcp-config.sh" --no-restart
+config_checksum="$(oc get configmap mcp-config -n "$MCP_NS" -o 'jsonpath={.data.config\.toml}' | sha256sum)"
+config_checksum="${config_checksum%% *}"
 
 config_file="${MCP_CONFIG_MOUNT}/config.toml"
 
@@ -48,6 +64,8 @@ spec:
       app: ${MCP_DEPLOYMENT}
   template:
     metadata:
+      annotations:
+        mcp-config-hash: "${config_checksum}"
       labels:
         app: ${MCP_DEPLOYMENT}
     spec:
@@ -91,7 +109,11 @@ spec:
     targetPort: 8080
 EOF
 
-oc rollout status "deployment/${MCP_DEPLOYMENT}" -n "$MCP_NS" --timeout=120s
+if ! oc rollout status "deployment/${MCP_DEPLOYMENT}" -n "$MCP_NS" --timeout="$MCP_ROLLOUT_TIMEOUT"; then
+  oc get pods -n "$MCP_NS" -l "app=${MCP_DEPLOYMENT}" >&2 || true
+  oc logs -n "$MCP_NS" -l "app=${MCP_DEPLOYMENT}" --all-containers=true --prefix=true --tail=40 >&2 || true
+  exit 1
+fi
 
 echo ""
 echo "==> MCP server ready in ${MCP_NS}"

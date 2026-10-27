@@ -6,7 +6,6 @@ import sys
 import yaml
 
 
-DEFAULT_PROVIDER = "openai"
 PROVIDER_ORDER = ("openai", "google", "anthropic")
 
 
@@ -37,12 +36,11 @@ def main(config_path: str) -> None:
             or not model
         ):
             raise ValueError(f"agent '{name}' needs a supported provider and model")
-        if index == 0 and provider != DEFAULT_PROVIDER:
-            raise ValueError("the first active agent must use OpenAI as the default provider")
+        if index == 0:
+            default_provider = provider
+            default_model = model
         if model not in models[provider]:
             models[provider].append(model)
-
-    default_model = models[DEFAULT_PROVIDER][0]
 
     # A judge may use a model that no active agent uses.
     judge_panel = config.get("judge_panel") or {}
@@ -80,16 +78,16 @@ def main(config_path: str) -> None:
             "(an existing file) and EVAL_VERTEX_PROJECT_ID"
         )
 
-    providers = [
-        {
+    providers = []
+    if models["openai"]:
+        providers.append({
             "name": "openai",
             "type": "openai",
             "credentialsSecretRef": {"name": "creds-classic-openai"},
             "credentialKey": "apitoken",
             "url": "https://api.openai.com/v1",
             "models": [{"name": model} for model in models["openai"]],
-        }
-    ]
+        })
     if models["google"]:
         providers.append({
             "name": "google",
@@ -115,11 +113,11 @@ def main(config_path: str) -> None:
         "metadata": {"name": "cluster"},
         "spec": {
             "llm": {"providers": providers},
-            "ols": {"defaultModel": default_model, "defaultProvider": DEFAULT_PROVIDER},
+            "ols": {"defaultModel": default_model, "defaultProvider": default_provider},
         },
     }
     print("==> Providers: " + " ".join(provider["name"] for provider in providers), file=sys.stderr)
-    print(f"==> Default: {DEFAULT_PROVIDER}/{default_model}", file=sys.stderr)
+    print(f"==> Default: {default_provider}/{default_model}", file=sys.stderr)
     print(yaml.safe_dump(ols_config, sort_keys=False).rstrip())
 
 

@@ -92,6 +92,17 @@ def find_run_dirs(eval_dir: Path, agent_name: str) -> list[Path]:
     return sorted(agent_dir.glob("run_*"), key=lambda path: int(path.name.split("_")[1]))
 
 
+def extract_report_timestamp(eval_dir: Path, agent_names: list[str]) -> str:
+    """Read the report timestamp from the first available run summary."""
+    for agent in agent_names:
+        for run_dir in find_run_dirs(eval_dir, agent):
+            for path in sorted(run_dir.glob("*_summary.json")):
+                timestamp = json.loads(path.read_text()).get("timestamp", "")
+                if timestamp:
+                    return format_timestamp(timestamp)
+    return ""
+
+
 def extract_judge_model(eval_dir: Path, agent_names: list[str]) -> str:
     """Extract the judge model name from the first available summary JSON."""
     for agent in agent_names:
@@ -239,6 +250,7 @@ def format_report_metadata(
     judge: str,
     parallel_runs: bool = False,
     config_link: bool = False,
+    markdown: bool = True,
 ) -> str:
     """Format the report type, dimensions, timestamp, and optional judge."""
     stats = (
@@ -249,7 +261,7 @@ def format_report_metadata(
     if parallel_runs:
         stats += " (parallel)"
     parts = [timestamp] if timestamp else []
-    parts.extend((f"**{report_type}**", stats))
+    parts.extend((f"**{report_type}**" if markdown else report_type, stats))
     if judge:
         parts.append(f"Judge: {judge}")
     if config_link:

@@ -71,8 +71,11 @@ Paths below are relative to the session directory:
 | `<agent>/run_N/*amended*.yaml` | Actual responses and recorded turn data. Agentic output also includes run status, phase results, and sandbox references. |
 | `eval_report.json` | Framework report, when produced. Read it with the run files and progress data. |
 | `logs/AGENTICRUN-PHASE.log` | Agentic sandbox container logs for `analysis`, `execution`, or `verification`. Duplicate filenames get `-1`, `-2`, etc. |
-| `crs/KIND-NAME.yaml` | Full AgenticRun and result CR snapshots. Check result conditions and reasons for each phase, and parent UIDs to match the run. Agent and LLMProvider CRs are not saved. |
-| `capture-logs.log` | Agentic watcher status and errors, including the mapping from pod names to log paths. |
+| `logs/<scenario>/<agent>-run_N.log` | Classic app-server logs for the scenario, agent, and repeat. Calls with several agents or repeats share the same log window; read the file header. |
+| `logs/lightspeed-app-server-setup.log` | Classic app-server logs from session setup and cleanup. |
+| `crs/KIND-NAME.yaml` | Full CR snapshots. Both runners save OLSConfig at session start; Agentic also saves Agent and LLMProvider. Namespaced configuration CR filenames use `KIND-NAMESPACE__NAME.yaml`. AgenticRun and result CRs are saved during Agentic runs. Check result conditions and reasons for each phase, and parent UIDs to match the run. |
+| `capture-config-crs.log` | Configuration CR capture status and errors. Capture errors do not stop the evaluation. |
+| `capture-logs.log` | Log capture status and errors. Agentic includes the mapping from pod names to log paths. |
 | `failed-evals/output.*/` | Partial framework output saved after an evaluation failure, including files produced before agent/run directories existed. |
 
 To investigate a result:
@@ -110,6 +113,11 @@ capture, start `./scripts/capture-logs --output-dir <directory>` before creating
 AgenticRuns. Both use `capture_logs()` in `scripts/sandbox_logs.py`. Capture
 errors are separate from the evaluation exit status; check `capture-logs.log`
 when logs are missing.
+
+`make eval-ols-classic` downloads app-server logs after each evaluation and
+before group setup or cleanup can replace the pod. It also captures on exit.
+It reads current and previous container logs without a watcher. Snapshots can
+miss logs lost through rotation, pod deletion, or repeated container restarts.
 
 ## Architecture: labs/payments-api-failure (Database Connection Exhaustion)
 

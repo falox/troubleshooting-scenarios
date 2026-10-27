@@ -47,6 +47,8 @@ def workspace(tmp_path):
         "show-eval-summary.py", "show-eval-summary.sh",
         "resolve-setup-mode.sh",
         "eval-report.sh", "report_progress.py",
+        "capture-config-crs.py",
+        "capture-classic-logs.py",
     ):
         shutil.copy(ROOT / "scripts" / name, scripts / name)
     executable(scripts / "preflight.sh", "#!/bin/bash\nexit 0\n")
@@ -503,9 +505,97 @@ def test_preview_summary_matches_real_run(request, mode, setup_mode, remediation
     assert len(snapshots) == 1
     assert snapshots[0].read_text() == config_path.read_text()
     session = snapshots[0].parent
-    assert (session / "logs").is_dir() == (mode == "agentic")
-    assert (session / "capture-logs.log").is_file() == (mode == "agentic")
+    assert (session / "logs").is_dir()
+    assert (session / "capture-logs.log").is_file()
     assert not list(session.glob(".capture-logs-ready.*"))
+
+
+@pytest.mark.parametrize("mode", ["agentic", "classic"])
+@pytest.mark.parametrize("olsconfig_error", [False, True])
+def test_eval_saves_config_crs(request, mode, olsconfig_error):
+    root = request.getfixturevalue("classic_workspace" if mode == "classic" else "workspace")
+    resources = {
+        "olsconfigs.ols.openshift.io": [{
+            "apiVersion": "ols.openshift.io/v1alpha1", "kind": "OLSConfig",
+            "metadata": {"name": "cluster", "resourceVersion": "4"},
+            "spec": {"ols": {"defaultModel": "model"}},
+            "status": {"conditions": [{"type": "Ready", "status": "True"}]},
+        }],
+        "llmproviders.agentic.openshift.io": [{
+            "apiVersion": "agentic.openshift.io/v1alpha1", "kind": "LLMProvider",
+            "metadata": {"name": "provider", "namespace": "openshift-lightspeed"},
+            "spec": {"type": "OpenAI", "openAI": {"credentialsSecret": {"name": "creds"}}},
+        }],
+        "agents.agentic.openshift.io": [{
+            "apiVersion": "agentic.openshift.io/v1alpha1", "kind": "Agent",
+            "metadata": {"name": name, "namespace": namespace},
+            "spec": {"model": "model", "llmProvider": {"name": "provider"}},
+        } for namespace, name in (
+            ("openshift-lightspeed", "model"), ("other", "model"),
+            ("a-b", "c"), ("a", "b-c"),
+        )],
+    }
+    (root / "resources.json").write_text(json.dumps(resources))
+    executable(root / "bin/oc", f"#!{sys.executable}\n" + '''
+import json
+import os
+from pathlib import Path
+import sys
+
+args = sys.argv[1:]
+if args == ["whoami", "-t"]:
+    print("test-token")
+    sys.exit(0)
+with open(os.environ["OC_LOG"], "a") as log:
+    log.write(" ".join(args) + "\\n")
+if args[:2] == ["get", "pods"]:
+    print('{"items": []}')
+    sys.exit(0)
+assert args[0] == "get"
+assert "--all-namespaces" in args
+if args[1] == "olsconfigs.ols.openshift.io" and os.environ["CONFIG_ERROR"] == "yes":
+    print("OLSConfig read failed", file=sys.stderr)
+    sys.exit(1)
+resources = json.loads(Path(os.environ["CONFIG_RESOURCES"]).read_text())
+print(json.dumps({"items": resources[args[1]]}))
+''')
+    scenario = root / "evals/scenarios/example"
+    scenario.mkdir(parents=True)
+    (scenario / f"evals-ols-{mode}.yaml").write_text("[]\n")
+    executable(root / "scripts/run-agentic-evals.sh", "#!/bin/bash\nexit 0\n")
+    (root / f"scripts/generate-report-{mode}.py").write_text(
+        'import sys\nfrom pathlib import Path\nPath(sys.argv[-1]).write_text("report\\n")\n'
+    )
+    result = subprocess.run(
+        ["bash", str(root / f"scripts/eval-ols-{mode}.sh"),
+         "--system-config", f"system-ols-{mode}.yaml", "--setup-mode", "skip",
+         "--scenarios", "scenarios/example"],
+        cwd=root / "evals", capture_output=True, text=True, timeout=30,
+        env={**os.environ, "PATH": f"{root / 'bin'}:{os.environ['PATH']}",
+             "EVENT_LOG": str(root / "events"), "OC_LOG": str(root / "oc.log"),
+             "CONFIG_RESOURCES": str(root / "resources.json"),
+             "CONFIG_ERROR": "yes" if olsconfig_error else "no"},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    session = next((root / "evals/results").iterdir())
+    expected = resources if mode == "agentic" else dict(list(resources.items())[:1])
+    saved = []
+    for resource_type, items in expected.items():
+        if olsconfig_error and resource_type == "olsconfigs.ols.openshift.io":
+            continue
+        saved.extend(items)
+    actual = [yaml.safe_load(path.read_text()) for path in (session / "crs").glob("*.yaml")]
+    assert sorted(actual, key=str) == sorted(saved, key=str)
+    commands = [line for line in (root / "oc.log").read_text().splitlines()
+                if "--all-namespaces" in line]
+    assert len(commands) == len(expected)
+    assert all(command.split()[1] in expected for command in commands)
+    log = (session / "capture-config-crs.log").read_text()
+    if olsconfig_error:
+        assert "OLSConfig read failed" in log
+        assert "configuration CR capture failed" in result.stderr
+    else:
+        assert "Saved OLSConfig" in log
 
 
 @pytest.mark.parametrize("mode", ["agentic", "classic"])
@@ -1023,7 +1113,7 @@ echo "cleanup:{name}"
         )
     result, session = run_live_report(live_report_workspace, mode)
     assert result.returncode == 0, result.stdout + result.stderr
-    tables = result.stdout.split("Correctness\n" if service == "agentic" else "| Scenario")
+    tables = result.stdout.split("| Scenario")
     if mode == "run":
         total_runs = 3 * len(agents) * 2
         assert len(tables) == total_runs + 2  # Each run, plus the final report.
@@ -1046,7 +1136,7 @@ echo "cleanup:{name}"
         assert (root / "snapshots/cleanup-first.md").read_text() == before_second
         cleanup_parts = result.stdout.split("cleanup:")
         for before_cleanup in cleanup_parts[:-1]:
-            assert before_cleanup.count("| Scenario") == (2 if service == "agentic" else 1)
+            assert before_cleanup.count("| Scenario") == 1
     report = (session / "report.md").read_text()
     assert "Partial results:" not in report
     assert "## Progress" not in report
@@ -1327,3 +1417,135 @@ if sys.argv[1] == "apply":
     resources = [json.loads(line) for line in (workspace / "cr.log").read_text().splitlines()]
     assert [r["metadata"]["name"] for r in resources if r["kind"] == "LLMProvider"] == expected_providers
     assert [r["metadata"]["name"] for r in resources if r["kind"] == "Agent"] == ["selected"]
+
+
+def install_classic_log_server(root):
+    """Give the Classic runner a small app-server log source."""
+    executable(root / "bin/oc", f"#!{sys.executable}\n" + r'''
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import sys
+
+root = Path(os.environ["SNAPSHOT_DIR"]).parent
+args = sys.argv[1:]
+if args[0] == "whoami":
+    print("test-token")
+elif args[:2] == ["get", "pods"]:
+    name = (root / "server-name").read_text().strip() if (root / "server-name").exists() else "server-old"
+    print(json.dumps({"items": [{"metadata": {"name": name, "uid": name + "-uid"},
+          "status": {"containerStatuses": [{"name": "lightspeed-service-api", "restartCount": 0}]}}]}))
+elif args[0] == "get":
+    print('{"items": []}')
+elif args[0] == "logs":
+    name = args[args.index("-n") + 2]
+    with (root / "events").open("a") as output:
+        output.write("capture:" + name + "\n")
+    if os.environ.get("LOG_CAPTURE_FAIL"):
+        print("app-server logs forbidden", file=sys.stderr)
+        sys.exit(13)
+    path = root / (name + ".log")
+    if path.exists():
+        print(path.read_text(), end="")
+''')
+    evaluator = root / "evaluator.py"
+    text = evaluator.read_text()
+    marker = 'index = args[args.index("--run-index") + 1] if "--run-index" in args else "1"'
+    text = text.replace(marker, marker + '''
+from datetime import datetime, timezone
+root = Path(os.environ["SNAPSHOT_DIR"]).parent
+name = (root / "server-name").read_text().strip() if (root / "server-name").exists() else "server-old"
+with (root / (name + ".log")).open("a") as output:
+    stamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    output.write(f"{stamp} eval:{scenario}:{agent}:run_{index}\\n")
+''')
+    evaluator.write_text(text)
+
+
+@pytest.mark.parametrize("live_report_workspace", ["classic"], indirect=True)
+@pytest.mark.parametrize("extra_env,exit_code", [
+    ({}, 0), ({"EVAL_STATUS": "42"}, 42),
+    ({"INTERRUPT": "2"}, 130), ({"INTERRUPT": "15"}, 143),
+])
+@pytest.mark.parametrize("capture_failure", [False, True])
+def test_classic_logs_saved_on_success_failure_and_interrupt(
+    live_report_workspace, extra_env, exit_code, capture_failure,
+):
+    root, _, _ = live_report_workspace
+    install_classic_log_server(root)
+    result, session = run_live_report(
+        live_report_workspace, **extra_env,
+        LOG_CAPTURE_FAIL="1" if capture_failure else "",
+    )
+    assert result.returncode == exit_code, result.stdout + result.stderr
+    assert (session / "capture-logs.log").exists()
+    assert (session / "report.md").exists()
+    for repeat in (1, 2):
+        first = (session / f"logs/first/test-agent-run_{repeat}.log").read_text()
+        second = (session / f"logs/second/test-agent-run_{repeat}.log").read_text()
+        assert "Shared scenario window" in first
+        if capture_failure:
+            assert "eval:" not in first
+            assert "app-server log capture failed" in result.stderr
+            assert "app-server logs forbidden" in (session / "capture-logs.log").read_text()
+        else:
+            assert first.count("] eval:first:test-agent:run_1\n") == 1
+            assert "] eval:second:" not in first
+            assert second.count("] eval:second:test-agent:run_1\n") == 1
+            assert "] eval:first:" not in second
+
+
+@pytest.mark.parametrize("live_report_workspace", ["classic"], indirect=True)
+def test_classic_run_mode_names_each_agent_repeat(live_report_workspace):
+    root, _, _ = live_report_workspace
+    install_classic_log_server(root)
+    config = root / "evals/system-ols-classic.yaml"
+    config.write_text(yaml.safe_dump({
+        "agents": {"default": {"agent": ["test-agent", "other-agent"], "repeat": 2}},
+    }))
+    result, session = run_live_report(live_report_workspace, mode="run")
+    assert result.returncode == 0, result.stdout + result.stderr
+    for scenario in ("first", "second", "third"):
+        for agent in ("test-agent", "other-agent"):
+            for repeat in (1, 2):
+                path = session / f"logs/{scenario}/{agent}-run_{repeat}.log"
+                text = path.read_text()
+                assert "Shared scenario window" not in text
+                assert text.count("] eval:") == 1
+                assert f"] eval:{scenario}:{agent}:run_{repeat}\n" in text
+
+
+@pytest.mark.parametrize("live_report_workspace", ["classic"], indirect=True)
+def test_classic_captures_before_group_rollouts(live_report_workspace):
+    root, _, env = live_report_workspace
+    install_classic_log_server(root)
+    group = root / "evals/scenarios/group"
+    group.mkdir()
+    for name in ("first", "second"):
+        shutil.move(root / "evals/scenarios" / name, group / name)
+    executable(group / "setup.sh", '''#!/bin/bash
+echo group-setup >> "$EVENT_LOG"
+echo server-new > "$TEST_ROOT/server-name"
+''')
+    executable(group / "cleanup.sh", '''#!/bin/bash
+echo group-cleanup >> "$EVENT_LOG"
+rm "$TEST_ROOT/server-new.log"
+echo server-after-cleanup > "$TEST_ROOT/server-name"
+''')
+    result = subprocess.run(
+        ["bash", str(root / "scripts/eval-ols-classic.sh"),
+         "--system-config", "system-ols-classic.yaml", "--setup-mode", "scenario",
+         "--scenarios", "scenarios/group/first", "scenarios/group/second"],
+        cwd=root / "evals", capture_output=True, text=True, timeout=30,
+        env={**env, "TEST_ROOT": str(root), "EVENT_LOG": str(root / "events")},
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    session = next((root / "evals/results").iterdir())
+    events = (root / "events").read_text().splitlines()
+    assert events.index("capture:server-old") < events.index("group-setup")
+    assert events[events.index("group-cleanup") - 1] == "capture:server-new"
+    assert events.index("capture:server-after-cleanup") > events.index("group-cleanup")
+    for scenario in ("first", "second"):
+        text = (session / f"logs/group/{scenario}/test-agent-run_1.log").read_text()
+        assert text.count(f"] eval:{scenario}:test-agent:run_1\n") == 1

@@ -78,6 +78,16 @@ and real runs show the selected mode.
 Classic group setup and cleanup run once per selected group in `scenario` and
 `run` modes. In `skip` mode, group setup and cleanup are skipped too.
 
+MCP setup applies the config and Deployment before waiting for the rollout.
+Set `MCP_IMAGE` to use a specific image. Otherwise, setup reads the image of
+container `openshift-mcp-server` from Deployment `openshift-mcp-server` in
+`openshift-lightspeed`. It prints the selected image and its source. If the
+image cannot be read, setup stops before changing cluster resources and asks
+for `MCP_IMAGE`. The image must support the selected toolsets. Config changes
+trigger a rollout through a config hash in the pod template. `MCP_ROLLOUT_TIMEOUT`
+sets the rollout timeout (default: `120s`), including standalone runs of
+`scripts/mcp-config.sh`. A failed rollout prints pod status and recent logs.
+
 ### Failures and cleanup
 
 In `scenario` and `run` modes, cleanup runs after each setup attempt, even if
@@ -88,6 +98,39 @@ status if setup or evaluation failed.
 
 If Classic group setup fails, the runner skips that group's scenarios and
 continues with other groups. Group cleanup runs after the full scenario loop.
+
+## Classic app-server logs
+
+`make eval-ols-classic` downloads logs from the `lightspeed-service-api`
+container after each evaluation, before scenario cleanup. It also downloads
+logs before group setup and group cleanup can replace the app pod, and at
+session start and exit, including failure, Ctrl+C, or termination. It uses
+snapshots, without a background watcher, and keeps the current logging level.
+
+Files include the scenario path, agent name, and repeat number:
+
+```text
+evals/results/<session>/logs/netobserv/dns_latency/openai-gpt-6-luna-run_1.log
+```
+
+Each file covers scenario setup and the whole evaluation call. When a call
+contains several agents or repeats, each named file contains the same shared
+log window. Its header states this limit. The collector does not separate
+requests by model, including when agents run in parallel. `SETUP_MODE=run`
+uses a separate evaluation call for each agent and repeat.
+
+Other session, group setup, and cleanup logs go to
+`logs/lightspeed-app-server-setup.log`. Each line
+has a timestamp, pod name, and container restart number. The collector reads
+all matching app-server pods and requests both current and previous container
+logs after a restart. A cursor per pod UID and container instance avoids
+duplicate lines across downloads. Cursor data is saved in
+`.classic-log-state.json`; capture status and errors go to `capture-logs.log`.
+Capture errors produce warnings and do not change the evaluation exit status.
+
+Snapshots cannot recover logs lost through rotation, deleted pods, or several
+container restarts between downloads. These gaps can still occur during long
+DEBUG runs or unexpected pod replacement. Preview runs do not capture logs.
 
 ## Sandbox logs
 
@@ -128,14 +171,23 @@ Both the standalone command and the Agentic runner use the shared
 
 ## Reports
 
+Both Classic and Agentic runners save full `OLSConfig` CRs at session start
+under `<session>/crs/`. Agentic also saves full `LLMProvider` and `Agent` CRs.
+These configuration snapshots are read across namespaces, once per session,
+before scenario setup. Cluster-scoped CRs use `KIND-NAME.yaml`; namespaced
+configuration CRs use `KIND-NAMESPACE__NAME.yaml`, with the kind in lowercase.
+The `__` separator keeps namespace and resource names distinct.
+Secret resources are not collected. Capture status and errors are saved in
+`capture-config-crs.log`. A failed read does not block other resource types
+or stop the evaluation.
+
 Agentic sessions save full `AgenticRun`, `AnalysisResult`, `ExecutionResult`,
 `VerificationResult`, and `EscalationResult` CRs under `<session>/crs/`, one YAML file per CR (`KIND-NAME.yaml`).
 Capture starts before evaluation and keeps updates and deletion events. At the
 end of each eval, the runner collects a final snapshot before cleanup and
 freezes that run's CR files. `crs/eval-stops.json` records the stop time and
 eval outcome. Later CR updates cannot replace that snapshot. Existing runs
-are skipped. Agent and LLMProvider CRs are
-not saved. Watch errors appear in `capture-logs.log`; final snapshot errors
+are skipped. Watch errors appear in `capture-logs.log`; final snapshot errors
 appear in the evaluator output. Capture errors do not replace the eval outcome.
 
 The phase breakdown reads these saved result CRs first. It checks the
@@ -237,8 +289,13 @@ Both report types use the same scoring rules:
   sessions without a saved plan, reports use the saved repeat setting and
   available results. Percentages are rounded and may not sum to exactly 100%.
 - In the CLI summary, nonzero FAIL rates are red and ERROR rates are yellow.
+  Numeric Avg score values are bright white; N/A keeps the default color.
+  The CLI includes Avg score when a correctness metric is recorded, even if
+  all scores are N/A. Status-only Agentic results do not add this row.
   The Markdown overview and Correctness tables show the same counts. Token
-  usage appears under Tokens.
+  usage appears under Tokens. Above the CLI table, a metadata line shows the
+  same date, system, scenario and agent counts, repeats, parallel mode, and
+  judge as the Markdown report.
 - ⚠️ marks a technical error in at least one run. Otherwise, 🟢 means all runs
   passed and 🔴 means none passed. Mixed results have no icon.
 - Score medals compare values rounded to two decimal places.
@@ -250,14 +307,18 @@ is available, including a score of zero. The table and its totals include only
 scenarios with scores. A partial report adds this table when the first score
 arrives. Status scores are never shown or used as correctness scores.
 
-**Phase completion** appears in both Markdown and CLI reports. Investigation
+The CLI summary shows one table with no title and one row per scenario. It uses
+correctness results when available, with completion status as a fallback.
+The footer shows PASS, FAIL, ERROR, average duration, and average tokens.
+Avg score appears only when at least one correctness score is available.
+
+**Phase completion** appears in Markdown reports. Investigation
 scenarios show Analysis; remediation scenarios also show Execution and
 Verification. Saved scenario definitions select the phases, with recorded tags
 as a fallback for older sessions. Each phase has its own completion count and
 rate. Execution and Verification totals exclude investigation scenarios.
 Completion means a phase succeeded; it does not measure answer correctness.
-Missing, unknown, running, and timed out states stay distinct. CLI summaries
-also keep average duration, tokens, and evaluation error counts when present.
+Missing, unknown, running, and timed out states stay distinct.
 
 ## Conventions
 
