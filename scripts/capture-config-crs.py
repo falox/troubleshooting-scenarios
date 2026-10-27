@@ -33,8 +33,10 @@ def capture(directory, agentic=False):
             )
             for resource in json.loads(result.stdout).get("items", []):
                 metadata = resource["metadata"]
-                parts = [kind.lower(), metadata.get("namespace"), metadata["name"]]
-                path = directory / ("-".join(part for part in parts if part) + ".yaml")
+                name = metadata["name"]
+                if metadata.get("namespace"):
+                    name = f"{metadata['namespace']}__{name}"
+                path = directory / f"{kind.lower()}-{name}.yaml"
                 write_atomic(path, yaml.safe_dump(resource, sort_keys=False, allow_unicode=True))
                 print(f"Saved {kind}: {path}", file=sys.stderr)
         except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:

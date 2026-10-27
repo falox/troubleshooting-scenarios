@@ -175,7 +175,8 @@ Both Classic and Agentic runners save full `OLSConfig` CRs at session start
 under `<session>/crs/`. Agentic also saves full `LLMProvider` and `Agent` CRs.
 These configuration snapshots are read across namespaces, once per session,
 before scenario setup. Cluster-scoped CRs use `KIND-NAME.yaml`; namespaced
-configuration CRs use `KIND-NAMESPACE-NAME.yaml`, with the kind in lowercase.
+configuration CRs use `KIND-NAMESPACE__NAME.yaml`, with the kind in lowercase.
+The `__` separator keeps namespace and resource names distinct.
 Secret resources are not collected. Capture status and errors are saved in
 `capture-config-crs.log`. A failed read does not block other resource types
 or stop the evaluation.

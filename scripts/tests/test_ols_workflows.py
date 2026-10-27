@@ -528,9 +528,12 @@ def test_eval_saves_config_crs(request, mode, olsconfig_error):
         }],
         "agents.agentic.openshift.io": [{
             "apiVersion": "agentic.openshift.io/v1alpha1", "kind": "Agent",
-            "metadata": {"name": "model", "namespace": namespace},
+            "metadata": {"name": name, "namespace": namespace},
             "spec": {"model": "model", "llmProvider": {"name": "provider"}},
-        } for namespace in ("openshift-lightspeed", "other")],
+        } for namespace, name in (
+            ("openshift-lightspeed", "model"), ("other", "model"),
+            ("a-b", "c"), ("a", "b-c"),
+        )],
     }
     (root / "resources.json").write_text(json.dumps(resources))
     executable(root / "bin/oc", f"#!{sys.executable}\n" + '''

@@ -96,9 +96,8 @@ def extract_report_timestamp(eval_dir: Path, agent_names: list[str]) -> str:
     """Read the report timestamp from the first available run summary."""
     for agent in agent_names:
         for run_dir in find_run_dirs(eval_dir, agent):
-            files = sorted(run_dir.glob("*_summary.json"))
-            if files:
-                timestamp = json.loads(files[0].read_text()).get("timestamp", "")
+            for path in sorted(run_dir.glob("*_summary.json")):
+                timestamp = json.loads(path.read_text()).get("timestamp", "")
                 if timestamp:
                     return format_timestamp(timestamp)
     return ""

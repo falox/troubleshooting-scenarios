@@ -81,6 +81,16 @@ def test_model_order_without_config_is_alphabetical(report_module, tmp_path):
     ]
 
 
+@pytest.mark.parametrize("timestamp", ["2026-10-27T10:00:00", ""])
+def test_timestamp_lookup_checks_later_summaries(report_module, tmp_path, timestamp):
+    run = tmp_path / "agent" / "run_1"
+    run.mkdir(parents=True)
+    (run / "a_summary.json").write_text("{}")
+    (run / "b_summary.json").write_text(json.dumps({"timestamp": timestamp}))
+    expected = "2026-10-27 10:00:00 UTC" if timestamp else ""
+    assert report_module.extract_report_timestamp(tmp_path, ["agent"]) == expected
+
+
 def test_score_medals_use_displayed_precision(report_module):
     mod = report_module
     runs = {
