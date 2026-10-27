@@ -44,7 +44,9 @@ if oc get deployment lightspeed-app-server -n openshift-lightspeed -o name >/dev
   fi
 fi
 
-if ! $ols_installed; then
+if [ "${SKIP_OPERATOR_INSTALL:-0}" = "1" ]; then
+  echo "==> Skipping OLS operator installation (SKIP_OPERATOR_INSTALL=1)."
+elif ! $ols_installed; then
 echo "==> Installing OLS operator in openshift-lightspeed..."
 
 # 1. Namespace

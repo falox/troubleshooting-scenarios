@@ -113,12 +113,20 @@ entries for an OpenAI-only run.
 
 ```bash
 make setup-ols-classic
+make setup-ols-classic SKIP_OPERATOR_INSTALL=1 # use an existing operator
 make eval-ols-classic TAG=investigation                       # run investigation cases
 make eval-ols-classic SCENARIO=crashlooping_pod_alert         # one scenario
 make eval-ols-classic TAG=alert                               # filter by tag
 make eval-ols-classic TAG=alert PREVIEW=1                     # preview matched scenarios
 make eval-ols-classic TAG=difficulty_medium PREVIEW=1         # preview medium cases
 ```
+
+`SKIP_OPERATOR_INSTALL=1` skips operator installation, including Namespace,
+OperatorGroup, and Subscription creation. The operator and the
+`openshift-lightspeed` namespace must already exist. Setup still creates
+credential Secrets, applies `OLSConfig`, and waits for the app-server to be
+ready. Without this flag, setup skips installation only when the existing
+app-server rollout is complete.
 
 Setup uses the `openshift-lightspeed` namespace. Both evaluation targets require
 `SCENARIO`, `TAG`, or both, including with `PREVIEW=1`. Without a filter, Make

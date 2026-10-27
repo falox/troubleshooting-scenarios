@@ -310,6 +310,7 @@ help: ## Show available targets
 	@echo "  SCENARIO=...              Comma-separated scenarios (required unless TAG is set)"
 	@echo "  TAG=...                   Filter by tag (required unless SCENARIO is set)"
 	@echo "  PREVIEW=1                 List matched scenarios without running them"
+	@echo "  SKIP_OPERATOR_INSTALL=1   Skip operator installation in setup-ols-classic"
 	@echo "  NOTE=...                  Optional memo before the first report table"
 	@echo "  SETUP_MODE=auto|run|scenario|skip Setup/cleanup lifecycle (default: auto)"
 	@echo "    auto: run if any selected scenario has remediation; otherwise scenario"
