@@ -12,7 +12,7 @@ ISTIO_CR_NAME="${BOOKINFO_ISTIO_CR_NAME:-default}"
 ISTIO_REVISION="${BOOKINFO_ISTIO_REVISION:-$ISTIO_CR_NAME}"
 ISTIO_VERSION="${BOOKINFO_ISTIO_VERSION:-1.28.0}"
 OUTPUT_DIR="${BOOKINFO_OUTPUT_DIR:-$SCRIPT_DIR/../../_output}"
-KIALI_BOOKINFO_REF="${KIALI_BOOKINFO_REF:-master}"
+KIALI_BOOKINFO_REF="${KIALI_BOOKINFO_REF:-v2.27}"
 MESH_LABELS="${BOOKINFO_MESH_LABELS:-istio-discovery=enabled}"
 SCRIPT_EXTRA="${BOOKINFO_SCRIPT_EXTRA:--tg}"
 TRAFFIC_ROUTE="${BOOKINFO_TRAFFIC_ROUTE:-http://productpage.$NAMESPACE.svc.cluster.local:9080/productpage}"
@@ -24,7 +24,9 @@ BOOKINFO_RAW_BASE="https://raw.githubusercontent.com/kiali/kiali/${KIALI_BOOKINF
 if [ -f "$BOOKINFO_HACK_DIR/.fetched-ref" ] && \
    [ "$(cat "$BOOKINFO_HACK_DIR/.fetched-ref")" = "$KIALI_BOOKINFO_REF" ] && \
    [ -f "$BOOKINFO_HACK_DIR/install-bookinfo-demo.sh" ] && \
-   [ -f "$BOOKINFO_HACK_DIR/functions.sh" ]; then
+   [ -f "$BOOKINFO_HACK_DIR/functions.sh" ] && \
+   { ! grep -q "ensure-openshift-istio-proxies-podmonitor.sh" "$BOOKINFO_HACK_DIR/install-bookinfo-demo.sh" || \
+     [ -f "$BOOKINFO_HACK_DIR/ensure-openshift-istio-proxies-podmonitor.sh" ]; }; then
   echo "Bookinfo hack already present ($KIALI_BOOKINFO_REF)"
 else
   echo "Fetching Kiali bookinfo hack ($KIALI_BOOKINFO_REF)..."
@@ -33,6 +35,11 @@ else
     curl -fsSL --connect-timeout 10 --max-time 120 "$BOOKINFO_RAW_BASE/$f" -o "$BOOKINFO_HACK_DIR/$f"
   done
   chmod a+x "$BOOKINFO_HACK_DIR/install-bookinfo-demo.sh" "$BOOKINFO_HACK_DIR/download-istio.sh"
+  if grep -q "ensure-openshift-istio-proxies-podmonitor.sh" "$BOOKINFO_HACK_DIR/install-bookinfo-demo.sh"; then
+    curl -fsSL --connect-timeout 10 --max-time 120 "$BOOKINFO_RAW_BASE/ensure-openshift-istio-proxies-podmonitor.sh" \
+      -o "$BOOKINFO_HACK_DIR/ensure-openshift-istio-proxies-podmonitor.sh"
+    chmod a+x "$BOOKINFO_HACK_DIR/ensure-openshift-istio-proxies-podmonitor.sh"
+  fi
   curl -fsSL --max-time 120 "$BOOKINFO_RAW_BASE/kustomization/bookinfo-ppc64le.yaml" -o "$BOOKINFO_HACK_DIR/kustomization/bookinfo-ppc64le.yaml"
   curl -fsSL --max-time 120 "$BOOKINFO_RAW_BASE/kustomization/bookinfo-s390x.yaml" -o "$BOOKINFO_HACK_DIR/kustomization/bookinfo-s390x.yaml"
   curl -fsSL --max-time 120 "$BOOKINFO_RAW_BASE/bookinfo-traffic/http-route-productpage-v1.yaml" -o "$BOOKINFO_HACK_DIR/bookinfo-traffic/http-route-productpage-v1.yaml"
