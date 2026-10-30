@@ -46,11 +46,6 @@ NAMESPACE="openshift-lightspeed"
 # shellcheck source=scripts/install-ols-operator.sh
 source "$SCRIPT_DIR/install-ols-operator.sh"
 
-if ! oc get crd agents.agentic.openshift.io llmproviders.agentic.openshift.io >/dev/null; then
-    echo "ERROR: An operator with Agentic support is required." >&2
-    exit 1
-fi
-
 agentic_deployment="lightspeed-agentic-operator-controller-manager"
 full_operator="installed"
 if [ "${SKIP_OLS_INSTALL:-0}" = "1" ]; then
@@ -89,6 +84,15 @@ spec:
 EOF
     fi
 fi
+
+# Wait for each CRD separately: oc can fail early when several are missing.
+for crd in agents.agentic.openshift.io llmproviders.agentic.openshift.io; do
+    if ! oc wait --for=create "crd/$crd" --timeout=480s || \
+        ! oc wait --for=condition=Established "crd/$crd" --timeout=480s; then
+        echo "ERROR: Agentic CRD $crd is not ready. Check OLS operator logs and cluster support." >&2
+        exit 1
+    fi
+done
 
 echo "==> Waiting for the Agentic operator and sandbox configuration..."
 oc rollout status "deployment/$agentic_deployment" -n "$NAMESPACE" --timeout=480s

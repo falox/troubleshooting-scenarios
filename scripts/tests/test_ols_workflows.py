@@ -1307,7 +1307,12 @@ elif args[:2] == ["rollout", "status"]:
         sys.exit(int(os.environ["ROLLOUT_STATUS"]))
 elif args[:2] == ["get", "subscription"]:
     print("test-csv")
-elif args[:2] == ["get", "crd"] or args[0] == "explain":
+elif args[:2] == ["get", "crd"]:
+    sys.exit(0 if (root / "configured").exists() or os.environ["EXISTING_CONFIG"] == "1" else 1)
+elif args[0] == "wait" and any(arg.startswith("crd/") for arg in args):
+    assert (root / "configured").exists() or os.environ["EXISTING_CONFIG"] == "1"
+    assert len([arg for arg in args if arg.startswith("crd/")]) == 1
+elif args[0] == "explain":
     pass
 elif args[0] != "wait":
     sys.exit(9)
@@ -1353,6 +1358,14 @@ elif args[0] != "wait":
             assert config["spec"]["agenticOLS"]["sandboxMode"] == "bare-pod"
         assert any(command[:3] == ["rollout", "status", "deployment/lightspeed-agentic-operator-controller-manager"]
                    for command in commands)
+        crd_waits = [command for command in commands
+                     if command[0] == "wait" and any(arg.startswith("crd/") for arg in command)]
+        assert len(crd_waits) == 4
+        for index, crd in enumerate(("agents", "llmproviders")):
+            assert "--for=create" in crd_waits[index * 2]
+            assert "--for=condition=Established" in crd_waits[index * 2 + 1]
+            assert f"crd/{crd}.agentic.openshift.io" in crd_waits[index * 2]
+            assert f"crd/{crd}.agentic.openshift.io" in crd_waits[index * 2 + 1]
     assert ("SKIP_OLS_INSTALL=1" in result.stdout) == (skip_install == "1")
     assert not any(command[0] == "delete" for command in commands)
 
@@ -1392,8 +1405,10 @@ elif args[:2] == ["rollout", "status"]:
     assert args[2] == "deployment/lightspeed-agentic-operator"
     sys.exit(1 if failure == "operator" else 0)
 elif args[0] == "wait":
-    assert "configmap/lightspeed-agentic-configuration" in args
-    sys.exit(1 if failure == "handoff" else 0)
+    if "configmap/lightspeed-agentic-configuration" in args:
+        sys.exit(1 if failure == "handoff" else 0)
+    else:
+        assert len([arg for arg in args if arg.startswith("crd/")]) == 1
 elif args[:2] == ["create", "secret"]:
     print(yaml.safe_dump({"kind": "Secret", "metadata": {"name": args[3]}}))
 elif args[0] == "apply":
@@ -1424,7 +1439,7 @@ else:
     assert not any(command[0] == "delete" or "olsconfig" in command for command in commands)
 
 
-@pytest.mark.parametrize("failure", ["crd", "schema", "operator", "config-read", "handoff"])
+@pytest.mark.parametrize("failure", ["crd-create", "crd-established", "schema", "operator", "config-read", "handoff"])
 def test_agentic_setup_stops_when_ols_is_not_ready(workspace, failure):
     config_path = workspace / "system.yaml"
     config_path.write_text(yaml.safe_dump({
@@ -1448,7 +1463,10 @@ args = sys.argv[1:]
 failure = os.environ["SETUP_FAILURE"]
 if args[:3] == ["get", "deployment", "lightspeed-operator-controller-manager"]:
     print("deployment.apps/lightspeed-operator-controller-manager")
-if args[:2] == ["get", "crd"] and failure == "crd":
+if args[0] == "wait" and "crd/agents.agentic.openshift.io" in args and (
+    (failure == "crd-create" and "--for=create" in args)
+    or (failure == "crd-established" and "--for=condition=Established" in args)
+):
     sys.exit(1)
 if args[0] == "explain" and failure == "schema":
     sys.exit(1)
@@ -1457,7 +1475,7 @@ if args[:3] == ["rollout", "status", "deployment/lightspeed-operator-controller-
 if args[:2] == ["get", "olsconfig"] and failure == "config-read":
     print("Error from server (Forbidden)", file=sys.stderr)
     sys.exit(1)
-if args[0] == "wait" and failure == "handoff":
+if args[0] == "wait" and "configmap/lightspeed-agentic-configuration" in args and failure == "handoff":
     sys.exit(1)
 if args[0] == "apply":
     resource = yaml.safe_load(sys.stdin)
@@ -1474,7 +1492,7 @@ if args[0] == "apply":
              "CR_LOG": str(resources_path)},
     )
     assert result.returncode != 0
-    if failure == "handoff":
+    if failure in ("crd-create", "crd-established", "handoff"):
         resources = [json.loads(line) for line in resources_path.read_text().splitlines()]
         assert [resource["kind"] for resource in resources] == ["OLSConfig"]
     else:
