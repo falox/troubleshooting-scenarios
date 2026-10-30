@@ -144,14 +144,50 @@ ossm_kiali_workload_container_images() {
 ossm_kiali_image_tag() {
   local image="${1}"
   local no_digest="${image%%@*}"
-  if [ "${no_digest}" = "${image}" ] && [ "${image#*:}" = "${image}" ]; then
+  local last_component="${no_digest##*/}"
+  if [ "${last_component#*:}" = "${last_component}" ]; then
     return 1
   fi
-  local tag="${no_digest##*:}"
+  local tag="${last_component##*:}"
   if [ -z "${tag}" ]; then
     return 1
   fi
   echo "${tag}"
+}
+
+ossm_kiali_detected_version() {
+  local cp_ns="${1}"
+  local kiali_name="${2}"
+  local image="${3}"
+  local op_ns="${4:-openshift-operators}"
+  local tag=""
+
+  if tag="$(ossm_kiali_image_tag "${image}")" && [ -n "${tag}" ]; then
+    echo "${tag}"
+    return 0
+  fi
+
+  local spec_ver
+  spec_ver="$(${OC} get "kiali/${kiali_name}" -n "${cp_ns}" -o jsonpath='{.spec.version}' 2>/dev/null || true)"
+  if [ -n "${spec_ver}" ] && [ "${spec_ver}" != "default" ]; then
+    echo "${spec_ver}"
+    return 0
+  fi
+
+  local op_ver
+  op_ver="$(${OC} get "kiali/${kiali_name}" -n "${cp_ns}" -o jsonpath='{.status.environment.operatorVersion}' 2>/dev/null || true)"
+  if [ -n "${op_ver}" ]; then
+    echo "${op_ver}"
+    return 0
+  fi
+
+  op_ver="$(${OC} get deploy/kiali-operator -n "${op_ns}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/version}' 2>/dev/null || true)"
+  if [ -n "${op_ver}" ]; then
+    echo "${op_ver}"
+    return 0
+  fi
+
+  return 1
 }
 
 ossm_kiali_clean_semver() {
@@ -175,6 +211,9 @@ ossm_kiali_semver_ge() {
   b1="${b1:-0}"
   b2="${b2:-0}"
   b3="${b3:-0}"
+  case "${a1}.${a2}.${a3}.${b1}.${b2}.${b3}" in
+    *[!0-9.]*) return 1 ;;
+  esac
   if [ "${a1}" -gt "${b1}" ]; then return 0; fi
   if [ "${a1}" -lt "${b1}" ]; then return 1; fi
   if [ "${a2}" -gt "${b2}" ]; then return 0; fi
@@ -194,6 +233,29 @@ ossm_kiali_pod_wait_label() {
     return 0
   fi
   return 1
+}
+
+ossm_enable_kiali_adhoc_image() {
+  local op_ns="${1}"
+  if ${OC} get subscription/my-kiali -n "${op_ns}" >/dev/null 2>&1; then
+    local sub_patch='{"spec":{"config":{"env":[{"name":"ALLOW_ALL_ACCESSIBLE_NAMESPACES","value":"true"},{"name":"ACCESSIBLE_NAMESPACES_LABEL","value":""},{"name":"ALLOW_AD_HOC_KIALI_IMAGE","value":"true"}]}}}'
+    if ! ${OC} patch subscription my-kiali -n "${op_ns}" --type merge -p "${sub_patch}"; then
+      return 1
+    fi
+    local waited=0
+    while [ "${waited}" -lt 120 ]; do
+      local val
+      val="$(${OC} get deploy/kiali-operator -n "${op_ns}" -o jsonpath='{.spec.template.spec.containers[0].env[?(@.name=="ALLOW_AD_HOC_KIALI_IMAGE")].value}' 2>/dev/null || true)"
+      if [ "${val}" = "true" ]; then
+        break
+      fi
+      sleep 3
+      waited=$((waited + 3))
+    done
+    ${OC} rollout status deploy/kiali-operator -n "${op_ns}" --timeout=300s
+    return 0
+  fi
+  ${OC} set env deploy/kiali-operator -n "${op_ns}" ALLOW_AD_HOC_KIALI_IMAGE=true
 }
 
 # Ensure Kiali server image is at least OSSM_KIALI_SUPPORT_MIN_VERSION (default v2.25).
@@ -226,16 +288,16 @@ ossm_install_kiali_support() {
 
   local first_img="${images%% *}"
   local current_tag
-  if ! current_tag="$(ossm_kiali_image_tag "${first_img}")"; then
-    errormsg "Could not parse a version tag from image [${first_img}] (digest-based image?)."
+  if ! current_tag="$(ossm_kiali_detected_version "${cp_ns}" "${kiali_name}" "${first_img}" "${op_ns}")"; then
+    errormsg "Could not determine Kiali version from image [${first_img}] or Kiali CR [${kiali_name}]."
     return 1
   fi
   if [ -z "${current_tag}" ]; then
-    errormsg "Empty image tag from [${first_img}]."
+    errormsg "Empty Kiali version from [${first_img}]."
     return 1
   fi
 
-  infomsg "Detected Kiali image [${first_img}] (tag: [${current_tag}]). Required minimum: [${min_ver}]."
+  infomsg "Detected Kiali image [${first_img}] (version: [${current_tag}]). Required minimum: [${min_ver}]."
 
   if ossm_kiali_semver_ge "${current_tag}" "${min_ver}"; then
     infomsg "Kiali server version is OK: [${current_tag}] is greater than or equal to [${min_ver}]. No upgrade needed."
@@ -244,19 +306,39 @@ ossm_install_kiali_support() {
 
   infomsg "Kiali tag [${current_tag}] is below [${min_ver}]. Enabling ad-hoc image and upgrading to [${target_ver}]..."
 
-  if ! ${OC} set env deploy/kiali-operator -n "${op_ns}" ALLOW_AD_HOC_KIALI_IMAGE=true; then
+  if ! ossm_enable_kiali_adhoc_image "${op_ns}"; then
     errormsg "Failed to set ALLOW_AD_HOC_KIALI_IMAGE on kiali-operator in [${op_ns}]."
     return 1
   fi
 
   local merge_patch
-  merge_patch="{\"spec\":{\"deployment\":{\"image_name\":\"${image_name}\",\"image_version\":\"${target_ver}\",\"override_install_check\":true}}}"
+  merge_patch="{\"spec\":{\"deployment\":{\"image_name\":\"${image_name}\",\"image_version\":\"${target_ver}\"}}}"
   if ! ${OC} patch "kiali" "${kiali_name}" -n "${cp_ns}" --type merge -p "${merge_patch}"; then
     errormsg "Failed to patch Kiali [${kiali_name}] in [${cp_ns}]."
     return 1
   fi
 
   infomsg "Waiting for Kiali deployment and pods to become ready..."
+  local expected_img="${image_name}:${target_ver}"
+  local img_waited=0
+  while [ "${img_waited}" -lt 300 ]; do
+    local dep_img
+    dep_img="$(${OC} get "deployment/${deploy_name}" -n "${cp_ns}" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null || true)"
+    if [ "${dep_img}" = "${expected_img}" ]; then
+      break
+    fi
+    local fail_status
+    fail_status="$(${OC} get "kiali/${kiali_name}" -n "${cp_ns}" -o jsonpath='{.status.conditions[?(@.type=="Failure")].status}' 2>/dev/null || true)"
+    if [ "${fail_status}" = "True" ]; then
+      local fail_msg
+      fail_msg="$(${OC} get "kiali/${kiali_name}" -n "${cp_ns}" -o jsonpath='{.status.conditions[?(@.type=="Failure")].message}' 2>/dev/null || true)"
+      errormsg "Kiali CR reconciliation failed: ${fail_msg}"
+      return 1
+    fi
+    sleep 5
+    img_waited=$((img_waited + 5))
+  done
+
   if ${OC} get "deployment/${deploy_name}" -n "${cp_ns}" >/dev/null 2>&1; then
     ${OC} rollout status "deployment/${deploy_name}" -n "${cp_ns}" --timeout=600s
   else
